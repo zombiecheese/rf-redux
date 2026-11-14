@@ -118,6 +118,8 @@ Releases are cut from `main` by pushing a version tag. `.github/workflows/releas
    git tag v0.2.0 && git push origin v0.2.0
    ```
 
+   Publishing a release for a new tag on the repository's Releases page does the same: the workflow fills in its title, notes and files.
+
 The image is built from the same `.dockerignore`d context as CI, and the release attaches only the compose file, `env.example` and `Caddyfile`. The image holds the art pack, with the original's measurements and map layouts. It is built for `linux/amd64`.
 
 ## Building behind a TLS-intercepting proxy
