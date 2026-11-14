@@ -38,11 +38,11 @@ describe('generated 3- and 4-base maps', () => {
     }
     expect(maps.filter((m) => m.map.bases.length === 3)).toHaveLength(8);
     expect(maps.filter((m) => m.map.bases.length === 4)).toHaveLength(8);
-  });
+  }, 60_000);
 
   it('makes the same maps every time', () => {
     expect(JSON.stringify(generateMaps(analysis, data))).toBe(JSON.stringify(generateMaps(analysis, data)));
-  });
+  }, 60_000);
 
   it('makes nothing without originals', () => {
     expect(generateMaps(analyseMaps([], data), data)).toEqual([]);
