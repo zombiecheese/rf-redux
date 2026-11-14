@@ -131,6 +131,7 @@ export function drawModernHud(g: CanvasRenderingContext2D, m: Match, rect: Moder
   g.shadowBlur = 2;
   for (const t of lagged(player, tracks)) box(g, rect, t, project, m.tick);
   g.restore();
+  if (v) guides(g, m, rect, v, team, teamOf, project);
 
   const scale = Math.min(1, rect.w / 900);
   g.save();
@@ -138,6 +139,87 @@ export function drawModernHud(g: CanvasRenderingContext2D, m: Match, rect: Moder
   g.scale(scale, scale);
   const r = v && RADAR[v.kind];
   if (v && r) radar(g, m, v, r, rect.w / scale - 26, rect.h / scale - 26, team, teamOf);
+  g.restore();
+}
+
+/**
+ * Arrows at the edge of the view towards where the flags may be, in each rival base's colour: every standing flag
+ * building of a rival (which one hides the flag is not given away), a rival flag once it lies in the open, and the
+ * way home while the player's jeep carries one. What is already in view has its tracking box instead.
+ */
+function guides(
+  g: CanvasRenderingContext2D, m: Match, rect: ModernRect, v: Vehicle, team: number, teamOf: (base: number) => number, project: Projector,
+): void {
+  const w = m.world;
+  const goals: { x: number; y: number; css: string; label: string; strong: boolean }[] = [];
+  const carrying = m.flags.find((f) => f.carrier === v.player);
+  if (carrying) {
+    const home = w.bases[v.base]?.start;
+    if (home) goals.push({ x: home.tx * 32 + 16, y: home.ty * 32 + 16, css: TEAMS[v.base]?.css ?? OWN, label: 'HOME', strong: true });
+  } else {
+    for (const f of m.flags) {
+      if (teamOf(f.base) === team || f.carrier >= 0) continue;
+      const css = TEAMS[f.base]?.css ?? HOSTILE;
+      if (f.revealed) {
+        goals.push({ x: f.x / ONE, y: f.y / ONE, css, label: 'ENEMY FLAG', strong: true });
+        continue;
+      }
+      for (const s of w.bases[f.base]?.flagSites ?? []) {
+        const i = s.ty * GRID + s.tx;
+        const bid = w.building[i];
+        if (bid !== BUILDING.FLAG && bid !== BUILDING.DMG_FLAG) continue;
+        goals.push({ x: s.tx * 32 + 16, y: s.ty * 32 + 16, css, label: 'POSSIBLE FLAG', strong: false });
+      }
+    }
+  }
+  const vx = v.x / ONE;
+  const vy = v.y / ONE;
+  const pad = 46;
+  const cx = rect.x + rect.w / 2;
+  const cy = rect.y + rect.h / 2;
+  const near = goals.map((t) => ({ ...t, d: Math.hypot(t.x - vx, t.y - vy) })).sort((a, b) => a.d - b.d).slice(0, 6);
+  g.save();
+  g.font = CV_FONT;
+  g.textBaseline = 'middle';
+  g.shadowColor = 'rgba(0, 0, 0, 0.7)';
+  g.shadowBlur = 2;
+  for (const t of near) {
+    const p = project(t.x, t.y, 0);
+    if (p && p.x > rect.x + pad && p.x < rect.x + rect.w - pad && p.y > rect.y + pad && p.y < rect.y + rect.h - pad) continue;
+    // Point the way it lies on the map (north up), from the middle of the view to its edge.
+    const a = Math.atan2(t.y - vy, t.x - vx);
+    const dx = Math.cos(a);
+    const dy = Math.sin(a);
+    const k = Math.min((rect.w / 2 - pad) / Math.max(1e-6, Math.abs(dx)), (rect.h / 2 - pad) / Math.max(1e-6, Math.abs(dy)));
+    const ax = cx + dx * k;
+    const ay = cy + dy * k;
+    g.save();
+    g.translate(ax, ay);
+    g.rotate(a);
+    g.fillStyle = t.css;
+    g.strokeStyle = 'rgba(0, 0, 0, 0.6)';
+    g.lineWidth = 1;
+    g.beginPath();
+    g.moveTo(14, 0);
+    g.lineTo(-6, -9);
+    g.lineTo(-2, 0);
+    g.lineTo(-6, 9);
+    g.closePath();
+    g.globalAlpha = t.strong ? 1 : 0.8 + 0.2 * Math.sin(m.tick * 0.2);
+    g.fill();
+    g.stroke();
+    g.restore();
+    // Its label beside the arrow, on the side towards the middle.
+    const text = `${t.label} ${Math.round(t.d / 3.2)}M`;
+    const tw = g.measureText(text).width;
+    const lx = Math.max(rect.x + 6, Math.min(rect.x + rect.w - tw - 14, ax - dx * 26 - tw / 2 - 4));
+    const ly = Math.max(rect.y + 10, Math.min(rect.y + rect.h - 10, ay - dy * 22));
+    g.fillStyle = 'rgba(6, 10, 12, 0.6)';
+    g.fillRect(lx, ly - 7, tw + 8, 14);
+    g.fillStyle = t.css;
+    g.textAlign = 'left';
+    g.fillText(text, lx + 4, ly);
+  }
   g.restore();
 }
 
@@ -474,7 +556,7 @@ export function dimView(g: CanvasRenderingContext2D, rect: ModernRect, level: nu
   g.fillRect(rect.x, rect.y, rect.w, rect.h);
 }
 
-/** A short note in a chip at the top left of a view ("Get the flag home!", "Watching ..."). */
+/** A short note in a chip at the top left of a view ("Get the flag home!", "Watching ..."), below the page's buttons. */
 export function drawNote(g: CanvasRenderingContext2D, rect: ModernRect, text: string): void {
   const scale = Math.min(1, rect.w / 900);
   g.save();
@@ -482,7 +564,7 @@ export function drawNote(g: CanvasRenderingContext2D, rect: ModernRect, text: st
   const w = g.measureText(text).width + 28 * scale;
   const h = 30 * scale;
   const x = rect.x + 20 * scale;
-  const y = rect.y + 18 * scale;
+  const y = rect.y + 64 * scale;
   rounded(g, x, y, w, h, h / 2);
   g.fillStyle = PANEL;
   g.fill();
@@ -636,6 +718,8 @@ export function drawFeed(g: CanvasRenderingContext2D, rect: ModernRect, f: Feed)
   const l = 30;
   g.beginPath();
   for (const [x, y, dx, dy] of [[m, m, 1, 1], [w - m, m, -1, 1], [m, h - m, 1, -1], [w - m, h - m, -1, -1]] as const) {
+    // The page's menu and thermal buttons sit in the picture's top left corner, in place of its bracket.
+    if (rect.x === 0 && rect.y === 0 && dx > 0 && dy > 0) continue;
     g.moveTo(x, y + dy * l);
     g.lineTo(x, y);
     g.lineTo(x + dx * l, y);

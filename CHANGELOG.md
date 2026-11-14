@@ -4,6 +4,19 @@ Each release's section below becomes its GitHub release notes (`.github/workflow
 
 ## [Unreleased]
 
+### Added
+
+- Guide arrows at the edges of the modern view, in each rival base's colour, point to where its flag may be: every standing flag building of a rival (without giving away which one hides it), a flag lying in the open, and the way home while your jeep carries one, each with its distance.
+
+### Changed
+
+- The thermal camera is a control: G (left hand) or I (right hand), listed and rebindable in Options > Controls and in Help. An always-visible THERMAL toggle beside the menu button shows whether it is on and its key.
+- Over a modern match the menu and thermal buttons take the computer vision's look, and the drone overlay's corner bracket and the note chip move out of their way.
+
+### Fixed
+
+- Turning the thermal camera on or off (or changing any other option) during an online match whose host set the visuals no longer swaps the soundtrack to the player's own.
+
 ## [0.4.0] - 2026-11-14
 
 The modern view as a drone feed, with a thermal camera and vehicle lights.

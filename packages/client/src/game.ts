@@ -157,6 +157,12 @@ export class Game {
     return !!this.o.online;
   }
 
+  /** The host's pick of visuals for everyone in this online match, or null when each player sees it their own way. */
+  get hostVisuals(): 'retro' | 'modern' | null {
+    const v = this.o.online?.start.visuals;
+    return v === 'retro' || v === 'modern' ? v : null;
+  }
+
   /** Set while a replay plays: its position and speed, for the replay bar. */
   replayControl: ReplayControl | null = null;
 

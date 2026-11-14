@@ -48,6 +48,7 @@ Training and Two Players open the **Player Selector** (names, the computer's ski
 | Third button | F | / |
 | Tank turret (both together centre it) | Q / E | [ / ] |
 | Go back into the bunker (on your base) | R | Backspace |
+| Thermal camera on / off (modern view) | G | I |
 | Launch jeep, tank, ASV, helicopter | 1 2 3 4 | 7 8 9 0 |
 
 What the second and third buttons do depends on the vehicle:
@@ -74,7 +75,6 @@ With one player (Training, online and the editor's test play) either half of the
 | M | Open the menu |
 | L | Hall of Fame |
 | V | Sound off or on |
-| I | Thermal camera on or off (modern view) |
 | Alt+Enter | Full screen |
 | Alt+3 | Swap Sides (player 1 takes the right-hand keys) |
 | Esc | Leave the game |
@@ -144,7 +144,8 @@ Replays save as `.rfwreplay.json` files or, signed in, to your account.
 - **Visuals:** Retro (the original's 320 × 240 pixel picture, the default) or Modern (the same game in 3D at 1280 × 720, with lighting, shadows and effects, a 3D bunker and skull, and modern messages and scoreboard). You can switch during a match; the game plays the same either way.
 - **Lighting:** Day or Night for the modern view. Night is dark: the vehicles have headlights, explosions light up the ground, and street lamps, watchtowers and windows are lit.
 - **Camera:** Drone feed (the default) shows the modern view as a surveillance drone sees it, with grain, a lens, stream errors when something blows up nearby (worst when you are hit) and an overlay of the clock, altitude and grid; Clean drops all that.
-- **Thermal:** the modern view through a thermal camera, white-hot: vehicles, soldiers and drones glow, the ground and buildings are grey and the sea is black, so it sees in the dark. **I** or the **IR** button beside the menu button switches it too.
+- **Thermal:** the modern view through a thermal camera, white-hot: vehicles, soldiers and drones glow, the ground and buildings are grey and the sea is black, so it sees in the dark. The **THERMAL** toggle beside the menu button switches it too, and so does its key: **G** (left hand) or **I** (right hand), which you can change in Options > Controls.
+- **Flag arrows:** in the modern view, arrows at the edges in each rival's colour point to its flag buildings (any of them may hide the flag), to a flag lying in the open, and home while your jeep carries one.
 - **Picture:** a subtle CRT look (on by default, retro only) and how the picture is scaled.
 - **Swap Sides:** gives player 1 the right-hand keys.
 

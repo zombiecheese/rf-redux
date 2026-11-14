@@ -26,7 +26,7 @@ import { net } from './online/net.js';
 import {
   LobbyWindow, browse, createLobby, enterCode, errorText, leaderboards, lobbyMaps, profile, results, signIn, signOut, signUp, toast,
 } from './online/ui.js';
-import { setBindings, shortcutFor, shortcutName, typingIn, type ShortcutId } from './keys.js';
+import { bindings, keyName, setBindings, shortcutFor, shortcutName, typingIn, type ShortcutId } from './keys.js';
 import { Logo } from './logo.js';
 import { Menu, type MenuEntry } from './menu.js';
 import { formatTime, loadScores, recordGame, saveScores } from './scores.js';
@@ -63,8 +63,14 @@ const stage = new Stage(display);
 const sound = new Sound();
 const music = new Music(settings.music);
 /** The modern view has its own soundtrack; a browser that cannot show the modern view keeps the band. */
-const applyMusicStyle = () => music.setStyle(settings.visuals === 'modern' && modernAvailable() ? 'modern' : 'retro');
-applyMusicStyle();
+// The host's pick in an online match wins over the player's own Options > Visuals, so changing another setting
+// mid-match (the thermal camera, say) never swaps the soundtrack.
+const applyMusicStyle = () => music.setStyle(seenVisuals() === 'modern' && modernAvailable() ? 'modern' : 'retro');
+music.setStyle(settings.visuals === 'modern' && modernAvailable() ? 'modern' : 'retro');
+/** How the match on screen is drawn: the host's pick online, or the player's own Options > Visuals. */
+function seenVisuals(): Settings['visuals'] {
+  return game?.hostVisuals ?? settings.visuals;
+}
 /** Options > Instruments: whether this site has the SoundFont (it is fetched only when Sampled is picked). */
 let siteFont = false;
 void music.hasSiteSoundFont().then((has) => {
@@ -105,6 +111,8 @@ function setScreen(s: Screen): void {
   document.body.dataset.screen = s;
   if (s !== 'title' && s !== 'game') closeMenu();
   syncPlaying();
+  syncLook();
+  applyMusicStyle();
 }
 
 /** body.playing: a match is running and not paused, which shows the touch controls. */
@@ -128,10 +136,13 @@ function save(next: Settings): void {
 
 /** Lets the page's buttons follow the picture: the IR button shows over a modern match, lit while thermal is on. */
 function syncLook(): void {
-  document.body.dataset.visuals = settings.visuals;
+  document.body.dataset.visuals = seenVisuals();
   document.body.classList.toggle('thermal', settings.thermal);
+  thermalState.textContent = settings.thermal ? 'ON' : 'OFF';
+  thermalKey.textContent = thermalKeys();
+  thermalButton.setAttribute('aria-pressed', String(settings.thermal));
+  thermalButton.title = `Thermal camera ${settings.thermal ? 'on' : 'off'} (${thermalKeys()}; change it in Options > Controls)`;
 }
-syncLook();
 
 // ---- Profile (profiles card) ---------------------------------------------------------------------------------
 
@@ -782,7 +793,7 @@ function optionItems(): MenuEntry[] {
       value: () => (settings.camera === 'clean' ? 'Clean' : 'Drone feed'),
       action: () => save({ ...settings, camera: settings.camera === 'clean' ? 'drone' : 'clean' }),
     },
-    { label: 'Thermal', key: shortcutName('thermal'), hint: 'See heat in the dark (modern)', value: () => onOff(settings.thermal), action: toggleThermal },
+    { label: 'Thermal', key: thermalKeys(), hint: 'See heat in the dark (modern)', value: () => onOff(settings.thermal), action: toggleThermal },
     { label: 'CRT Look', hint: 'Subtle scanlines and glow (retro)', value: () => onOff(settings.crt), action: () => save({ ...settings, crt: !settings.crt }) },
     {
       label: 'Sound', hint: 'Master, effects and music volume',
@@ -832,18 +843,28 @@ function helpItems(): MenuEntry[] {
   ];
 }
 
-/** The thermal camera on or off (Options > Thermal, I, the IR button). */
+/** The thermal camera on or off (Options > Thermal, its key in Options > Controls, the Thermal button). */
 function toggleThermal(): void {
   save({ ...settings, thermal: !settings.thermal });
   toast(settings.thermal ? 'Thermal camera on' : 'Thermal camera off');
 }
 
+/** The thermal camera's keys as the button and menus show them: each hand's, as either works for a solo player. */
+function thermalKeys(): string {
+  const b = bindings();
+  return [...new Set([b.left.thermal, b.right.thermal])].map(keyName).join(' / ');
+}
+
 /** The menu button over a match, for a mouse or a finger. */
 const menuButton = el('button', { type: 'button', class: 'menu-fab', ariaLabel: 'Menu', title: `Menu (${shortcutName('menus')})` }, '☰');
 menuButton.addEventListener('click', () => openMenu());
-/** The thermal camera's button over a modern match, beside the menu button. */
-const thermalButton = el('button', { type: 'button', class: 'menu-fab thermal-fab', ariaLabel: 'Thermal camera', title: `Thermal camera (${shortcutName('thermal')})` }, 'IR');
+/** The thermal camera's toggle over a modern match, beside the menu button: its state and its key, always in view. */
+const thermalState = el('span', { class: 'thermal-state' }, 'OFF');
+const thermalKey = el('kbd', {}, '');
+const thermalButton = el('button', { type: 'button', class: 'thermal-fab', ariaLabel: 'Thermal camera' },
+  el('span', { class: 'thermal-icon', ariaHidden: 'true' }, '◐'), el('span', {}, 'THERMAL'), thermalState, thermalKey);
 thermalButton.addEventListener('click', () => toggleThermal());
+syncLook();
 document.body.append(menuButton, thermalButton);
 addEventListener('fullscreenchange', () => menu.refresh());
 
@@ -865,7 +886,6 @@ addEventListener('keydown', (e) => {
     hallOfFame: showHallOfFame,
     menus: openMenu,
     swapSides: () => save({ ...settings, swapSides: !settings.swapSides }),
-    thermal: () => settings.visuals === 'modern' && toggleThermal(),
     mute: () => {
       save({ ...settings, volume: { ...settings.volume, muted: !settings.volume.muted } });
       toast(settings.volume.muted ? 'Sound off' : 'Sound on');
@@ -876,6 +896,11 @@ addEventListener('keydown', (e) => {
   // With the menu open only the shortcuts work; P would let the match run on under the menu.
   if (menu.isOpen) return void (shortcut && shortcut !== 'pause' && handle(actions[shortcut]));
   if (shortcut) return handle(actions[shortcut]);
+  // The thermal camera's key (Options > Controls), in a match drawn in the modern view.
+  if (screen === 'game' && game && seenVisuals() === 'modern') {
+    const b = bindings();
+    if (e.code === b.left.thermal || e.code === b.right.thermal) return handle(toggleThermal);
+  }
   switch (e.code) {
     case 'Escape':
       if (screen === 'gate') {
