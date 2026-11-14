@@ -402,7 +402,7 @@ export function lightOf(name: string, box: Box | null): { x: number; y: number; 
   switch (look) {
     case 'light': return { x: cx + 12, y: cy - 13.5, z: 12.5, power: 2600, colour: 0xffd890 };
     case 'watchtower': return { x: cx, y: cy + 7.2, z: b.h - 9, power: 1800, colour: 0xffc070 };
-    case 'house': case 'outpost': return { ...door(8), power: 900, colour: 0xffc070 };
+    case 'house': case 'outpost': return { ...door(8), power: 650, colour: 0xffc070 };
     case 'hq': case 'factory': case 'hospital': case 'fuel': return { ...door(10), power: 1400, colour: 0xffd090 };
     case 'prison': case 'gate': return { x: cx, y: cy, z: b.h + 6, power: 1400, colour: 0xffe0a8 };
     default: return null;

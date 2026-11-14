@@ -92,7 +92,8 @@ export class Ground {
   private readonly TEX: number;
   private readonly SIZE: number;
 
-  constructor(private readonly assets: GameAssets, world: World, sun: THREE.Vector3, fine: boolean) {
+  /** lit, when given, teaches the ground's material more lighting (the buildings' lamps at night). */
+  constructor(private readonly assets: GameAssets, world: World, sun: THREE.Vector3, fine: boolean, lit?: (shader: THREE.WebGLProgramParametersWithUniforms) => void) {
     this.TEX = fine ? 32 : 16;
     this.SIZE = GRID * this.TEX;
     const SIZE = this.SIZE;
@@ -128,6 +129,7 @@ export class Ground {
             if (texture2D(pits, (floor(t) + 0.5) / ${GRID}.0).r > 0.5 && f.x > 0.06 && f.x < 0.94 && f.y > 0.06 && f.y < 0.94) discard;
           }`);
       grainLights(shader);
+      lit?.(shader);
     };
     const plane = new THREE.Mesh(new THREE.PlaneGeometry(GRID * TILE, GRID * TILE), mat);
     plane.rotateX(-Math.PI / 2);
