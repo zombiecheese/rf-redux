@@ -4,6 +4,13 @@ Each release's section below becomes its GitHub release notes (`.github/workflow
 
 ## [Unreleased]
 
+### Changed
+
+- The modern view's sea shows its depth as the match plays it: the shallows are clear water over a sandy bottom with light playing on the sand, deep water is dark blue and darker further out, and a pale rim and a dark drop-off mark the edge of the shelf, so you can see where a tank would sink. On the thermal camera the shallows run a touch warmer than deep water.
+- Vehicles disturb the water in the modern view, each its own way: a jeep leaves two thin lines of foam and kicks up spray, a tank churns broad brown lanes of silt and pushes a heavy bow wave, an ASV throws white water and rooster tails off its wheels, a jeep floating on its tyres leaves a V of foam, and a vehicle going under boils the water with bubbles. Ripples spread from vehicles standing in the water, swimmers, splashes and shots that land in the sea, and the sub stirs the surface as it comes up.
+- A helicopter over water flattens and roughens the sea under its rotor and blows rings of chop and spray out across it, the more the lower it flies.
+- At night the modern sea reflects the lights: the moon's path glitters on it, building lamps light the water by the shore and shimmer on it, headlight beams light the water and glint off the waves, and blasts light the sea round them.
+
 ## [0.5.2] - 2026-11-15
 
 Nights in the modern view: every lamp lit, lamps and headlights casting shadows, and lights that stay put as you move. Modern matches also open in the modern view from the first frame, and the modern bunker's vehicle select is now a CCTV feed.

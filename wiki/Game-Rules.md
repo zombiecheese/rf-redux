@@ -57,7 +57,7 @@ You drive one vehicle at a time, launched from the lift in your bunker. Each map
 - **Soldiers** run from vehicles, swim and throw grenades. They can be run over or shot.
 - **Mines** lie at random on some maps, besides the ones ASVs lay.
 - **Attack drones** come for a vehicle that sits still for six seconds, from difficulty 4 up.
-- **Water:** vehicles wade through shallows and sink in deep water. The jeep can float across on its tyres: they take about two seconds to blow up, and until they are full it wades as fast as in the shallows.
+- **Water:** vehicles wade through shallows and sink in deep water. The jeep can float across on its tyres: they take about two seconds to blow up, and until they are full it wades as fast as in the shallows. In the modern view the shallows show a sandy bottom through clear water, and deep water is dark blue beyond a pale rim and a dark drop-off.
 - **Shots fly in 3D.** Tank shells pass over rocks and men, and ground fire only reaches a helicopter when it is raised at it.
 - **The edge of the map:** drive far outside it and you will not be left alone.
 
