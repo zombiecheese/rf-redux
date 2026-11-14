@@ -39,6 +39,7 @@ import { drawSkull } from './skull.js';
 import { drawView } from './view.js';
 import { MODERN_H, MODERN_W, modernAvailable, modernLayout, type ModernRect } from './modern/layout.js';
 import type { ModernRenderer, ModernScreen } from './modern/renderer.js';
+import type { ModernFinale } from './modern/finale.js';
 import { bunkerBayAt, dimView, drawBanner, drawBunkerPanel, drawChatLines, drawLog, drawFeed, drawModernHud, drawName, drawNote, drawScoreTable } from './modern/hud.js';
 import { TEAMS } from './paint.js';
 
@@ -136,7 +137,7 @@ export class Game {
   /** Settles with the outcome once the match is over and has been on screen a moment, or null when stopped. */
   readonly done: Promise<Outcome | null>;
   /** The match as it ended, for the win scene; null until then. */
-  finale: { match: Match; assets: GameAssets } | null = null;
+  finale: { match: Match; assets: GameAssets; modern: ModernFinale | null } | null = null;
   private finish!: (o: Outcome | null) => void;
   private readonly abort = new AbortController();
   private raf = 0;
@@ -329,7 +330,10 @@ export class Game {
     let modern: ModernRenderer | null = null;
     /** Modern: where each view went on the last picture, for taps on the bunker. */
     let modernRects: ModernRect[] | null = null;
-    signal.addEventListener('abort', () => modern?.dispose());
+    // The modern renderer outlives the match when it is handed to the win scene, which disposes of it.
+    signal.addEventListener('abort', () => {
+      if (!this.finale?.modern) modern?.dispose();
+    });
 
     const chat = online ? new ChatInput(net!, start!, signal) : null;
     let scoreboard = false;
@@ -910,11 +914,11 @@ export class Game {
         endedAt ??= now;
         // Online, wait a moment longer for the server's result if it has not come yet.
         if (now - endedAt >= END_HOLD_MS && (!online || outcome.result || now - endedAt >= END_HOLD_MS * 2)) {
+          this.finale = { match, assets, modern: useModern && modern ? { renderer: modern, extras } : null };
           this.abort.abort();
           sound.reset();
           music.endMatch();
           handOverReplay(outcome.team ?? outcome.winnerBase);
-          this.finale = { match, assets };
           this.finish(outcome);
           return;
         }

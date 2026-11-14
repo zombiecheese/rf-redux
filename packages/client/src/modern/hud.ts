@@ -717,6 +717,8 @@ export interface Feed {
   lines: readonly string[];
   /** For the clock and the blinking REC. */
   now: Date;
+  /** Nothing of the page's sits over the picture (the win scene): all four corner brackets. */
+  full?: boolean;
 }
 
 const FEED_FONT = '600 13px ui-monospace, "SFMono-Regular", Menlo, Consolas, "Liberation Mono", monospace';
@@ -741,7 +743,7 @@ export function drawFeed(g: CanvasRenderingContext2D, rect: ModernRect, f: Feed)
   g.beginPath();
   for (const [x, y, dx, dy] of [[m, m, 1, 1], [w - m, m, -1, 1], [m, h - m, 1, -1], [w - m, h - m, -1, -1]] as const) {
     // The page's menu and thermal buttons sit in the picture's top left corner, in place of its bracket.
-    if (rect.x === 0 && rect.y === 0 && dx > 0 && dy > 0) continue;
+    if (!f.full && rect.x === 0 && rect.y === 0 && dx > 0 && dy > 0) continue;
     g.moveTo(x, y + dy * l);
     g.lineTo(x, y);
     g.lineTo(x + dx * l, y);
@@ -770,5 +772,108 @@ export function drawFeed(g: CanvasRenderingContext2D, rect: ModernRect, f: Feed)
   // Read-outs down the left edge, clear of the note at the top and the gauges at the bottom.
   g.textAlign = 'left';
   f.lines.forEach((t, i) => g.fillText(t, m + 8, h / 2 - (f.lines.length * 18) / 2 + i * 18));
+  g.restore();
+}
+
+/** What the win scene's analysis says, and how far through it is. */
+export interface Verdict {
+  /** The winner's name, in its colour. */
+  name: string;
+  css: string;
+  /** ms since the scene began. */
+  t: number;
+  /** The read-out lines under the verdict (bases out, time, captures...). */
+  lines: readonly string[];
+  /** The winning base on screen, to box, or null. */
+  target: { x: number; y: number; w: number; h: number } | null;
+  /** 0-1: the feed cutting out at the end. */
+  lost: number;
+}
+
+/** Text typed out a character every few ms from `from`, with a block cursor while it types. */
+function typed(text: string, t: number, from: number, every = 38): string {
+  const n = Math.floor((t - from) / every);
+  if (n <= 0) return '';
+  return n >= text.length ? text : `${text.slice(0, n)}\u2588`;
+}
+
+/**
+ * The win scene's computer-vision analysis over the drone's last pass: a lock on the winning base, then the verdict
+ * typed out in a read-out, and SIGNAL LOST as the feed cuts.
+ */
+export function drawVerdict(g: CanvasRenderingContext2D, width: number, height: number, v: Verdict): void {
+  g.save();
+  g.textBaseline = 'middle';
+  // The lock: a box that closes in on the base, then holds with its tag.
+  if (v.target && v.lost < 0.6) {
+    const close = Math.min(1, Math.max(0, (v.t - 300) / 700));
+    const grow = 1 + (1 - close) * 1.6;
+    const w = v.target.w * grow;
+    const h = v.target.h * grow;
+    const x = v.target.x - w / 2;
+    const y = v.target.y - h / 2;
+    if (close > 0 || Math.floor(v.t / 120) % 2) {
+      g.strokeStyle = v.css;
+      g.lineWidth = 2;
+      const l = Math.min(18, w / 4);
+      g.beginPath();
+      for (const [cx, cy, dx, dy] of [[x, y, 1, 1], [x + w, y, -1, 1], [x, y + h, 1, -1], [x + w, y + h, -1, -1]] as const) {
+        g.moveTo(cx, cy + dy * l);
+        g.lineTo(cx, cy);
+        g.lineTo(cx + dx * l, cy);
+      }
+      g.stroke();
+      if (close >= 1) {
+        g.font = `700 12px ${MONO}`;
+        g.textAlign = 'left';
+        const tag = `VICTOR // ${v.name.toUpperCase()}  CONF ${(97 + ((v.t / 997) % 1) * 2.9).toFixed(1)}%`;
+        const tw = g.measureText(tag).width + 12;
+        g.fillStyle = v.css;
+        g.fillRect(x, y - 20, tw, 18);
+        g.fillStyle = '#0b0f10';
+        g.fillText(tag, x + 6, y - 10);
+      }
+    }
+  }
+  // The verdict, at the bottom middle.
+  if (v.t > 1200 && v.lost < 1) {
+    const head = 'MISSION ASSESSMENT';
+    const big = `${v.name} wins`.toUpperCase();
+    g.font = `800 40px ${MONO}`;
+    const bw = g.measureText(big).width;
+    g.font = `600 14px ${MONO}`;
+    const lw = Math.max(...v.lines.map((l) => g.measureText(l).width), g.measureText(head).width);
+    const w = Math.min(width - 60, Math.max(bw, lw) + 64);
+    const h = 86 + v.lines.length * 22;
+    const x = (width - w) / 2;
+    const y = height - h - 60;
+    g.globalAlpha = 1 - v.lost;
+    readout(g, x, y, w, h, 'ANALYSIS', v.css);
+    g.textAlign = 'left';
+    g.font = `600 13px ${MONO}`;
+    g.fillStyle = INK;
+    g.fillText(typed(head, v.t, 1400, 30), x + 24, y + 22);
+    g.font = `800 40px ${MONO}`;
+    g.fillStyle = v.css;
+    g.fillText(typed(big, v.t, 2000, 70), x + 24, y + 54, w - 48);
+    g.font = `600 14px ${MONO}`;
+    g.fillStyle = INK;
+    v.lines.forEach((l, i) => g.fillText(typed(l, v.t, 3000 + i * 700, 22), x + 24, y + 92 + i * 22, w - 48));
+    g.globalAlpha = 1;
+  }
+  // The feed cutting out.
+  if (v.lost > 0.5) {
+    g.fillStyle = `rgba(0, 0, 0, ${Math.min(0.85, (v.lost - 0.5) * 1.7)})`;
+    g.fillRect(0, 0, width, height);
+    if (Math.floor(v.t / 260) % 4 !== 3) {
+      g.font = `800 30px ${MONO}`;
+      g.textAlign = 'center';
+      const t = 'SIGNAL LOST';
+      const w = g.measureText(t).width + 60;
+      readout(g, (width - w) / 2, height / 2 - 34, w, 68, 'UAV-1', AMBER);
+      g.fillStyle = AMBER;
+      g.fillText(t, width / 2, height / 2 + 1);
+    }
+  }
   g.restore();
 }

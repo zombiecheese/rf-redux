@@ -34,12 +34,13 @@ import { controlsDialog, soundDialog } from './options.js';
 import { gainOf, loadSettings, saveSettings, type Settings, type Volume } from './settings.js';
 import { jukebox } from './music/jukebox.js';
 import { Music } from './music/music.js';
-import { modernAvailable } from './modern/layout.js';
+import { MODERN_H, MODERN_W, modernAvailable } from './modern/layout.js';
 import { Sound } from './sound.js';
 import { SPLASH_H, SPLASH_MS, SPLASH_W, SplashArt } from './splash.js';
 import { SCREEN_H, SCREEN_W } from './raster.js';
 import { Stage } from './stage.js';
 import { winScene, winTier } from './winscene.js';
+import { modernWinScene } from './modern/finale.js';
 import { addTouchControls } from './touch.js';
 import './ui.css';
 
@@ -370,11 +371,23 @@ function record(o: Outcome, entry: MapEntry | undefined): void {
 async function victory(o: Outcome, level: number, last: OffscreenCanvas, finale: Game['finale']): Promise<void> {
   setScreen('win');
   skip = new AbortController();
-  await stage.fadeOut(last, 1000, skip.signal);
-  const base = o.winnerBase ?? o.winner;
-  if (base === null || !finale) return;
-  const scene = winScene(finale.match, finale.assets, base, winTier(level));
-  await stage.animation(SCREEN_W, SCREEN_H, scene.draw, scene.ms, 500, 800, skip.signal);
+  // A match seen in the modern view ends in it too: the drone's last pass, drawn by the match's own renderer.
+  const modern = finale?.modern ?? null;
+  try {
+    if (modern) await stage.fadeOut(modern.renderer.canvas, 1000, skip.signal, true);
+    else await stage.fadeOut(last, 1000, skip.signal);
+    const base = o.winnerBase ?? o.winner;
+    if (base === null || !finale) return;
+    if (modern) {
+      const scene = modernWinScene(finale.match, modern, base, winTier(level), o.ms);
+      await stage.animation(MODERN_W, MODERN_H, scene.draw, scene.ms, 500, 800, skip.signal, true);
+    } else {
+      const scene = winScene(finale.match, finale.assets, base, winTier(level));
+      await stage.animation(SCREEN_W, SCREEN_H, scene.draw, scene.ms, 500, 800, skip.signal);
+    }
+  } finally {
+    modern?.renderer.dispose();
+  }
 }
 
 /** Leaves the match for the title screen. */

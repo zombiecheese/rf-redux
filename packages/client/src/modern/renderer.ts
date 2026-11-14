@@ -148,6 +148,8 @@ export class ModernRenderer {
   /** Recent blasts (seconds on the performance clock), and when each player's vehicle was last hit or destroyed. */
   private readonly blasts: { x: number; y: number; at: number; power: number }[] = [];
   private readonly struck = new Map<number, { at: number; long: boolean }>();
+  /** The stream breaking up regardless of what it watches (0-1): the feed cutting out at the end of the win scene. */
+  private jamming = 0;
 
   constructor(private readonly assets: GameAssets) {
     this.gl = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true, powerPreference: 'high-performance' });
@@ -404,7 +406,7 @@ export class ModernRenderer {
     for (const b of this.blasts) if (Math.abs(b.x - pose.x) < 480 && Math.abs(b.y - pose.y) < 360) g = Math.max(g, b.power * fade(now - b.at, 0.45));
     const s = this.struck.get(v.viewer);
     if (s) g = Math.max(g, fade(now - s.at, s.long ? 1.2 : 0.6));
-    return g;
+    return Math.max(g, this.jamming);
   }
 
   /** Stands the camera where the retro camera projects from, framing the rectangle as the retro view frames its own. */
@@ -441,6 +443,16 @@ export class ModernRenderer {
    * The camera's look: the drone's feed (or a clean picture), and the thermal camera, which shows heat instead of
    * light, so night hides nothing from it.
    */
+  /** Breaks the stream up by this much (0-1) whatever is on screen, until set back to 0. */
+  jam(level: number): void {
+    this.jamming = Math.max(0, Math.min(1, level));
+  }
+
+  /** The look last set: whether the drone's feed and the thermal camera are on, and whether it is night. */
+  get look(): { drone: boolean; thermal: boolean; night: boolean } {
+    return { drone: this.feed, thermal: this.thermal, night: this.night };
+  }
+
   setLook(drone: boolean, thermal: boolean): void {
     this.feed = drone;
     if (thermal === this.thermal) return;
