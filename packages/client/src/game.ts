@@ -39,6 +39,7 @@ import { drawSkull } from './skull.js';
 import { drawView } from './view.js';
 import { MODERN_H, MODERN_W, modernAvailable, modernLayout, type ModernRect } from './modern/layout.js';
 import type { ModernRenderer, ModernScreen } from './modern/renderer.js';
+import type { ModernFinale } from './modern/finale.js';
 import { bunkerBayAt, dimView, drawBanner, drawBunkerPanel, drawChatLines, drawLog, drawFeed, drawModernHud, drawName, drawNote, drawScoreTable } from './modern/hud.js';
 import { TEAMS } from './paint.js';
 
@@ -100,8 +101,8 @@ export interface GameOptions {
   visuals?: () => 'retro' | 'modern';
   /** The modern view's lighting. */
   lighting?: () => 'day' | 'night';
-  /** The modern view's camera: the drone's feed or a clean picture, and the thermal camera. */
-  camera?: () => { drone: boolean; thermal: boolean };
+  /** Whether the modern view's thermal camera is on (its key or button in the match). */
+  thermal?: () => boolean;
 }
 
 /** What a replay's controls (main.ts) show and change. */
@@ -136,7 +137,7 @@ export class Game {
   /** Settles with the outcome once the match is over and has been on screen a moment, or null when stopped. */
   readonly done: Promise<Outcome | null>;
   /** The match as it ended, for the win scene; null until then. */
-  finale: { match: Match; assets: GameAssets } | null = null;
+  finale: { match: Match; assets: GameAssets; modern: ModernFinale | null } | null = null;
   private finish!: (o: Outcome | null) => void;
   private readonly abort = new AbortController();
   private raf = 0;
@@ -155,6 +156,21 @@ export class Game {
 
   get online(): boolean {
     return !!this.o.online;
+  }
+
+  /**
+   * The visuals this match is shown in whatever the player's Options say: a replay as its match was seen, or the
+   * host's pick for everyone online; null when the player's own choice applies.
+   */
+  /** Whether the match is at night: the replay's, the host's pick online, or the player's own. */
+  get night(): boolean {
+    const start = this.o.online?.start;
+    return (this.o.replay?.look?.lighting ?? (start?.lighting && start.lighting !== 'any' ? start.lighting : this.o.lighting?.())) === 'night';
+  }
+
+  get fixedVisuals(): 'retro' | 'modern' | null {
+    const v = this.o.replay?.look?.visuals ?? this.o.online?.start.visuals;
+    return v === 'retro' || v === 'modern' ? v : null;
   }
 
   /** Set while a replay plays: its position and speed, for the replay bar. */
@@ -194,10 +210,11 @@ export class Game {
     const signal = this.abort.signal;
     const start = online?.start;
     const net = online?.net;
-    /** Retro or modern: the host's pick for everyone online, or the player's own. */
-    const wanted = () => (start?.visuals && start.visuals !== 'any' ? start.visuals : this.o.visuals?.());
+    /** Retro or modern: a replay as its match was seen, the host's pick for everyone online, or the player's own. */
+    const wanted = () => replay?.look?.visuals ?? (start?.visuals && start.visuals !== 'any' ? start.visuals : this.o.visuals?.());
+    const nightNow = () => this.night;
     // The host's pick brings its own soundtrack too.
-    if (start?.visuals && start.visuals !== 'any') music.setStyle(start.visuals === 'modern' && modernAvailable() ? 'modern' : 'retro');
+    if (this.fixedVisuals) music.setStyle(this.fixedVisuals === 'modern' && modernAvailable() ? 'modern' : 'retro');
     const players = online ? 1 : this.o.players;
     let sides = activeControls();
     const pick = () => (online || players === 1 ? [sides.solo] : this.o.swapSides ? [sides.right, sides.left] : [sides.left, sides.right]);
@@ -294,6 +311,7 @@ export class Game {
       at: Date.now(), mode: online ? 'online' : players === 2 ? 'tournament' : 'training',
       mapId: start?.mapId ?? this.o.mapId ?? '', mapName: this.o.mapName ?? (start?.map ?? assets.map).name ?? 'Untitled',
       map: start?.map ?? assets.map, seed: start?.seed ?? this.o.seed, difficulty: start?.difficulty ?? this.o.difficulty, ...(handicap ? { handicap } : {}),
+      look: { visuals: wanted() === 'modern' && modernAvailable() ? 'modern' : 'retro', lighting: nightNow() ? 'night' : 'day' },
       seats: start ? start.seats.map((x) => ({ base: x.base, team: x.team, name: x.name }))
         : match.players.map((p) => ({ base: p.base, team: p.team, name: names[p.base] ?? `Base ${p.base + 1}` })),
       ...(start?.snapshot ? { snapshot: start.snapshot } : {}),
@@ -318,7 +336,10 @@ export class Game {
     let modern: ModernRenderer | null = null;
     /** Modern: where each view went on the last picture, for taps on the bunker. */
     let modernRects: ModernRect[] | null = null;
-    signal.addEventListener('abort', () => modern?.dispose());
+    // The modern renderer outlives the match when it is handed to the win scene, which disposes of it.
+    signal.addEventListener('abort', () => {
+      if (!this.finale?.modern) modern?.dispose();
+    });
 
     const chat = online ? new ChatInput(net!, start!, signal) : null;
     let scoreboard = false;
@@ -822,8 +843,10 @@ export class Game {
       display.sides = v.map((p) => match.players[p]!.base);
       if (useModern && modern) {
         const rects = modernLayout(cameras.length);
-        const night = (start?.lighting && start.lighting !== 'any' ? start.lighting : this.o.lighting?.()) === 'night';
-        const look = this.o.camera?.() ?? { drone: false, thermal: false };
+        const night = nightNow();
+        // The modern view is always the drone's feed; thermal is the player's to switch in the match.
+        // The thermal camera is for the dark: by day there is none.
+        const look = { drone: true, thermal: night && (this.o.thermal?.() ?? false) };
         modern.setNight(night);
         modern.setLook(look.drone, look.thermal);
         modern.draw(match, cameras.map((cam, i) => ({ cam, rect: rects[i]!, viewer: v[i]!, skip: !field[i], screen: screens[i] })), extras);
@@ -899,11 +922,11 @@ export class Game {
         endedAt ??= now;
         // Online, wait a moment longer for the server's result if it has not come yet.
         if (now - endedAt >= END_HOLD_MS && (!online || outcome.result || now - endedAt >= END_HOLD_MS * 2)) {
+          this.finale = { match, assets, modern: useModern && modern ? { renderer: modern, extras } : null };
           this.abort.abort();
           sound.reset();
           music.endMatch();
           handOverReplay(outcome.team ?? outcome.winnerBase);
-          this.finale = { match, assets };
           this.finish(outcome);
           return;
         }

@@ -28,6 +28,11 @@ const TIERS = [
   { ms: 16000, every: 4, rise: 280 },
 ] as const;
 
+/** A tier's plan: how long it lasts, how often fireworks go and how high the camera ends. */
+export function winPlan(tier: number): (typeof TIERS)[number] {
+  return TIERS[Math.max(0, Math.min(TIERS.length - 1, tier))]!;
+}
+
 /** The camera's pitch over the base, in 256ths of a turn (the game's own when a vehicle is stopped). */
 const PITCH = 32;
 const START_HEIGHT = 40;
@@ -49,7 +54,7 @@ export interface WinScene {
 
 /** The scene for a finished match: `base` is the winning base, `tier` from winTier. */
 export function winScene(match: Match, assets: GameAssets, base: number, tier: number): WinScene {
-  const plan = TIERS[Math.max(0, Math.min(TIERS.length - 1, tier))]!;
+  const plan = winPlan(tier);
   const frame = new Frame();
   const image = new ImageData(new Uint8ClampedArray(frame.px.buffer), SCREEN_W, SCREEN_H);
   // The whole screen: there is no console under a win scene.

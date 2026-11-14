@@ -163,5 +163,9 @@ describe('replays', () => {
     player.seek(10);
     expect(hash(player.match)).toBe(hashes[9]);
     expect(() => checkReplay({ v: 0 })).toThrow();
+    // How the match was seen plays back with it; a look this build does not know is dropped.
+    const seen = JSON.parse(JSON.stringify({ ...rec.finish(null), look: { visuals: 'modern', lighting: 'night' } }));
+    expect(checkReplay(seen).look).toEqual({ visuals: 'modern', lighting: 'night' });
+    expect(checkReplay({ ...seen, look: { visuals: 'vhs', lighting: 'night' } }).look).toBeUndefined();
   });
 });

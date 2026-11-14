@@ -49,6 +49,7 @@ Training and Two Players open the **Player Selector** (names, the computer's ski
 | Tank turret (both together centre it) | Q / E | [ / ] |
 | Go back into the bunker (on your base) | R | Backspace |
 | Launch jeep, tank, ASV, helicopter | 1 2 3 4 | 7 8 9 0 |
+| Thermal camera on / off (modern view, at night) | G | I |
 
 What the second and third buttons do depends on the vehicle:
 
@@ -74,7 +75,6 @@ With one player (Training, online and the editor's test play) either half of the
 | M | Open the menu |
 | L | Hall of Fame |
 | V | Sound off or on |
-| I | Thermal camera on or off (modern view) |
 | Alt+Enter | Full screen |
 | Alt+3 | Swap Sides (player 1 takes the right-hand keys) |
 | Esc | Leave the game |
@@ -142,11 +142,9 @@ Replays save as `.rfwreplay.json` files or, signed in, to your account.
 - **Controls:** rebind every vehicle key for either half of the keyboard.
 - **Sound:** master, effects and music volume. The retro view plays a military band; the modern view has a hardcore and metalcore soundtrack of its own.
 - **Instruments:** Built-in (the default) or Sampled, which plays the retro band from real instrument samples (the GeneralUser GS SoundFont). The first time you pick Sampled the game downloads it (32 MB); after that your browser keeps it. The modern soundtrack keeps its own guitars and drums either way.
-- **Visuals:** Retro (the original's 320 × 240 pixel picture, the default) or Modern (the same game in 3D at 1280 × 720, with lighting, shadows and effects, a 3D bunker and skull, and modern messages and scoreboard). You can switch during a match; the game plays the same either way.
-- **Lighting:** Day or Night for the modern view. Night is dark: the vehicles have headlights, explosions light up the ground, and street lamps, watchtowers and windows are lit.
-- **Camera:** Drone feed (the default) shows the modern view as a surveillance drone sees it, with grain, a lens, stream errors when something blows up nearby (worst when you are hit) and an overlay of the clock, altitude and grid; Clean drops all that.
-- **Thermal:** the modern view through a thermal camera, white-hot: vehicles, soldiers and drones glow, the ground and buildings are grey and the sea is black, so it sees in the dark. **I** or the **IR** button beside the menu button switches it too.
-- **Picture:** a subtle CRT look (on by default, retro only) and how the picture is scaled.
+- **Visuals:** Retro (the original's 320 × 240 pixel picture with a subtle CRT look, the default) or Modern (the same game in 3D at 1280 × 720, with lighting, shadows and effects, a 3D bunker and skull, and modern messages and scoreboard). You can switch during a match; the game plays the same either way. The modern view is a surveillance drone's feed: grain, a lens, stream errors when something blows up nearby (worst when you are hit), and an overlay of the clock, altitude and grid. In a modern match at night, the **THERMAL** button beside the menu button, or its key (**G** left hand, **I** right hand, changed in Options > Controls), switches to a white-hot thermal camera that sees in the dark; each match starts with it off, and by day there is no thermal camera. Arrows at the edges in each rival's colour point to its flag buildings (any of them may hide the flag), to a flag lying in the open, and home while your jeep carries one.
+- **Lighting:** Day or Night for the modern view. Night is dark: the vehicles have headlights, explosions light up the ground, and street lamps, watchtowers and windows are lit. The lights are not clean discs: beams carry grime and scratches, and lamps throw the bars of their cages and flicker.
+- **Picture:** how the picture is scaled.
 - **Swap Sides:** gives player 1 the right-hand keys.
 
 Names, settings and the Hall of Fame are kept in your browser. Signed in, your settings follow your account.

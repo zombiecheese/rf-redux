@@ -543,10 +543,10 @@ function viewsPage(): HTMLElement {
       'Drone feed: the picture is a surveillance drone\'s, with grain, a scan line and stream errors when something blows up nearby.',
       'Computer-vision HUD: tracking boxes with integrity on your vehicle (with its fuel and ammunition), friends, enemy vehicles, gun towers, flag buildings and drones, a tactical plot for the radar, and messages as read-outs.',
       'Flag arrows: at the edges of the picture, in each rival\'s colour, arrows point to its flag buildings (any of them may hide the flag), to a flag lying in the open, and home while your jeep carries one.',
-      'Day or night (Options > View > Lighting): night is dark, lit by headlights, fires and the buildings\' windows and lamps.',
-      'Thermal camera: in a match, switch the drone to a white-hot thermal picture that sees in the dark, with the thermal button beside the menu button or its key (see Keys).',
+      'Day or night: a match option, chosen with the difficulty (on the Player Selector, or by the host online). Night is dark, lit by headlights, fires and the buildings\' windows and lamps.',
+      'Thermal camera: in a night match, switch the drone to a white-hot thermal picture that sees in the dark, with the THERMAL button beside the menu button or the thermal key (see Keys). Every match starts with it off, and by day there is none.',
     ),
-    el('p', {}, 'Online the lobby\'s host can set the visuals and the lighting for everyone (the lobby\'s Multiplayer view), or leave both to each player\'s own Options. Replays play back the way their match was seen.'));
+    el('p', {}, 'Online the lobby\'s host picks the view and the time of day for every player. Replays play back the way their match was seen.'));
 }
 
 function onlinePage(): HTMLElement {
@@ -554,7 +554,7 @@ function onlinePage(): HTMLElement {
     el('p', {}, 'Online play needs an account (Online > Create an Account) and a game server: the Docker stack or npm start, not the Vite dev server alone. Training and two-player games need neither.'),
     ul(
       'Quick Match joins the first open game, Find a Game lists open lobbies, Host a Game makes your own, and Join with a Code takes a private lobby\'s code or invite link.',
-      'The host picks the map, the team layout, the difficulty, who can join, the handicap, and the visuals and lighting. Empty seats get computer players, so 1 to 4 people can play.',
+      'The host picks the map, the team layout, the difficulty and time of day, who can join, the handicap, and the view for everyone. Empty seats get computer players, so 1 to 4 people can play.',
       'Chat in every lobby and match to everyone, your team or one player, with mute, block and report. Hold the scoreboard key to see the scores.',
       'Friends (Online > Friends) shows who is online and lets you invite them. Your profile keeps your stats; the leaderboards keep the fastest solo wins and the ladder.',
       'A dropped player\'s seat is held for a minute while a computer player drives for them. There is no pause online.',
@@ -590,7 +590,7 @@ export async function systemInfo(server: ServerInfo, s: Settings): Promise<void>
     ['Version', `Return Fire: Redux ${VERSION}`],
     ['Game data', `The game's own, built in${artSprites ? ` (${artSprites} sprites)` : ''}: no import needed`],
     ['Online', server.online ? `Game server found${server.account ? `, signed in as ${server.account}` : ', not signed in'}` : 'No game server (solo and two-player only)'],
-    ['View', `${s.visuals === 'modern' && webgl ? 'Modern' : 'Classic'}${s.visuals === 'modern' && webgl ? ` (drone feed, ${s.lighting})` : ' (CRT pixels)'}`],
+    ['View', `${s.visuals === 'modern' && webgl ? 'Modern' : 'Classic'}${s.visuals === 'modern' && webgl ? ' (drone feed)' : ' (CRT pixels)'}`],
     ['Modern view', webgl ? 'Available (WebGL)' : 'Not available: this browser has no WebGL'],
     ['Instruments', server.soundfont ? (s.instruments === 'sampled' ? 'Sampled (GeneralUser GS)' : 'Built-in synthesiser (sampled available)') : 'Built-in synthesiser (no SoundFont on this server)'],
     ['Audio', 'AudioContext' in window ? 'Web Audio' : 'None: the game plays silent'],

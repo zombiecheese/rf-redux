@@ -1,6 +1,7 @@
 // A sheet of every modern model, for reviewing the art in the dev server (npm run dev, then /modern-gallery.html).
 // ?part=buildings (the default) lays out every building for Brown, Green and neutral; ?part=vehicles every vehicle
-// in the four sides' colours; ?part=bunker and ?part=skull the two screens (skull takes &face=1-7 and &angle=0-63).
+// in the four sides' colours; ?part=bunker and ?part=skull the two screens (skull takes &face=1-7 and &angle=0-63);
+// ?part=finale the modern win scene (&base=0-3 wins, &tier=0-3, &night=1, &thermal=1, &t=ms to hold at).
 // It is not part of the build.
 
 import * as THREE from 'three';
@@ -14,6 +15,36 @@ import { ONE } from '@rfw/sim';
 import { BunkerScene, SkullScene } from './screens.js';
 
 const part = new URLSearchParams(location.search).get('part') ?? 'buildings';
+if (part === 'finale') {
+  const q = new URLSearchParams(location.search);
+  const { loadAssets } = await import('../assets.js');
+  const { buildWorld, createMatch } = await import('@rfw/sim');
+  const { ModernRenderer } = await import('./renderer.js');
+  const { modernWinScene } = await import('./finale.js');
+  const assets = await loadAssets(q.get('map') ?? 'rfmap101');
+  const world = buildWorld(assets.map, assets.defs, assets.shore);
+  const match = createMatch(world, assets.map, world.bases.map((b) => ({ base: b.id, team: b.id })), 1, { difficulty: 5 });
+  const modern = new ModernRenderer(assets);
+  modern.setNight(q.get('night') === '1');
+  modern.setLook(true, q.get('thermal') === '1');
+  const scene = modernWinScene(match, { renderer: modern, extras: { wrecks: [], splats: [] } }, Number(q.get('base') ?? 0), Number(q.get('tier') ?? 1), 754000);
+  const out = document.createElement('canvas');
+  out.width = 1280;
+  out.height = 720;
+  document.body.style.margin = '0';
+  document.body.appendChild(out);
+  const ctx = out.getContext('2d')! as unknown as OffscreenCanvasRenderingContext2D;
+  const hold = q.get('t') === null ? null : Number(q.get('t'));
+  const begun = performance.now();
+  const frame = (now: number) => {
+    const t = hold ?? (now - begun) % scene.ms;
+    scene.draw(ctx, hold !== null ? Math.min(hold, now - begun) : t);
+    if (hold !== null && now - begun >= hold) document.title = 'ready';
+    else requestAnimationFrame(frame);
+  };
+  requestAnimationFrame(frame);
+  await new Promise(() => {});
+}
 const data = await loadCommon();
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(innerWidth, innerHeight);
