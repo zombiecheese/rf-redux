@@ -464,3 +464,12 @@ body[data-screen=game][data-visuals=modern] .thermal-fab {
 body[data-screen=game][data-visuals=modern] .menu-fab { font: 700 calc(var(--ui-size) * .9)/1 ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace; }
 body[data-screen=game][data-visuals=modern] .thermal-fab kbd { border-radius: 2px; }
 body[data-screen=game][data-visuals=modern].thermal .thermal-fab { background: rgba(236, 242, 232, .92); color: #0b0f10; }
+/* Messages to the player over a modern match (thermal on or off, sound, the leaderboard) as the computer vision's
+   read-outs. */
+body[data-screen=game][data-visuals=modern] .toast { position: relative; border-radius: 0; background: rgba(6, 10, 12, .78); color: #ecf2e8;
+  border: 1px solid rgba(236, 242, 232, .4); border-left: 2px solid #ecf2e8; text-transform: uppercase; letter-spacing: .04em;
+  font: 600 calc(var(--ui-size) * .82)/1.3 ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace; padding-top: .9em; }
+body[data-screen=game][data-visuals=modern] .toast::before { content: 'SYS'; position: absolute; top: -.55em; left: .6em; padding: 0 .35em;
+  background: #ecf2e8; color: #0b0f10; font-size: .7em; font-weight: 700; line-height: 1.1; }
+/* Clear of the drone overlay's corners and the tactical plot: under the clock at the top right. */
+body[data-screen=game][data-visuals=modern] .toasts { top: 14vh; bottom: auto; right: 2.5vmin; }

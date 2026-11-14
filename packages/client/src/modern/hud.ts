@@ -556,46 +556,76 @@ export function dimView(g: CanvasRenderingContext2D, rect: ModernRect, level: nu
   g.fillRect(rect.x, rect.y, rect.w, rect.h);
 }
 
-/** A short note in a chip at the top left of a view ("Get the flag home!", "Watching ..."), below the page's buttons. */
+const MONO = 'ui-monospace, "SFMono-Regular", Menlo, Consolas, "Liberation Mono", monospace';
+const INK = '#ecf2e8';
+const AMBER = '#ffc44a';
+
+/**
+ * A computer-vision read-out frame: dark glass, a thin off-white outline with brighter corner ticks, and a small tag
+ * at its top left (STATUS, EVENT...), as the analysis labels what it shows.
+ */
+function readout(g: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, tag: string, css = INK): void {
+  g.fillStyle = 'rgba(6, 10, 12, 0.66)';
+  g.fillRect(x, y, w, h);
+  g.strokeStyle = 'rgba(236, 242, 232, 0.35)';
+  g.lineWidth = 1;
+  g.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
+  const l = Math.min(10, w / 4, h / 2);
+  g.strokeStyle = css;
+  g.lineWidth = 1.5;
+  g.beginPath();
+  for (const [cx, cy, dx, dy] of [[x, y, 1, 1], [x + w, y, -1, 1], [x, y + h, 1, -1], [x + w, y + h, -1, -1]] as const) {
+    g.moveTo(cx, cy + dy * l);
+    g.lineTo(cx, cy);
+    g.lineTo(cx + dx * l, cy);
+  }
+  g.stroke();
+  if (tag) {
+    g.save();
+    g.font = `700 9px ${MONO}`;
+    g.textBaseline = 'middle';
+    g.textAlign = 'left';
+    const tw = g.measureText(tag).width + 8;
+    g.fillStyle = css;
+    g.fillRect(x + l + 4, y - 5, tw, 10);
+    g.fillStyle = '#0b0f10';
+    g.fillText(tag, x + l + 8, y);
+    g.restore();
+  }
+}
+
+/** A short note at the top left of a view ("Get the flag home!", "Watching ..."), below the page's buttons. */
 export function drawNote(g: CanvasRenderingContext2D, rect: ModernRect, text: string): void {
   const scale = Math.min(1, rect.w / 900);
   g.save();
-  g.font = `700 ${Math.round(15 * scale)}px ${FONT}`;
-  const w = g.measureText(text).width + 28 * scale;
+  g.font = `700 ${Math.round(14 * scale)}px ${MONO}`;
+  const t = text.toUpperCase();
+  const w = g.measureText(t).width + 28 * scale;
   const h = 30 * scale;
   const x = rect.x + 20 * scale;
   const y = rect.y + 64 * scale;
-  rounded(g, x, y, w, h, h / 2);
-  g.fillStyle = PANEL;
-  g.fill();
-  g.strokeStyle = ACCENT;
-  g.lineWidth = 1.5;
-  g.stroke();
-  g.fillStyle = '#ffd58a';
+  readout(g, x, y, w, h, 'STATUS', AMBER);
+  g.fillStyle = AMBER;
   g.textBaseline = 'middle';
-  g.fillText(text, x + 14 * scale, y + h / 2 + 1);
+  g.fillText(t, x + 14 * scale, y + h / 2 + 1);
   g.restore();
 }
 
 /** The latest match messages, newest last, stacked at the top middle. */
 export function drawLog(g: CanvasRenderingContext2D, lines: readonly string[], width: number): void {
   g.save();
-  g.font = `600 15px ${FONT}`;
+  g.font = `600 13px ${MONO}`;
   g.textAlign = 'center';
   g.textBaseline = 'middle';
   lines.forEach((text, i) => {
-    const w = Math.min(width - 40, g.measureText(text).width + 32);
-    const h = 30;
+    const t = text.toUpperCase();
+    const w = Math.min(width - 40, g.measureText(t).width + 32);
+    const h = 28;
     const x = (width - w) / 2;
-    const y = 18 + i * 36;
-    rounded(g, x, y, w, h, 10);
-    g.fillStyle = PANEL;
-    g.fill();
-    g.strokeStyle = LINE;
-    g.lineWidth = 1;
-    g.stroke();
-    g.fillStyle = TEXT;
-    g.fillText(text, width / 2, y + h / 2 + 1, w - 24);
+    const y = 22 + i * 38;
+    readout(g, x, y, w, h, i === lines.length - 1 ? 'EVENT' : '');
+    g.fillStyle = INK;
+    g.fillText(t, width / 2, y + h / 2 + 1, w - 24);
   });
   g.restore();
 }
@@ -603,19 +633,16 @@ export function drawLog(g: CanvasRenderingContext2D, lines: readonly string[], w
 /** A big centred message: who won, or the server's pause. */
 export function drawBanner(g: CanvasRenderingContext2D, text: string, width: number, y: number, size = 44): void {
   g.save();
-  g.font = `800 ${size}px ${FONT}`;
+  const s = Math.round(size * 0.8);
+  g.font = `800 ${s}px ${MONO}`;
   g.textAlign = 'center';
   g.textBaseline = 'middle';
-  const w = g.measureText(text).width + size * 1.6;
-  const h = size * 1.9;
-  rounded(g, (width - w) / 2, y - h / 2, w, h, 18);
-  g.fillStyle = PANEL;
-  g.fill();
-  g.strokeStyle = ACCENT;
-  g.lineWidth = 2;
-  g.stroke();
-  g.fillStyle = TEXT;
-  g.fillText(text, width / 2, y + 2);
+  const t = text.toUpperCase();
+  const w = g.measureText(t).width + s * 1.6;
+  const h = s * 2;
+  readout(g, (width - w) / 2, y - h / 2, w, h, 'ANALYSIS', AMBER);
+  g.fillStyle = INK;
+  g.fillText(t, width / 2, y + 2);
   g.restore();
 }
 
@@ -625,19 +652,17 @@ export interface TextRun {
   css: string;
 }
 
-/** Chat lines in a glass panel at the top left, under the view's note. */
+/** Chat lines in a read-out frame at the top left, under the view's note. */
 export function drawChatLines(g: CanvasRenderingContext2D, rect: ModernRect, lines: readonly TextRun[][]): void {
   if (!lines.length) return;
   const scale = Math.min(1, rect.w / 900);
   g.save();
-  g.font = `500 ${Math.round(14 * scale)}px ${FONT}`;
+  g.font = `500 ${Math.round(13 * scale)}px ${MONO}`;
   const lh = 22 * scale;
   const w = Math.min(rect.w - 40 * scale, 520 * scale);
   const x = rect.x + 20 * scale;
   const y = rect.y + 58 * scale;
-  rounded(g, x, y, w, lines.length * lh + 14 * scale, 10);
-  g.fillStyle = 'rgba(16, 19, 15, 0.6)';
-  g.fill();
+  readout(g, x, y, w, lines.length * lh + 14 * scale, 'COMMS');
   g.textBaseline = 'middle';
   lines.forEach((runs, i) => {
     let cx = x + 12 * scale;
@@ -653,7 +678,7 @@ export function drawChatLines(g: CanvasRenderingContext2D, rect: ModernRect, lin
   g.restore();
 }
 
-/** The scoreboard as a glass table in the middle of the screen. */
+/** The scoreboard as a read-out table in the middle of the screen. */
 export function drawScoreTable(g: CanvasRenderingContext2D, width: number, head: readonly string[], rows: readonly { cells: string[]; css: string }[]): void {
   g.save();
   const cols = [24, 64, 330, 400, 470];
@@ -662,14 +687,11 @@ export function drawScoreTable(g: CanvasRenderingContext2D, width: number, head:
   const h = 56 + rows.length * rh;
   const x = (width - w) / 2;
   const y = 90;
-  rounded(g, x, y, w, h, 16);
-  g.fillStyle = 'rgba(16, 19, 15, 0.86)';
-  g.fill();
-  g.strokeStyle = LINE;
-  g.lineWidth = 1;
-  g.stroke();
+  readout(g, x, y, w, h, 'SCORES');
+  g.fillStyle = 'rgba(6, 10, 12, 0.3)';
+  g.fillRect(x, y, w, h);
   g.textBaseline = 'middle';
-  g.font = `700 12px ${FONT}`;
+  g.font = `700 12px ${MONO}`;
   g.fillStyle = MUTED;
   head.forEach((t, i) => g.fillText(t.toUpperCase(), x + cols[i]!, y + 26));
   rows.forEach((r, k) => {
@@ -677,7 +699,7 @@ export function drawScoreTable(g: CanvasRenderingContext2D, width: number, head:
     g.fillStyle = 'rgba(255,255,255,0.08)';
     g.fillRect(x + 16, ry - 4, w - 32, 1);
     r.cells.forEach((t, i) => {
-      g.font = `${i === 1 ? 700 : 500} 15px ${FONT}`;
+      g.font = `${i === 1 ? 700 : 500} 14px ${MONO}`;
       g.fillStyle = i <= 1 ? r.css : TEXT;
       g.fillText(t, x + cols[i]!, ry + rh / 2 - 2, (cols[i + 1] ?? w - 16) - cols[i]! - 10);
     });
