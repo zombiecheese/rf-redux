@@ -39,6 +39,8 @@ export interface Replay {
   difficulty: number;
   /** Extra vehicles for the smaller side (sim startingLives). */
   handicap?: boolean;
+  /** How the match was seen when it started (the recording player's view, or the host's pick), to play it back so. */
+  look?: { visuals: 'retro' | 'modern'; lighting: 'day' | 'night' };
   /** One per player id. */
   seats: ReplaySeat[];
   /** Online, joined part way: the match as it stood; frames follow from its tick + 1. */
@@ -121,6 +123,9 @@ export function checkReplay(r: unknown): Replay {
   if (!Array.isArray(x.seats) || !x.seats.length || x.seats.length > 4 || !x.map || typeof x.map !== 'object') throw new Error('The replay has no match');
   if (!Array.isArray(x.runs) || !Array.isArray(x.commands) || !Array.isArray(x.repairs) || !Array.isArray(x.checks)) throw new Error('The replay is damaged');
   if (!Number.isInteger(x.frames) || x.frames! < 0 || !Number.isInteger(x.seed)) throw new Error('The replay is damaged');
+  // An older replay, or a look this build does not know, plays the player's own way.
+  const look = x.look;
+  if (look && !((look.visuals === 'retro' || look.visuals === 'modern') && (look.lighting === 'day' || look.lighting === 'night'))) delete x.look;
   return x as Replay;
 }
 

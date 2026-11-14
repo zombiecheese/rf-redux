@@ -69,7 +69,7 @@ const applyMusicStyle = () => music.setStyle(seenVisuals() === 'modern' && moder
 music.setStyle(settings.visuals === 'modern' && modernAvailable() ? 'modern' : 'retro');
 /** How the match on screen is drawn: the host's pick online, or the player's own Options > Visuals. */
 function seenVisuals(): Settings['visuals'] {
-  return game?.hostVisuals ?? settings.visuals;
+  return game?.fixedVisuals ?? settings.visuals;
 }
 /** Options > Instruments: whether this site has the SoundFont (it is fetched only when Sampled is picked). */
 let siteFont = false;

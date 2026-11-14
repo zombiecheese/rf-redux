@@ -157,9 +157,12 @@ export class Game {
     return !!this.o.online;
   }
 
-  /** The host's pick of visuals for everyone in this online match, or null when each player sees it their own way. */
-  get hostVisuals(): 'retro' | 'modern' | null {
-    const v = this.o.online?.start.visuals;
+  /**
+   * The visuals this match is shown in whatever the player's Options say: a replay as its match was seen, or the
+   * host's pick for everyone online; null when the player's own choice applies.
+   */
+  get fixedVisuals(): 'retro' | 'modern' | null {
+    const v = this.o.replay?.look?.visuals ?? this.o.online?.start.visuals;
     return v === 'retro' || v === 'modern' ? v : null;
   }
 
@@ -200,10 +203,11 @@ export class Game {
     const signal = this.abort.signal;
     const start = online?.start;
     const net = online?.net;
-    /** Retro or modern: the host's pick for everyone online, or the player's own. */
-    const wanted = () => (start?.visuals && start.visuals !== 'any' ? start.visuals : this.o.visuals?.());
+    /** Retro or modern: a replay as its match was seen, the host's pick for everyone online, or the player's own. */
+    const wanted = () => replay?.look?.visuals ?? (start?.visuals && start.visuals !== 'any' ? start.visuals : this.o.visuals?.());
+    const nightNow = () => (replay?.look?.lighting ?? (start?.lighting && start.lighting !== 'any' ? start.lighting : this.o.lighting?.())) === 'night';
     // The host's pick brings its own soundtrack too.
-    if (start?.visuals && start.visuals !== 'any') music.setStyle(start.visuals === 'modern' && modernAvailable() ? 'modern' : 'retro');
+    if (this.fixedVisuals) music.setStyle(this.fixedVisuals === 'modern' && modernAvailable() ? 'modern' : 'retro');
     const players = online ? 1 : this.o.players;
     let sides = activeControls();
     const pick = () => (online || players === 1 ? [sides.solo] : this.o.swapSides ? [sides.right, sides.left] : [sides.left, sides.right]);
@@ -259,6 +263,7 @@ export class Game {
       at: Date.now(), mode: online ? 'online' : players === 2 ? 'tournament' : 'training',
       mapId: start?.mapId ?? this.o.mapId ?? '', mapName: this.o.mapName ?? (start?.map ?? assets.map).name ?? 'Untitled',
       map: start?.map ?? assets.map, seed: start?.seed ?? this.o.seed, difficulty: start?.difficulty ?? this.o.difficulty, ...(handicap ? { handicap } : {}),
+      look: { visuals: wanted() === 'modern' && modernAvailable() ? 'modern' : 'retro', lighting: nightNow() ? 'night' : 'day' },
       seats: start ? start.seats.map((x) => ({ base: x.base, team: x.team, name: x.name }))
         : match.players.map((p) => ({ base: p.base, team: p.team, name: names[p.base] ?? `Base ${p.base + 1}` })),
       ...(start?.snapshot ? { snapshot: start.snapshot } : {}),
@@ -766,7 +771,7 @@ export class Game {
       display.sides = v.map((p) => match.players[p]!.base);
       if (useModern && modern) {
         const rects = modernLayout(cameras.length);
-        const night = (start?.lighting && start.lighting !== 'any' ? start.lighting : this.o.lighting?.()) === 'night';
+        const night = nightNow();
         const look = this.o.camera?.() ?? { drone: false, thermal: false };
         modern.setNight(night);
         modern.setLook(look.drone, look.thermal);

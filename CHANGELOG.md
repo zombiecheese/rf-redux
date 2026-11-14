@@ -16,6 +16,7 @@ Each release's section below becomes its GitHub release notes (`.github/workflow
 
 ### Fixed
 
+- Replays play back as their match was seen (classic or modern, day or night), whatever the viewer's own Options say; the replay records it. Older replays play the viewer's way.
 - Turning the thermal camera on or off (or changing any other option) during an online match whose host set the visuals no longer swaps the soundtrack to the player's own.
 
 ## [0.4.0] - 2026-11-14
