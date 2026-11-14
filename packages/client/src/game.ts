@@ -8,6 +8,9 @@
 //
 // Every match is recorded as a replay (packages/net/src/replay.ts), and a replay plays through the same loop: its
 // frames advance the match at the speed picked (REPLAY_SPEEDS), with nobody's keys driving.
+//
+// Options > Picture > Visuals picks how the match is drawn, and can change during it: Retro (the 320 x 240 frame) or
+// Modern (modern/renderer.ts: the playfield in 3D at 1280 x 720 with its own HUD). Both draw the same match.
 
 import {
   HASH_EVERY, ONE, TICK_MS, botThink, buildWorld, createBot, createMatch, dock, hashMatch, launch, liftOf, restoreMatch, rivalOf, skullLook, startingLives,
@@ -34,6 +37,15 @@ import type { Music } from './music/music.js';
 import type { Sound } from './sound.js';
 import { drawSkull } from './skull.js';
 import { drawView } from './view.js';
+import { MODERN_H, MODERN_W, modernAvailable, modernLayout } from './modern/layout.js';
+import type { ModernRenderer } from './modern/renderer.js';
+import { drawModernHud, drawName } from './modern/hud.js';
+import { TEAMS } from './paint.js';
+
+/** Modern: the text frame's views end here, above the HUD, so the message log sits clear of it. */
+const MODERN_TEXT_H = 172;
+/** The modern renderer's module, fetched (with three.js) the first time the modern view is picked. */
+let modernModule: Promise<typeof import('./modern/renderer.js')> | null = null;
 
 // Launch keys pick, in order: jeep, tank, ASV, helicopter.
 const LAUNCH_ORDER: VehicleKind[] = ['jeep', 'tank', 'asv', 'heli'];
@@ -86,6 +98,8 @@ export interface GameOptions {
   onReplay?: (r: Replay) => void;
   /** Plays a replay instead of a match. */
   replay?: Replay;
+  /** How to draw the match, read every frame (Options > Picture > Visuals); retro when left out. */
+  visuals?: () => 'retro' | 'modern';
 }
 
 /** What a replay's controls (main.ts) show and change. */
@@ -253,6 +267,12 @@ export class Game {
     const frame = new Frame();
     const image = new ImageData(new Uint8ClampedArray(frame.px.buffer), SCREEN_W, SCREEN_H);
     const cameras = layout(players).map((v) => new Camera(v));
+    /** The modern view, made the first time it is picked; the text over it is drawn into its own frame. */
+    let modern: ModernRenderer | null = null;
+    const overlay = new Frame();
+    const overlayImage = new ImageData(new Uint8ClampedArray(overlay.px.buffer), SCREEN_W, SCREEN_H);
+    const overlayPicture = new OffscreenCanvas(SCREEN_W, SCREEN_H);
+    signal.addEventListener('abort', () => modern?.dispose());
 
     const chat = online ? new ChatInput(net!, start!, signal) : null;
     let scoreboard = false;
@@ -352,6 +372,7 @@ export class Game {
     /** Effects, sounds, messages and cameras after a tick, local or online. */
     const afterTick = () => {
       effects.add(match.events, match);
+      if (modern && !quiet) modern.events(match.events, match);
       const scripted = effects.takeSounds();
       if (!quiet) {
         sound.events(match, match.events, !!assets.effects, viewers());
@@ -630,12 +651,23 @@ export class Game {
           acc -= TICK_MS;
         }
       }
+      // The modern view draws once its code has loaded (and only where there is WebGL); until then, retro.
+      if (this.o.visuals?.() === 'modern' && !modern && modernAvailable()) {
+        modernModule ??= import('./modern/renderer.js');
+        void modernModule.then((mod) => {
+          if (!modern && !signal.aborted) modern = new mod.ModernRenderer(assets);
+        });
+      }
+      const useModern = this.o.visuals?.() === 'modern' && !!modern;
       frame.setClip(0, 0, SCREEN_W, SCREEN_H);
       frame.fill(0xff000000);
       const extras = effects.current(match.tick);
       const v = viewers();
+      /** Modern: which views show the playfield in 3D (the rest show the bunker or skull from the retro frame). */
+      const field: boolean[] = [];
       cameras.forEach((cam, i) => {
         const pl = match.players[v[i]!]!;
+        field[i] = false;
         // The bunker until the elevator has gone up and the screen faded out, then the map fading in round the lift.
         if (pl.state === 'bunker' || (pl.state === 'launching' && pl.elevator)) {
           drawBunker(frame, cam.view, assets, pl.base, pl.lives, selected[i] ?? 'tank', pl.elevator, match.tick, pl.fade);
@@ -647,11 +679,13 @@ export class Game {
             frame.dim(look.map / ONE);
           }
           drawSkull(frame, cam.view, assets, pl, look, startLives[v[i]!]!, rivalOf(match, pl.base));
+        } else if (useModern) {
+          field[i] = true;
         } else {
           drawView(frame, cam, match, assets, v[i]!, extras);
           if (pl.fade < ONE) frame.dim(pl.fade / ONE);
         }
-        if (shown) drawNames(frame, cam, match, shown, v[i]!);
+        if (shown && !useModern) drawNames(frame, cam, match, shown, v[i]!);
       });
       drawHud(frame, match, assets, v, selected);
       if (this.o.handheld) {
@@ -659,15 +693,72 @@ export class Game {
         setTouchMode(touchModeFor(pl?.state ?? null, pl?.vehicle?.kind ?? null));
       }
       const outcome = ended();
-      drawMessages(frame, match, v, cameras.map((c) => c.view), log, outcome, names, shown, me === null ? null : seats(), playerName);
+      // Modern: the notes, log, chat and scores go into a frame of their own, laid over the 3D picture.
+      const text = useModern ? overlay : frame;
+      if (useModern) {
+        overlay.setClip(0, 0, SCREEN_W, SCREEN_H);
+        overlay.fill(0);
+      }
+      const textViews = cameras.map((c, i) => (field[i] ? { ...c.view, h: MODERN_TEXT_H } : c.view));
+      drawMessages(text, match, v, textViews, log, outcome, names, shown, me === null ? null : seats(), playerName);
       if (online) {
-        drawChat(frame, net!.chat, chat!, cameras[0]!.view);
-        if (serverPause && !outcome) drawText(frame, serverPause, (SCREEN_W - textWidth(serverPause)) >> 1, 40, 0xffffff60, 1);
-        if (scoreboard || outcome) drawScoreboard(frame, match, start!, net!.seats, captures, outcome?.result ?? null);
+        drawChat(text, net!.chat, chat!, textViews[0]!);
+        if (serverPause && !outcome) drawText(text, serverPause, (SCREEN_W - textWidth(serverPause)) >> 1, 40, 0xffffff60, 1);
+        if (scoreboard || outcome) drawScoreboard(text, match, start!, net!.seats, captures, outcome?.result ?? null);
       }
       lowCtx.putImageData(image, 0, 0);
       display.sides = v.map((p) => match.players[p]!.base);
-      display.present(this.picture);
+      if (useModern && modern) {
+        const rects = modernLayout(cameras.length);
+        modern.draw(match, cameras.map((cam, i) => ({ cam, rect: rects[i]!, viewer: v[i]!, skip: !field[i] })), extras);
+        const g = modern.canvas.getContext('2d')!;
+        g.imageSmoothingEnabled = false;
+        if (cameras.length > 1) {
+          g.fillStyle = '#10130f';
+          g.fillRect(rects[0]!.w, 0, rects[1]!.x - rects[0]!.w, MODERN_H);
+        }
+        cameras.forEach((cam, i) => {
+          const r = rects[i]!;
+          const pl = match.players[v[i]!]!;
+          if (!field[i]) {
+            // The bunker or skull, with its console, as pixel art: the whole frame, or this half of it.
+            const sx = cameras.length > 1 ? (i ? SCREEN_W / 2 : 0) : 0;
+            const sw = cameras.length > 1 ? SCREEN_W / 2 : SCREEN_W;
+            const k = Math.floor(Math.min(r.w / sw, r.h / SCREEN_H) * 4) / 4;
+            g.fillStyle = '#000';
+            g.fillRect(r.x, r.y, r.w, r.h);
+            g.drawImage(this.picture, sx, 0, sw, SCREEN_H, r.x + (r.w - sw * k) / 2, r.y + (r.h - SCREEN_H * k) / 2, sw * k, SCREEN_H * k);
+            return;
+          }
+          if (pl.fade < ONE) {
+            g.fillStyle = `rgba(0,0,0,${1 - pl.fade / ONE})`;
+            g.fillRect(r.x, r.y, r.w, r.h);
+          }
+          drawModernHud(g, match, r, v[i]!);
+          if (shown) {
+            for (const p of match.players) {
+              const o = p.vehicle;
+              if (!o || p.id === v[i]) continue;
+              const at = modern!.project(cam, r, o.x / 65536, o.y / 65536, Math.max(0, o.z / 65536) + 18);
+              if (!at || at.x < r.x || at.x > r.x + r.w || at.y < r.y + 20 || at.y > r.y + r.h) continue;
+              drawName(g, shown.seats[p.id]?.name ?? '', at.x, at.y, TEAMS[p.base]?.css ?? '#fff');
+            }
+          }
+        });
+        overlayPicture.getContext('2d')!.putImageData(overlayImage, 0, 0);
+        const k = MODERN_H / SCREEN_H;
+        g.drawImage(overlayPicture, (MODERN_W - SCREEN_W * k) / 2, 0, SCREEN_W * k, MODERN_H);
+        display.present(modern.canvas, 1, true);
+        if (outcome) {
+          // The win sequence fades out from this picture.
+          const pc = this.picture.getContext('2d')!;
+          pc.fillStyle = '#000';
+          pc.fillRect(0, 0, SCREEN_W, SCREEN_H);
+          pc.drawImage(modern.canvas, 0, (SCREEN_H - (SCREEN_W * MODERN_H) / MODERN_W) / 2, SCREEN_W, (SCREEN_W * MODERN_H) / MODERN_W);
+        }
+      } else {
+        display.present(this.picture);
+      }
       if (outcome && endedAt === null) {
         music.win();
         recording?.close();

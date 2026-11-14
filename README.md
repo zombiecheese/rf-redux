@@ -64,12 +64,13 @@ Still to come: two-player maps of the project's own.
 **Replays, options and music**
 
 - Every match is recorded in the browser (the last 20, plus any you star) and plays back at ¼× to 8× with pause, ten-second jumps, a timeline and a choice of player to follow. Replays save as `.rfwreplay.json` files or, signed in, to your account.
-- Options: rebind every vehicle key for either half of the keyboard, master, effects and music volume, a subtle CRT look (on by default), how the picture is scaled, and Swap Sides. Names, settings and the Hall of Fame are kept in the browser, and settings follow a signed-in account.
+- Options: rebind every vehicle key for either half of the keyboard, master, effects and music volume, retro or modern visuals, a subtle CRT look (on by default), how the picture is scaled, and Swap Sides. Names, settings and the Hall of Fame are kept in the browser, and settings follow a signed-in account.
 - Music chosen the way the original's music director chose it, played as MIDI band arrangements of public-domain music on an MT-32-style synthesiser, or on a SoundFont you add ([docs/music.md](docs/music.md)).
 
 **The picture, and phones and tablets**
 
 - The 320 × 240 picture fills the browser at 4:3 with square pixels. The bars left over are pixel camouflage in the watching player's colour.
+- Options > Visuals switches to a modern view, at any time, even during a match: the same game drawn in 3D at 1280 × 720 (16:9) with low-poly toy-soldier models, sunlight and shadows, an animated sea, glowing explosions, smoke and debris, and a HUD in the menus' style. The camera follows and zooms as the retro one does, so both show the same part of the map across, and retro and modern players can share an online match. The bunker and skull screens stay pixel art. It needs WebGL; without it the game stays retro. `/modern-gallery.html` in the dev server shows every modern model.
 - Phones and tablets play solo, in landscape, with on-screen controls ([Touch controls](#touch-controls)). Held upright they show a "turn your device sideways" notice and the match waits.
 
 ## Getting started

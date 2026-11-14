@@ -87,7 +87,7 @@ invites. An account can have up to 200 friends and requests.
 the ☁ button on a replay saves it to your account, where it can be watched or saved as a file from any browser
 you sign in on. The site setting "Replays one account keeps" caps how many (30 by default; 0 turns it off).
 
-**Stats.** A signed-in player's profile keeps their settings (names, key bindings, difficulty, volume and music, picture and CRT look, Swap Sides,
+**Stats.** A signed-in player's profile keeps their settings (names, key bindings, difficulty, volume and music, visuals, picture and CRT look, Swap Sides,
 the last map picked) and
 online stats: wins, losses, flags captured, vehicles lost and the vehicle they launch most. The ladder is an Elo
 rating starting at 1000, counted from matches with at least two signed-in players on opposing teams. A solo best

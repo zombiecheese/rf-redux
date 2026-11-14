@@ -30,6 +30,8 @@ export interface Settings {
   keys: Partial<Record<Half, Partial<Bindings>>>;
   /** Options > Picture: a subtle CRT look (scanlines and glow) over the picture. */
   crt: boolean;
+  /** Options > Visuals: the retro 320 x 240 picture, or the modern 3D view at 1280 x 720. */
+  visuals: 'retro' | 'modern';
   /** The last choices on the Teams dialog, for offline games on maps with three or four bases. */
   teams: TeamChoice;
 }
@@ -58,7 +60,7 @@ const KEY = 'rfw.settings';
 const DEFAULTS: Settings = {
   names: ['Brown', 'Green'], difficulty: DIFFICULTY.default, players: 1, level: 1, mapId: 'rfmap101',
   swapSides: false, scale: 'sharp', music: true,
-  volume: { master: 80, effects: 100, music: 70, muted: false }, keys: {}, crt: true,
+  volume: { master: 80, effects: 100, music: 70, muted: false }, keys: {}, crt: true, visuals: 'retro',
   teams: { layout: '', handicap: false, together: false, bots: true },
 };
 
@@ -95,6 +97,7 @@ export function loadSettings(): Settings {
   s.volume = cleanVolume(s.volume);
   s.keys = s.keys && typeof s.keys === 'object' ? s.keys : {};
   s.crt = s.crt !== false;
+  if (s.visuals !== 'modern') s.visuals = 'retro';
   s.teams = { layout: typeof s.teams?.layout === 'string' ? s.teams.layout : '', handicap: s.teams?.handicap === true, together: s.teams?.together === true, bots: s.teams?.bots !== false };
   return s;
 }

@@ -138,7 +138,8 @@ Replays save as `.rfwreplay.json` files or, signed in, to your account.
 
 - **Controls:** rebind every vehicle key for either half of the keyboard.
 - **Sound:** master, effects and music volume.
-- **Picture:** a subtle CRT look (on by default) and how the picture is scaled.
+- **Visuals:** Retro (the original's 320 × 240 pixel picture, the default) or Modern (the same game in 3D at 1280 × 720, with lighting, shadows and effects). You can switch during a match; the game plays the same either way.
+- **Picture:** a subtle CRT look (on by default, retro only) and how the picture is scaled.
 - **Swap Sides:** gives player 1 the right-hand keys.
 
 Names, settings and the Hall of Fame are kept in your browser. Signed in, your settings follow your account.
