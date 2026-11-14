@@ -765,7 +765,7 @@ function onlineItems(): MenuEntry[] {
 function optionItems(): MenuEntry[] {
   return [
     { label: 'Full Screen', key: shortcutName('fullScreen'), value: () => onOff(!!document.fullscreenElement), action: fullScreen },
-    { label: 'View', hint: 'Retro or modern, day or night, camera', items: viewItems },
+    { label: 'View', hint: 'Retro or modern, day or night', items: viewItems },
     { label: 'Sound and Music', hint: 'Volume, music, instruments', items: soundItems },
     ...(handheld ? [] : [{ label: 'Controls', hint: 'Vehicle keys, swap sides', items: controlItems }]),
   ];
@@ -796,17 +796,10 @@ function viewItems(): MenuEntry[] {
       action: () => save({ ...settings, lighting: settings.lighting === 'night' ? 'day' : 'night' }),
     },
     {
-      label: 'Camera', hint: 'A drone\'s feed, or a clean picture (modern)',
-      value: () => (settings.camera === 'clean' ? 'Clean' : 'Drone feed'),
-      action: () => save({ ...settings, camera: settings.camera === 'clean' ? 'drone' : 'clean' }),
-    },
-    { label: 'Thermal', key: shortcutName('thermal'), hint: 'See heat in the dark (modern)', value: () => onOff(settings.thermal), action: toggleThermal },
-    {
       label: 'Picture', hint: 'Fill the window, or whole-number pixels only (retro)',
       value: () => (settings.scale === 'integer' ? 'Whole pixels' : 'Fill'),
       action: () => save({ ...settings, scale: settings.scale === 'integer' ? 'sharp' : 'integer' }),
     },
-    { label: 'CRT Look', hint: 'Subtle scanlines and glow (retro)', value: () => onOff(settings.crt), action: () => save({ ...settings, crt: !settings.crt }) },
   ];
 }
 

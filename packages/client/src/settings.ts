@@ -22,23 +22,23 @@ export interface Settings {
   swapSides: boolean;
   /** How the picture is scaled: fill the window, or whole-number scales only. */
   scale: 'sharp' | 'integer';
-  /** Options > Sound and Music > Music. */
+  /** Options > Music. */
   music: boolean;
-  /** Options > Sound and Music > Volume: master, effects and music volume, 0-100, and the mute switch (V). */
+  /** Options > Sound: master, effects and music volume, 0-100, and the mute switch (V). */
   volume: Volume;
-  /** Options > Controls > Vehicle Keys: keys the player has changed from the original layout, per half of the keyboard. */
+  /** Options > Controls: keys the player has changed from the original layout, per half of the keyboard. */
   keys: Partial<Record<Half, Partial<Bindings>>>;
-  /** Options > View > CRT Look: a subtle CRT look (scanlines and glow) over the picture. */
+  /** Options > Picture: a subtle CRT look (scanlines and glow) over the picture. */
   crt: boolean;
-  /** Options > View > Visuals (offline; online the host picks): the retro 320 x 240 picture, or the modern 3D view at 1280 x 720. */
+  /** Options > Visuals: the retro 320 x 240 picture, or the modern 3D view at 1280 x 720. */
   visuals: 'retro' | 'modern';
-  /** Options > View > Lighting (offline; online the host picks): the modern view by day, or at night with headlights and glowing fire. */
+  /** Options > Lighting: the modern view by day, or at night with headlights and glowing fire. */
   lighting: 'day' | 'night';
-  /** Options > View > Camera: the modern view as a surveillance drone's feed, or a clean picture. */
+  /** Options > Camera: the modern view as a surveillance drone's feed, or a clean picture. */
   camera: 'drone' | 'clean';
-  /** Options > View > Thermal (I): the modern view through a thermal camera, white-hot, to see in the dark. */
+  /** Options > Thermal (I): the modern view through a thermal camera, white-hot, to see in the dark. */
   thermal: boolean;
-  /** Options > Sound and Music > Instruments: the band on the built-in synthesiser, or sampled from the site's SoundFont. */
+  /** Options > Instruments: the band on the built-in synthesiser, or sampled from the site's SoundFont. */
   instruments: 'builtin' | 'sampled';
   /** The last choices on the Teams dialog, for offline games on maps with three or four bases. */
   teams: TeamChoice;
