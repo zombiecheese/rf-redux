@@ -136,7 +136,7 @@ The server also serves a folder of your own at `/generated/` (`assets/generated/
 deployment; git-ignored). The game looks there for two things, and needs neither:
 
 - `music/soundfont.sf2`, a General MIDI SoundFont for sampled music instruments;
-- `music/<name>.mid`, to replace a piece ([music.md](music.md)).
+- `music/<name>.mid`, to replace a piece, and `music/modern-<name>.mid` for the modern soundtrack ([music.md](music.md)).
 
 The server lists what is there at `/generated/extras.json`, and the game asks only for files on that list, so an
 empty folder causes no failed requests.

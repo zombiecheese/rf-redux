@@ -33,6 +33,7 @@ import { controlsDialog, soundDialog } from './options.js';
 import { gainOf, loadSettings, saveSettings, type Settings, type Volume } from './settings.js';
 import { jukebox } from './music/jukebox.js';
 import { Music } from './music/music.js';
+import { modernAvailable } from './modern/layout.js';
 import { Sound } from './sound.js';
 import { SPLASH_H, SPLASH_MS, SPLASH_W, SplashArt } from './splash.js';
 import { SCREEN_H, SCREEN_W } from './raster.js';
@@ -58,6 +59,9 @@ const display = new Display(settings.scale, settings.crt);
 const stage = new Stage(display);
 const sound = new Sound();
 const music = new Music(settings.music);
+/** The modern view has its own soundtrack; a browser that cannot show the modern view keeps the band. */
+const applyMusicStyle = () => music.setStyle(settings.visuals === 'modern' && modernAvailable() ? 'modern' : 'retro');
+applyMusicStyle();
 setBindings(settings.keys);
 applyVolume(settings.volume);
 
@@ -107,6 +111,7 @@ function save(next: Settings): void {
   display.crt = settings.crt;
   setBindings(settings.keys);
   applyVolume(settings.volume);
+  applyMusicStyle();
   syncProfile();
 }
 
@@ -143,6 +148,7 @@ async function loadProfile(): Promise<void> {
   display.crt = settings.crt;
   setBindings(settings.keys);
   applyVolume(settings.volume);
+  applyMusicStyle();
   music.setEnabled(settings.music);
 }
 
@@ -773,7 +779,7 @@ function optionItems(): MenuEntry[] {
         music.setEnabled(settings.music);
       },
     },
-    { label: 'Jukebox', hint: 'Hear the band book, load a SoundFont', action: () => void overGame(() => jukebox(music)) },
+    { label: 'Jukebox', hint: 'Hear the soundtrack, load a SoundFont', action: () => void overGame(() => jukebox(music)) },
     ...(handheld ? [] : [{
       label: 'Swap Sides', hint: `Arrow keys play Brown (${shortcutName('swapSides')})`, value: () => onOff(settings.swapSides),
       action: () => save({ ...settings, swapSides: !settings.swapSides }),

@@ -121,7 +121,7 @@ export class Player {
     for (const e of events) {
       if (e.time >= until) break;
       const ev = e.event;
-      if (ev.kind === 'program') this.synth.program(ev.ch, ev.program);
+      if (ev.kind === 'program') this.synth.program(ev.ch, ev.program, at);
       else if (ev.kind === 'control' && ev.controller !== 64 && ev.controller < 120) this.synth.control(ev.ch, ev.controller, ev.value, at);
       else if (ev.kind === 'pitchBend') this.synth.pitchBend(ev.ch, ev.value, at);
     }
@@ -154,7 +154,7 @@ export class Player {
       case 'noteOn': this.synth.noteOn(ev.ch, ev.note, ev.vel, t); break;
       case 'noteOff': this.synth.noteOff(ev.ch, ev.note, t); break;
       case 'control': this.synth.control(ev.ch, ev.controller, ev.value, t); break;
-      case 'program': this.synth.program(ev.ch, ev.program); break;
+      case 'program': this.synth.program(ev.ch, ev.program, t); break;
       case 'pitchBend': this.synth.pitchBend(ev.ch, ev.value, t); break;
       default: break;
     }

@@ -4,6 +4,7 @@ import {
   type MusicOut, type Piece, type Situation,
 } from '../src/music/director.js';
 import { BOOK, tr } from '../src/music/pieces.js';
+import { MODERN_BOOK } from '../src/music/pieces-modern.js';
 import { Player } from '../src/music/player.js';
 import type { Synth } from '../src/music/synth.js';
 import { PPQ, compile, compileLine, pitch, ticks } from '../src/music/score.js';
@@ -114,6 +115,37 @@ describe('score notation', () => {
       0: [52, 86], 1: [41, 79], 2: [40, 74], 3: [26, 65], 4: [74, 108], 5: [50, 96], 6: [40, 100], 7: [38, 57], 8: [55, 86],
     };
     for (const [name, def] of Object.entries(BOOK)) {
+      for (const track of compile(def).tracks) {
+        for (const { event: e } of track) {
+          if (e.kind !== 'noteOn' || e.ch === 9) continue;
+          const [lo, hi] = range[e.ch]!;
+          expect(e.note >= lo && e.note <= hi, `${name}: channel ${e.ch} note ${e.note}`).toBe(true);
+        }
+      }
+    }
+  });
+});
+
+describe('modern soundtrack', () => {
+  it('compiles every piece, with a section for each start and loop point the director uses', () => {
+    for (const [name, def] of Object.entries(MODERN_BOOK)) {
+      const tl = timeline(readSmf(writeSmf(compile(def))));
+      expect(tl.events.some((e) => e.event.kind === 'noteOn'), name).toBe(true);
+      expect(tl.sections.map((s) => s.name), name).toEqual(def.sections.map((s) => s.name));
+    }
+    for (const p of PIECES) {
+      const def = MODERN_BOOK[p.file];
+      expect(def, p.name).toBeDefined();
+      for (const s of [p.start, p.loop]) if (s) expect(def!.sections.map((x) => x.name), p.name).toContain(s);
+    }
+  });
+
+  it('keeps every note on a drop-C guitar, a five-string bass and the lead\'s neck', () => {
+    // Guitars from low C, the bass from its low B, the lead up to the 24th fret of the top string.
+    const range: Record<number, [number, number]> = {
+      0: [36, 72], 1: [36, 72], 2: [36, 60], 3: [36, 60], 4: [23, 60], 5: [52, 89], 6: [45, 84], 7: [24, 48], 8: [48, 88],
+    };
+    for (const [name, def] of Object.entries(MODERN_BOOK)) {
       for (const track of compile(def).tracks) {
         for (const { event: e } of track) {
           if (e.kind !== 'noteOn' || e.ch === 9) continue;

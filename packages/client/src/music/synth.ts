@@ -125,6 +125,31 @@ const P: Record<string, Patch> = {
     { wave: 'saw', level: 0.4, detune: -11, amp: env(0.4, 0.5, 0.8, 0.8), filter: { cutoff: 3, env: 1, a: 0.5, d: 1, s: 0.5 } },
     { wave: 'saw', level: 0.4, detune: 11, amp: env(0.5, 0.5, 0.8, 0.8), filter: { cutoff: 3, env: 1, a: 0.5, d: 1, s: 0.5 } },
   ] },
+  // The modern rig (programs 28-30, 33-34 and 38): guitars and bass played into the channel's amp (Amp below),
+  // which does the distortion, so these are the strings as they leave the pickups.
+  rhythm: { gain: 0.5, partials: [
+    { wave: 'saw', level: 0.55, detune: -5, amp: env(0.002, 0.25, 0.85, 0.07), filter: { cutoff: 9, q: 0.8 } },
+    { wave: 'saw', level: 0.45, detune: 6, amp: env(0.003, 0.25, 0.85, 0.07), filter: { cutoff: 7, q: 0.8 } },
+    { wave: 'noise', level: 0.05, amp: env(0.001, 0.02, 0, 0.01), filter: { type: 'bandpass', cutoff: 2500, fixed: true, q: 1 } },
+  ] },
+  // Palm-muted: the filter snaps shut, so each chug is a thump with a bite on the front.
+  muted: { gain: 0.6, partials: [
+    { wave: 'saw', level: 0.7, detune: -4, amp: env(0.001, 0.14, 0.25, 0.05), filter: { cutoff: 2, env: 7, d: 0.07, s: 0, q: 1.4, vel: 0.6 } },
+    { wave: 'saw', level: 0.5, detune: 5, amp: env(0.001, 0.14, 0.25, 0.05), filter: { cutoff: 2, env: 6, d: 0.06, s: 0, q: 1.2, vel: 0.6 } },
+  ] },
+  leadGuitar: { gain: 0.42, vibrato: { rate: 5.6, depth: 22, delay: 0.22 }, partials: [
+    { wave: 'saw', level: 0.6, amp: env(0.003, 0.3, 0.85, 0.18), filter: { cutoff: 6, q: 1 } },
+    { wave: 'square', level: 0.3, detune: 4, amp: env(0.003, 0.3, 0.8, 0.18), filter: { cutoff: 5 } },
+  ] },
+  pickBass: { gain: 0.75, partials: [
+    { wave: 'saw', level: 0.55, amp: env(0.002, 0.3, 0.75, 0.06), filter: { cutoff: 3, env: 8, d: 0.12, s: 0.25, q: 1.5, vel: 0.7 } },
+    { wave: 'sine', level: 0.7, amp: env(0.002, 0.3, 0.9, 0.06) },
+  ] },
+  // An 808-style sub that drops an octave as it rings (breakdowns and the death stingers).
+  subDrop: { gain: 0.9, oneShot: true, partials: [
+    { wave: 'sine', level: 1, amp: env(0.003, 2.6, 0, 0.4), sweep: { cents: 1200, time: 2.2 } },
+    { wave: 'triangle', level: 0.25, amp: env(0.003, 0.5, 0, 0.2), sweep: { cents: 1200, time: 2.2 } },
+  ] },
   fx: { gain: 0.3, oneShot: true, partials: [
     { wave: 'noise', level: 0.6, amp: env(0.05, 1, 0, 0.4), filter: { type: 'bandpass', cutoff: 2, q: 3, env: 3, d: 0.8 } },
   ] },
@@ -138,6 +163,11 @@ function patchFor(program: number): Patch {
   if (program === 58) return P.tuba!;
   if (program === 60 || program === 69) return P.horn!;
   if (program >= 61 && program <= 63) return P.brassSection!;
+  if (program === 28) return P.muted!;
+  if (program === 29) return P.leadGuitar!;
+  if (program === 30) return P.rhythm!;
+  if (program === 33 || program === 34) return P.pickBass!;
+  if (program === 38) return P.subDrop!;
   const family = [
     'piano', 'bell', 'organ', 'pluck', 'bass', 'strings', 'strings', 'trumpet',
     'reed', 'flute', 'lead', 'pad', 'fx', 'pluck', 'bell', 'fx',
@@ -186,7 +216,46 @@ const DRUM_PATCHES: Record<string, Patch> = {
   ] },
 };
 
-function drumFor(key: number): { patch: Patch; hz?: number } {
+/**
+ * The Power kit (drum-channel program 16, as GS and GM2 number it): the modern view's metal kit, with a kick that
+ * clicks, a snare with a fat body, deep toms and a china in place of the tam-tam.
+ */
+const POWER: Record<string, Patch> = {
+  kick: { gain: 1.25, oneShot: true, partials: [
+    { wave: 'sine', level: 1, hz: 50, amp: env(0.001, 0.32, 0, 0.08), sweep: { cents: 3000, time: 0.03 } },
+    { wave: 'square', level: 0.25, hz: 1800, amp: env(0.0005, 0.006, 0, 0.004), filter: { type: 'bandpass', cutoff: 3500, fixed: true, q: 1.2 } },
+    { wave: 'noise', level: 0.35, amp: env(0.0005, 0.012, 0, 0.006), filter: { type: 'highpass', cutoff: 3000, fixed: true } },
+  ] },
+  snare: { gain: 0.95, oneShot: true, partials: [
+    { wave: 'triangle', level: 0.7, hz: 185, amp: env(0.001, 0.13, 0, 0.06), sweep: { cents: 700, time: 0.02 } },
+    { wave: 'sine', level: 0.35, hz: 330, amp: env(0.001, 0.06, 0, 0.03) },
+    { wave: 'noise', level: 0.9, amp: env(0.001, 0.26, 0, 0.1), filter: { type: 'bandpass', cutoff: 3200, fixed: true, q: 0.6 } },
+    { wave: 'noise', level: 0.35, amp: env(0.001, 0.1, 0, 0.05), filter: { type: 'highpass', cutoff: 7000, fixed: true } },
+  ] },
+  china: { gain: 0.5, oneShot: true, partials: [
+    { wave: 'noise', level: 0.8, amp: env(0.001, 1.1, 0, 0.4), filter: { type: 'bandpass', cutoff: 4200, fixed: true, q: 0.9 } },
+    { wave: 'square', level: 0.12, hz: 431, amp: env(0.001, 0.7, 0, 0.3), filter: { type: 'highpass', cutoff: 2500, fixed: true } },
+    { wave: 'square', level: 0.1, hz: 617, amp: env(0.001, 0.6, 0, 0.3), filter: { type: 'highpass', cutoff: 3000, fixed: true } },
+  ] },
+  crash: { gain: 0.55, oneShot: true, partials: [
+    { wave: 'noise', level: 0.8, amp: env(0.001, 2.2, 0, 0.6), filter: { type: 'highpass', cutoff: 4000, fixed: true } },
+    { wave: 'noise', level: 0.35, amp: env(0.001, 0.8, 0, 0.3), filter: { type: 'bandpass', cutoff: 6000, fixed: true, q: 0.8 } },
+  ] },
+  tom: { gain: 0.95, oneShot: true, partials: [
+    { wave: 'sine', level: 0.95, amp: env(0.001, 0.55, 0, 0.15), sweep: { cents: 900, time: 0.04 } },
+    { wave: 'triangle', level: 0.25, octave: 1, amp: env(0.001, 0.12, 0, 0.05) },
+    { wave: 'noise', level: 0.2, amp: env(0.001, 0.03, 0, 0.02), filter: { type: 'bandpass', cutoff: 2500, fixed: true } },
+  ] },
+};
+
+function drumFor(key: number, kit = 0): { patch: Patch; hz?: number } {
+  if (kit === 16) {
+    if (key === 35 || key === 36) return { patch: POWER.kick! };
+    if (key === 38 || key === 40) return { patch: POWER.snare! };
+    if (key === 52) return { patch: POWER.china! };
+    if (key === 49 || key === 55 || key === 57) return { patch: POWER.crash! };
+    if (key >= 41 && key <= 50 && key !== 42 && key !== 44 && key !== 46) return { patch: POWER.tom!, hz: 48 * 2 ** ((key - 41) / 11) };
+  }
   if (key === 35 || key === 36) return { patch: DRUM_PATCHES.kick! };
   if (key === 37 || key === 39 || key === 75 || key === 76 || key === 77) return { patch: DRUM_PATCHES.rim! };
   if (key === 38 || key === 40) return { patch: DRUM_PATCHES.snare! };
@@ -227,10 +296,30 @@ interface Channel {
   mod: number;
   rpn: [number, number];
   input: GainNode;
+  /** The straight path from input to panner, and the amp beside it once a guitar or bass program asks for one. */
+  dry: GainNode;
+  amp: Amp | null;
+  rig: Rig | null;
   panner: StereoPannerNode;
   reverb: GainNode;
   chorus: GainNode;
   held: Voice[];
+}
+
+type Rig = 'rhythm' | 'lead' | 'bass';
+
+/** Which amp a program plays through: the modern rig's guitars and bass. */
+function rigFor(program: number): Rig | null {
+  if (program === 28 || program === 30) return 'rhythm';
+  if (program === 29) return 'lead';
+  if (program === 33 || program === 34) return 'bass';
+  return null;
+}
+
+interface Amp {
+  /** How hard the preamp is driven, and the level out of the cabinet. */
+  drive: GainNode;
+  wet: GainNode;
 }
 
 const mtof = (n: number) => 440 * 2 ** ((n - 69) / 12);
@@ -241,8 +330,10 @@ export class Synth {
   private voices: Voice[] = [];
   private readonly noise: AudioBuffer;
   private readonly waves = new Map<Wave, PeriodicWave>();
-  /** Sampled instruments, used for every program they have. */
+  /** Sampled instruments, used for every program they have (while sampled is on). */
   soundfont: SoundFont | null = null;
+  /** The modern soundtrack plays its own rig, not a SoundFont's samples. */
+  sampled = true;
 
   constructor(readonly ctx: BaseAudioContext, destination: AudioNode) {
     this.out = ctx.createGain();
@@ -270,15 +361,16 @@ export class Synth {
     }
     for (let ch = 0; ch < 16; ch++) {
       const input = ctx.createGain();
+      const dry = ctx.createGain();
       const panner = ctx.createStereoPanner();
       const reverb = ctx.createGain();
       const chor = ctx.createGain();
-      input.connect(panner).connect(this.out);
+      input.connect(dry).connect(panner).connect(this.out);
       panner.connect(reverb).connect(reverbIn);
       panner.connect(chor).connect(chorusIn);
       this.channels.push({
         program: 0, bank: ch === DRUM_CH ? 128 : 0, volume: 100, expression: 127, pan: 64, sustain: false, bend: 0, bendRange: 2,
-        mod: 0, rpn: [127, 127], input, panner, reverb, chorus: chor, held: [],
+        mod: 0, rpn: [127, 127], input, dry, amp: null, rig: null, panner, reverb, chorus: chor, held: [],
       });
       this.mix(ch, 0);
     }
@@ -329,7 +421,7 @@ export class Synth {
       this.voices.splice(this.voices.indexOf(victim), 1);
     }
     const bend = c.bend * c.bendRange * 100;
-    const voice = this.soundfont?.voice(this.ctx, c.input, c.bank, ch === DRUM_CH ? 0 : c.program, note, vel, time, bend)
+    const voice = (this.sampled ? this.soundfont?.voice(this.ctx, c.input, c.bank, ch === DRUM_CH ? 0 : c.program, note, vel, time, bend) : null)
       ?? this.builtIn(ch, c, note, vel, time, bend);
     if (!voice) return;
     voice.ch = ch;
@@ -373,9 +465,25 @@ export class Synth {
     }
   }
 
-  program(ch: number, program: number): void {
+  program(ch: number, program: number, time = this.ctx.currentTime): void {
     const c = this.channels[ch];
-    if (c) c.program = program;
+    if (!c) return;
+    c.program = program;
+    this.setRig(ch, ch === DRUM_CH ? null : rigFor(program), time);
+  }
+
+  /** Switches a channel between its straight path and its amp (built the first time it is wanted). */
+  private setRig(ch: number, rig: Rig | null, time: number): void {
+    const c = this.channels[ch]!;
+    if (rig === c.rig) return;
+    c.rig = rig;
+    if (rig && !c.amp) c.amp = buildAmp(this.ctx, c.input, c.panner, ch);
+    const a = c.amp;
+    // The bass keeps some of its clean low end beside the drive.
+    c.dry.gain.setValueAtTime(rig === null ? 1 : rig === 'bass' ? 0.45 : 0, time);
+    if (!a) return;
+    a.drive.gain.setValueAtTime(rig === 'rhythm' ? 34 : rig === 'lead' ? 16 : rig === 'bass' ? 3 : 0, time);
+    a.wet.gain.setValueAtTime(rig === 'rhythm' ? 0.3 : rig === 'lead' ? 0.2 : rig === 'bass' ? 0.32 : 0, time);
   }
 
   pitchBend(ch: number, value: number, time: number): void {
@@ -398,6 +506,7 @@ export class Synth {
   resetChannels(time: number): void {
     this.channels.forEach((c, ch) => {
       Object.assign(c, { program: 0, bank: ch === DRUM_CH ? 128 : 0, volume: 100, expression: 127, pan: 64, sustain: false, bend: 0, bendRange: 2, mod: 0, held: [] });
+      this.setRig(ch, null, time);
       c.reverb.gain.setValueAtTime(40 / 127, time);
       c.chorus.gain.setValueAtTime(0, time);
       this.mix(ch, time);
@@ -406,7 +515,7 @@ export class Synth {
 
   private builtIn(ch: number, c: Channel, note: number, vel: number, time: number, bend: number): Voice | null {
     const ctx = this.ctx;
-    const drum = ch === DRUM_CH ? drumFor(note) : null;
+    const drum = ch === DRUM_CH ? drumFor(note, c.program) : null;
     const patch = drum ? drum.patch : patchFor(c.program);
     const v01 = vel / 127;
     const out = ctx.createGain();
@@ -444,7 +553,8 @@ export class Synth {
         if (pw) o.setPeriodicWave(pw);
         else o.type = p.wave === 'saw' ? 'sawtooth' : (p.wave as OscillatorType);
         o.frequency.value = Math.min(f, ctx.sampleRate / 2 - 1);
-        const off = (p.detune ?? 0) + (drum ? 0 : bend);
+        // Double-tracked guitars on neighbouring channels sit a few cents apart, as two takes do.
+        const off = (p.detune ?? 0) + (drum ? 0 : bend) + (c.rig === 'rhythm' ? (ch % 2 ? 5 : -5) : 0);
         o.detune.setValueAtTime(off + (p.sweep?.cents ?? 0), time);
         if (p.sweep) o.detune.setTargetAtTime(off, time, p.sweep.time / 3);
         if (lfoGain && !drum) lfoGain.connect(o.detune);
@@ -522,6 +632,52 @@ export class Synth {
     nodes[nodes.length - 1]?.src.addEventListener('ended', () => out.disconnect());
     return voice;
   }
+}
+
+/**
+ * A guitar amp and cabinet: tighten the lows, drive a soft-clipping preamp hard, then a 4x12 cabinet's curve (a
+ * thump at 110 Hz, the scooped mids, a presence peak and the speaker's roll-off). Right-hand channels come in a few
+ * milliseconds late, which spreads a double-tracked pair across the stereo field.
+ */
+function buildAmp(ctx: BaseAudioContext, input: AudioNode, output: AudioNode, ch: number): Amp {
+  const tight = ctx.createBiquadFilter();
+  tight.type = 'highpass';
+  tight.frequency.value = 120;
+  const drive = ctx.createGain();
+  drive.gain.value = 0;
+  const shaper = ctx.createWaveShaper();
+  shaper.curve = clipCurve();
+  shaper.oversample = '4x';
+  const eq = ([['lowshelf', 110, 1, 0.7], ['peaking', 650, -4, 0.9], ['peaking', 2400, 7, 0.9], ['lowpass', 6500, 0, 0.9], ['lowpass', 9000, 0, 0.7]] as const)
+    .map(([type, f, gain, q]) => {
+      const b = ctx.createBiquadFilter();
+      b.type = type;
+      b.frequency.value = f;
+      b.gain.value = gain;
+      b.Q.value = q;
+      return b;
+    });
+  const late = ctx.createDelay(0.03);
+  late.delayTime.value = ch % 2 ? 0.011 : 0;
+  const wet = ctx.createGain();
+  wet.gain.value = 0;
+  let node: AudioNode = input.connect(tight).connect(drive).connect(shaper);
+  for (const b of eq) node = node.connect(b);
+  node.connect(late).connect(wet).connect(output);
+  return { drive, wet };
+}
+
+let curve: Float32Array<ArrayBuffer> | null = null;
+/** An asymmetric soft clip, as a valve preamp gives. */
+function clipCurve(): Float32Array<ArrayBuffer> {
+  if (curve) return curve;
+  const n = 2048;
+  curve = new Float32Array(n);
+  for (let i = 0; i < n; i++) {
+    const x = (i / (n - 1)) * 2 - 1;
+    curve[i] = Math.tanh(x * 2.5 + 0.15) - Math.tanh(0.15);
+  }
+  return curve;
 }
 
 /** A stereo hall: decaying noise, darker as it fades, with a few early reflections. */
