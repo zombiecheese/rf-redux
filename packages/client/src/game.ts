@@ -162,6 +162,12 @@ export class Game {
    * The visuals this match is shown in whatever the player's Options say: a replay as its match was seen, or the
    * host's pick for everyone online; null when the player's own choice applies.
    */
+  /** Whether the match is at night: the replay's, the host's pick online, or the player's own. */
+  get night(): boolean {
+    const start = this.o.online?.start;
+    return (this.o.replay?.look?.lighting ?? (start?.lighting && start.lighting !== 'any' ? start.lighting : this.o.lighting?.())) === 'night';
+  }
+
   get fixedVisuals(): 'retro' | 'modern' | null {
     const v = this.o.replay?.look?.visuals ?? this.o.online?.start.visuals;
     return v === 'retro' || v === 'modern' ? v : null;
@@ -206,7 +212,7 @@ export class Game {
     const net = online?.net;
     /** Retro or modern: a replay as its match was seen, the host's pick for everyone online, or the player's own. */
     const wanted = () => replay?.look?.visuals ?? (start?.visuals && start.visuals !== 'any' ? start.visuals : this.o.visuals?.());
-    const nightNow = () => (replay?.look?.lighting ?? (start?.lighting && start.lighting !== 'any' ? start.lighting : this.o.lighting?.())) === 'night';
+    const nightNow = () => this.night;
     // The host's pick brings its own soundtrack too.
     if (this.fixedVisuals) music.setStyle(this.fixedVisuals === 'modern' && modernAvailable() ? 'modern' : 'retro');
     const players = online ? 1 : this.o.players;
@@ -839,7 +845,8 @@ export class Game {
         const rects = modernLayout(cameras.length);
         const night = nightNow();
         // The modern view is always the drone's feed; thermal is the player's to switch in the match.
-        const look = { drone: true, thermal: this.o.thermal?.() ?? false };
+        // The thermal camera is for the dark: by day there is none.
+        const look = { drone: true, thermal: night && (this.o.thermal?.() ?? false) };
         modern.setNight(night);
         modern.setLook(look.drone, look.thermal);
         modern.draw(match, cameras.map((cam, i) => ({ cam, rect: rects[i]!, viewer: v[i]!, skip: !field[i], screen: screens[i] })), extras);

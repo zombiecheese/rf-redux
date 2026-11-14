@@ -139,6 +139,8 @@ function save(next: Settings): void {
 /** Lets the page's buttons follow the picture: the IR button shows over a modern match, lit while thermal is on. */
 function syncLook(): void {
   document.body.dataset.visuals = seenVisuals();
+  // The thermal camera is only there at night.
+  document.body.classList.toggle('night', game?.night ?? settings.lighting === 'night');
   document.body.classList.toggle('thermal', thermal);
   thermalState.textContent = thermal ? 'ON' : 'OFF';
   thermalKey.textContent = thermalKeys();
@@ -854,6 +856,7 @@ function helpItems(): MenuEntry[] {
 
 /** The thermal camera on or off in a modern match (its key, set in Options > Controls, or the THERMAL button). */
 function toggleThermal(): void {
+  if (!game?.night) return;
   thermal = !thermal;
   syncLook();
   toast(thermal ? 'Thermal camera on' : 'Thermal camera off');

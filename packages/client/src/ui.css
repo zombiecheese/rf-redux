@@ -71,7 +71,7 @@ body[data-screen=game]:not(.menu-open) .menu-fab { display: block; }
   left: calc(max(1.2vmin, env(safe-area-inset-left)) + 3em); height: 2.4em; padding: 0 .8em 0 .6em; align-items: center; gap: .45em;
   border-radius: 1.2em; border: 1px solid rgba(255, 255, 255, .35); background: rgba(0, 0, 0, .55); color: #fff; cursor: pointer;
   font: 700 calc(var(--ui-size) * .78)/1 ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace; letter-spacing: .06em; opacity: .9; }
-body[data-screen=game][data-visuals=modern]:not(.menu-open) .thermal-fab { display: inline-flex; }
+body.night[data-screen=game][data-visuals=modern]:not(.menu-open) .thermal-fab { display: inline-flex; }
 .thermal-fab:hover, .thermal-fab:focus-visible { opacity: 1; border-color: rgba(255, 255, 255, .7); }
 .thermal-fab .thermal-icon { font-size: 1.25em; }
 .thermal-fab .thermal-state { color: #9aa39a; }

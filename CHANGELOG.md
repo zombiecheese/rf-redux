@@ -12,7 +12,7 @@ Each release's section below becomes its GitHub release notes (`.github/workflow
 
 ### Changed
 
-- The modern view is always the drone's feed and the retro view always has its CRT look: they are what each view is, so Options no longer has Camera or CRT Look. The thermal camera is part of playing, not a setting: it is switched in the match (its key or the THERMAL button), every match starts with it off, and it has left Options.
+- The modern view is always the drone's feed and the retro view always has its CRT look: they are what each view is, so Options no longer has Camera or CRT Look. The thermal camera is part of playing, not a setting, and only for the dark: in a night match it is switched by its key or the THERMAL button (which only shows at night), every match starts with it off, and it has left Options.
 - The modern view's night lights are less clean: headlights and searchlights carry blotches, grime, scratches and faint reflector rings that travel with the beam, and lamps and fires throw the soft bars of their cages, smudges and a flicker.
 - The thermal camera is a control: G (left hand) or I (right hand), listed and rebindable in Options > Controls and in Help. An always-visible THERMAL toggle beside the menu button shows whether it is on and its key.
 - Over a modern match the menu and thermal buttons take the computer vision's look, and the drone overlay's corner bracket and the note chip move out of their way.

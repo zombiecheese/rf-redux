@@ -37,7 +37,7 @@ export const ACTION_LABELS: Record<Action, string> = {
   up: 'Forward', down: 'Back', left: 'Turn left', right: 'Turn right', fire: 'Fire', fire2: 'Second button', fire3: 'Third button',
   turretLeft: 'Turret left', turretRight: 'Turret right', dock: 'Back into the bunker',
   launchJeep: 'Launch jeep', launchTank: 'Launch tank', launchAsv: 'Launch ASV', launchHeli: 'Launch helicopter',
-  thermal: 'Thermal camera (modern)',
+  thermal: 'Thermal camera (modern, at night)',
 };
 
 /** The original's Tournament layout: Brown on the left half of the keyboard, Green on the right. */
@@ -252,7 +252,7 @@ export const CONTROL_ROWS: [string, (c: Controls) => string[], string][] = [
   ['Tank turret left / right', (c) => [...c.turretLeft, ...c.turretRight], ' / '],
   ['Launch jeep, tank, ASV, helicopter', (c) => c.launch.map((k) => k[0]!), ' '],
   ['Back into the bunker (on your base)', (c) => c.dock, ''],
-  ['Thermal camera on / off (modern view)', (c) => c.thermal, ''],
+  ['Thermal camera on / off (modern view, at night)', (c) => c.thermal, ''],
 ];
 
 /**
