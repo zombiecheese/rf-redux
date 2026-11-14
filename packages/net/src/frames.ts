@@ -83,7 +83,7 @@ export function applyFrame(m: Match, f: Frame): void {
   if (m.tick !== f.tick) m.tick = f.tick;
 }
 
-export function encodeFrames(frames: readonly Frame[]): Uint8Array {
+export function encodeFrames(frames: readonly Frame[]): Uint8Array<ArrayBuffer> {
   const players = frames[0]?.inputs.length ?? 0;
   let size = 7;
   for (const f of frames) size += players * 2 + 1 + f.commands.length * 2;
@@ -124,18 +124,18 @@ export function decodeFrames(buf: Uint8Array): Frame[] {
   return out;
 }
 
-export function encodeInput(input: VehicleInput | undefined): Uint8Array {
+export function encodeInput(input: VehicleInput | undefined): Uint8Array<ArrayBuffer> {
   const buf = new Uint8Array(3);
   buf[0] = INPUT;
   new DataView(buf.buffer).setUint16(1, packInput(input));
   return buf;
 }
 
-export function encodeCommand(c: Command): Uint8Array {
+export function encodeCommand(c: Command): Uint8Array<ArrayBuffer> {
   return Uint8Array.of(COMMAND, commandCode(c));
 }
 
-export function encodeHash(tick: number, hash: number): Uint8Array {
+export function encodeHash(tick: number, hash: number): Uint8Array<ArrayBuffer> {
   const buf = new Uint8Array(9);
   const dv = new DataView(buf.buffer);
   dv.setUint8(0, HASH);

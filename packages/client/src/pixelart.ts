@@ -14,7 +14,7 @@ export const clamp = (v: number, lo = 0, hi = 1) => Math.max(lo, Math.min(hi, v)
 
 /** A picture being drawn, pixel by pixel. */
 export class Pixels {
-  readonly data: Uint32Array;
+  readonly data: Uint32Array<ArrayBuffer>;
 
   constructor(readonly w: number, readonly h: number) {
     this.data = new Uint32Array(w * h);

@@ -1,5 +1,5 @@
 {
   "extends": "../../tsconfig.base.json",
-  "compilerOptions": { "lib": ["ES2022", "DOM"], "noEmit": true, "composite": false, "declaration": false },
+  "compilerOptions": { "lib": ["ES2022", "DOM"], "types": ["node", "vite/client"], "noEmit": true, "composite": false, "declaration": false },
   "include": ["src", "test"]
 }

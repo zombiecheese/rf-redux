@@ -26,7 +26,7 @@ export interface Point {
 }
 
 export class Frame {
-  readonly px: Uint32Array;
+  readonly px: Uint32Array<ArrayBuffer>;
   private clip: { x0: number; y0: number; x1: number; y1: number };
 
   /** The game always draws 320 x 240; the level editor's view is sized to its window. */

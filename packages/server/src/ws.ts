@@ -27,7 +27,7 @@ export class Socket {
   onBinary: (data: Uint8Array) => void = () => {};
   onClose: (code: number) => void = () => {};
   closed = false;
-  private buf = Buffer.alloc(0);
+  private buf: Buffer = Buffer.alloc(0);
   private parts: Buffer[] = [];
   private partsOp = 0;
   private partsLen = 0;
