@@ -15,7 +15,7 @@ import type { GameAssets, Model } from '../assets.js';
 import { FOCAL, type Camera } from '../camera.js';
 import { drawMark, type Splat, type Wreck as MarkWreck } from '../effects.js';
 import { TEAMS } from '../paint.js';
-import { building, gateLeaf, lookOf, towerGun, type Box } from './buildings.js';
+import { building, gateLeaf, lightOf, lookOf, towerGun, type Box } from './buildings.js';
 import { Fx } from './fx.js';
 import { BunkerScene, SkullScene } from './screens.js';
 import { Ground, TILE } from './ground.js';
@@ -36,6 +36,10 @@ const TURRET_BUILDINGS = new Set([TOWER, LARGE_TOWER]);
 const SUN = new THREE.Vector3(-0.42, 1, 0.55).normalize();
 const SHADOW_SPAN = 340;
 const HEADLIGHTS = 6;
+/** Building lights lit at night: the ones nearest what the views look at. */
+const LAMPS = 8;
+
+type Lamp = { x: number; y: number; z: number; power: number; colour: number };
 
 /** A full-view screen drawn in a view instead of (or, for the skull, over) the playfield. */
 export type ModernScreen =
@@ -118,6 +122,11 @@ export class ModernRenderer {
   private readonly sky = new THREE.HemisphereLight(0xcfe8ff, 0x8a6a48, 1.25);
   /** Headlights for the vehicles at night: a fixed few, so turning them on and off never rebuilds the shaders. */
   private readonly heads: THREE.SpotLight[] = [];
+  private readonly lamps: THREE.PointLight[] = [];
+  /** Each chunk's building lights, kept with its geometry. */
+  private readonly chunkLamps: Lamp[][] = Array.from({ length: CHUNKS * CHUNKS }, () => []);
+  /** How much windows and lamps glow: 0 by day, 1 at night. */
+  private readonly glow = { value: 0 };
   private skull: SkullScene | null = null;
 
   constructor(private readonly assets: GameAssets) {
@@ -135,6 +144,20 @@ export class ModernRenderer {
 
     this.scene.background = new THREE.Color(0x0c2a40);
     this.scene.add(this.sky);
+    for (let i = 0; i < LAMPS; i++) {
+      const l = new THREE.PointLight(0xffd090, 0, 150, 1.5);
+      this.lamps.push(l);
+      this.scene.add(l);
+    }
+    // Windows and lamp glass (the kits' glow attribute) shine warm at night.
+    this.material.onBeforeCompile = (shader) => {
+      shader.uniforms.nightGlow = this.glow;
+      shader.vertexShader = shader.vertexShader
+        .replace('void main() {', 'attribute float glow;\nvarying float vGlow;\nvoid main() {\n  vGlow = glow;');
+      shader.fragmentShader = shader.fragmentShader
+        .replace('void main() {', 'uniform float nightGlow;\nvarying float vGlow;\nvoid main() {')
+        .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n  totalEmissiveRadiance += vec3(1.0, 0.78, 0.42) * vGlow * nightGlow * 1.6;');
+    };
     for (let i = 0; i < HEADLIGHTS; i++) {
       const l = new THREE.SpotLight(0xfff0c8, 0, 260, 0.5, 0.65, 1.2);
       this.heads.push(l);
@@ -257,6 +280,7 @@ export class ModernRenderer {
     this.syncChunks(m.world);
     this.syncDynamic(m, extras, views.filter((v) => !v.skip).map((v) => v.cam), dt);
     this.aimHeadlights(m);
+    this.lightBuildings(views);
     this.fx.step(dt);
 
     const ctx = this.canvas.getContext('2d')!;
@@ -332,6 +356,7 @@ export class ModernRenderer {
     this.sky.color.setHex(night ? 0x3a4c80 : 0xcfe8ff);
     this.sky.groundColor.setHex(night ? 0x16120e : 0x8a6a48);
     this.sky.intensity = night ? 0.6 : 1.25;
+    this.glow.value = night ? 1 : 0;
     this.sun.color.setHex(night ? 0xa8bcff : 0xfff2dc);
     this.sun.intensity = night ? 0.8 : 2.6;
     (this.scene.background as THREE.Color).setHex(night ? 0x02060c : 0x0c2a40);
@@ -343,6 +368,38 @@ export class ModernRenderer {
   private waterLight(u: Record<string, THREE.IUniform>): void {
     (u.tint!.value as THREE.Color).setRGB(this.night ? 0.22 : 1, this.night ? 0.27 : 1, this.night ? 0.4 : 1);
     (u.glint!.value as THREE.Color).setRGB(this.night ? 0.55 : 1, this.night ? 0.62 : 0.97, this.night ? 0.8 : 0.88);
+  }
+
+  /** At night, lights the buildings nearest what each view looks at (shared out between split-screen views). */
+  private lightBuildings(views: readonly ModernView[]): void {
+    let used = 0;
+    if (this.night) {
+      const field = views.filter((v) => !v.skip);
+      const each = field.length ? Math.floor(LAMPS / field.length) : 0;
+      const taken = new Set<Lamp>();
+      for (const v of field) {
+        const pose = v.cam.pose();
+        const near: { lamp: Lamp; d: number }[] = [];
+        const ccx = Math.floor(pose.x / TILE / CHUNK);
+        const ccy = Math.floor(pose.y / TILE / CHUNK);
+        for (let cy = Math.max(0, ccy - 1); cy <= Math.min(CHUNKS - 1, ccy + 1); cy++) {
+          for (let cx = Math.max(0, ccx - 1); cx <= Math.min(CHUNKS - 1, ccx + 1); cx++) {
+            for (const lamp of this.chunkLamps[cy * CHUNKS + cx]!) {
+              if (!taken.has(lamp)) near.push({ lamp, d: (lamp.x - pose.x) ** 2 + (lamp.y - pose.y - 40) ** 2 });
+            }
+          }
+        }
+        near.sort((a, b) => a.d - b.d);
+        for (const { lamp } of near.slice(0, each)) {
+          const l = this.lamps[used++]!;
+          taken.add(lamp);
+          l.position.set(lamp.x, lamp.z, lamp.y);
+          l.color.setHex(lamp.colour);
+          l.intensity = lamp.power;
+        }
+      }
+    }
+    for (; used < LAMPS; used++) this.lamps[used]!.intensity = 0;
   }
 
   /** Points each vehicle's headlights (at night) ahead of it. */
@@ -430,9 +487,10 @@ export class ModernRenderer {
           this.chunks[c] = null;
         }
         const geos: THREE.BufferGeometry[] = [];
+        const lamps: Lamp[] = (this.chunkLamps[c] = []);
         for (let y = cy * CHUNK; y < cy * CHUNK + CHUNK; y++) {
           for (let x = cx * CHUNK; x < cx * CHUNK + CHUNK; x++) {
-            const g = this.tileGeometry(world, y * GRID + x);
+            const g = this.tileGeometry(world, y * GRID + x, lamps);
             if (g) geos.push(g);
           }
         }
@@ -449,7 +507,7 @@ export class ModernRenderer {
     }
   }
 
-  private tileGeometry(world: World, i: number): THREE.BufferGeometry | null {
+  private tileGeometry(world: World, i: number, lamps: Lamp[]): THREE.BufferGeometry | null {
     const bid = world.building[i]!;
     if (!bid) return null;
     const def = world.defs[bid];
@@ -468,6 +526,8 @@ export class ModernRenderer {
     if (bid === BROKEN_BRIDGE) kit = brokenBridge(world, i);
     else kit = building(def, def.name, this.boxes[bid] ?? null, i);
     if (!kit) return null;
+    const lamp = bid === BROKEN_BRIDGE ? null : lightOf(def.name, this.boxes[bid] ?? null);
+    if (lamp) lamps.push({ ...lamp, x: lamp.x + ox, y: lamp.y + oy });
     const g = kit.build(owner < 0 ? NEUTRAL : this.paints[owner] ?? NEUTRAL);
     g.translate(ox, 0, oy);
     return g;

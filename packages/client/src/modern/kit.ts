@@ -6,8 +6,11 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 
-/** A colour, or 'team' for the owner's colour, filled in when the model is made for a side. */
-export type Paint = number | 'team' | 'teamDark' | 'teamLight';
+/**
+ * A colour, or 'team' for the owner's colour, filled in when the model is made for a side. 'window' and 'lamp' are
+ * glass and lamp glass that glow at night: the model's glow attribute marks them for the renderer's material.
+ */
+export type Paint = number | 'team' | 'teamDark' | 'teamLight' | 'window' | 'lamp';
 
 export interface Place {
   /** Turn about the up axis, radians, clockwise seen from above (the sim's heading direction). */
@@ -140,6 +143,7 @@ export class Kit {
         colours[i * 3 + 2] = c.b;
       }
       g.setAttribute('color', new THREE.BufferAttribute(colours, 3));
+      g.setAttribute('glow', new THREE.BufferAttribute(new Float32Array(n).fill(paint === 'window' || paint === 'lamp' ? 1 : 0), 1));
       return g;
     });
     if (!parts.length) return new THREE.BufferGeometry();
@@ -163,6 +167,8 @@ function resolve(p: Paint, t: TeamPaint): number {
   if (p === 'team') return t.main;
   if (p === 'teamDark') return t.dark;
   if (p === 'teamLight') return t.light;
+  if (p === 'window') return 0x7ec2de;
+  if (p === 'lamp') return 0xf5efc0;
   return p;
 }
 

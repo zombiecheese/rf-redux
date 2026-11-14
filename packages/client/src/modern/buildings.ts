@@ -18,7 +18,6 @@ const LEAF_LIGHT = 0x76b94a;
 const TRUNK = 0x7a5532;
 const METAL = 0x6c7178;
 const GUNMETAL = 0x41454b;
-const GLASS = 0x7ec2de;
 const HAZARD = 0xe0b81c;
 const RUBBLE = [0x77736b, 0x5f5b54, 0x8a857c, 0x4a4743];
 const WALLS = [0xe9dcc2, 0xd9c7a3, 0xf0e6d6, 0xc9b28a];
@@ -209,7 +208,7 @@ export function building(def: BuildingDef & { name?: string }, name: string, box
         t.box(0, 0, 0, fw - 2, fd - 2, h, wall);
         t.roof(0, 0, h, fw + 1, fd + 1, b.h - h + 2, roof, r() < 0.5);
         t.box(0, -fd / 2 + 1, 0, 5, 0.6, 6.5, WOOD_DARK);
-        for (const s of [-1, 1]) t.box(s * (fw / 4 + 1), -fd / 2 + 1, 4, 4, 0.6, 3.4, GLASS);
+        for (const s of [-1, 1]) t.box(s * (fw / 4 + 1), -fd / 2 + 1, 4, 4, 0.6, 3.4, 'window');
         t.box(fw / 4, 2, b.h - 1, 2.6, 2.6, 5, 0x8a5a48);
       });
       break;
@@ -220,7 +219,7 @@ export function building(def: BuildingDef & { name?: string }, name: string, box
         for (let i = 0; i < 3; i++) t.wedge(0, -fd / 2 + fd / 6 + (i * fd) / 3, h, fw - 1, fd / 3, 4.5, 0.5, i & 1 ? 0x8f9aa6 : 0x7f8a96);
         t.cyl(fw / 2 - 5, fd / 2 - 5, h, 2, 2.6, b.h + 6 - h, 0x9c5a44, 8);
         t.box(0, -fd / 2 + 0.2, 0, 10, 0.6, 8, 'team');
-        t.box(-fw / 2 + 0.2, 0, 4, 0.6, fd * 0.6, 3, GLASS);
+        t.box(-fw / 2 + 0.2, 0, 4, 0.6, fd * 0.6, 3, 'window');
       });
       break;
     case 'hq':
@@ -231,11 +230,13 @@ export function building(def: BuildingDef & { name?: string }, name: string, box
         t.cyl(fw * 0.2, 4, b.h * 0.8 + 3, 0.4, 0.5, 9, METAL, 5).ball(fw * 0.2, 4, b.h * 0.8 + 12.3, 1, 0xff4433, 0);
         t.box(0, -fd / 2, 0, 9, 1, 7, 0x2e3136);
         t.box(0, -fd / 2 - 0.3, 7, 12, 1, 1.5, 'team');
+        for (const sx of [-1, 1]) t.box(sx * fw * 0.3, -fd / 2 - 0.2, 3, fw * 0.18, 0.6, 2.6, 'window');
+        t.box(0, 1 - fd * 0.36 - 0.2, b.h * 0.55, fw * 0.5, 0.6, 2.4, 'window');
       });
       break;
     case 'outpost':
       k.box(cx, cy, 0, w, d, b.h * 0.65, 0xb0a07a).box(cx, cy, b.h * 0.65, w + 2, d + 2, 1.2, 'team');
-      k.box(cx, cy - d / 2, b.h * 0.3, w * 0.6, 0.5, 3, GLASS);
+      k.box(cx, cy - d / 2, b.h * 0.3, w * 0.6, 0.5, 3, 'window');
       k.box(cx, cy, b.h * 0.65 + 1.2, w * 0.7, d * 0.7, 4, 0x8a7a5a);
       break;
     case 'hospital':
@@ -243,7 +244,7 @@ export function building(def: BuildingDef & { name?: string }, name: string, box
         t.box(0, 0, 0, fw - 1, fd - 1, b.h * 0.85, 0xf2f0ea);
         t.box(0, 0, b.h * 0.85, fw, fd, 1, 0xc9c6bd);
         t.box(0, 0, b.h * 0.85 + 1, 8, 2.4, 0.3, 0xd52b2b).box(0, 0, b.h * 0.85 + 1, 2.4, 8, 0.3, 0xd52b2b);
-        t.box(0, -fd / 2 + 0.2, 0, 6, 0.6, 7, GLASS);
+        t.box(0, -fd / 2 + 0.2, 0, 6, 0.6, 7, 'window');
       });
       break;
     case 'fuel':
@@ -304,6 +305,7 @@ export function building(def: BuildingDef & { name?: string }, name: string, box
       k.box(cx, cy, h - 7, 13, 13, 1.2, WOOD);
       k.box(cx, cy, h - 5.8, 13, 13, 1.6, WOOD_DARK);
       k.roof(cx, cy, h - 1.5, 14, 14, 4, 'team');
+      k.box(cx, cy, h - 4.2, 2, 2, 1.6, 'lamp');
       break;
     }
     case 'rubble': {
@@ -333,7 +335,7 @@ export function building(def: BuildingDef & { name?: string }, name: string, box
       break;
     }
     case 'light':
-      k.cyl(cx + 12, cy - 12, 0, 0.5, 0.7, 14, METAL, 5).box(cx + 12, cy - 13.5, 14, 2, 4, 1, 0xf5efc0);
+      k.cyl(cx + 12, cy - 12, 0, 0.5, 0.7, 14, METAL, 5).box(cx + 12, cy - 13.5, 14, 2, 4, 1, 'lamp');
       break;
   }
   return k.empty ? null : k;
@@ -378,3 +380,20 @@ function halfTube(r: number, len: number): THREE.BufferGeometry {
 }
 
 export { METAL, GUNMETAL };
+
+/** Where a lit building's light at night stands (its lamp, or in front of its windows), and how bright it is. */
+export function lightOf(name: string, box: Box | null): { x: number; y: number; z: number; power: number; colour: number } | null {
+  const look = lookOf(name);
+  const b = box ?? { x0: -16, x1: 16, y0: -16, y1: 16, h: 12, ox: 0, oy: 0, oz: 0 };
+  const cx = (b.x0 + b.x1) / 2 + b.ox;
+  const cy = (b.y0 + b.y1) / 2 + b.oy;
+  const front = b.y1 + b.oy + 10;
+  switch (look) {
+    case 'light': return { x: cx + 12, y: cy - 13.5, z: 12, power: 2600, colour: 0xffd890 };
+    case 'watchtower': return { x: cx, y: cy, z: b.h - 5, power: 1800, colour: 0xffc070 };
+    case 'house': case 'outpost': return { x: cx, y: front, z: 8, power: 900, colour: 0xffc070 };
+    case 'hq': case 'factory': case 'hospital': return { x: cx, y: front, z: 10, power: 1400, colour: 0xffd090 };
+    case 'fuel': case 'prison': case 'gate': return { x: cx, y: cy, z: b.h + 6, power: 1400, colour: 0xffe0a8 };
+    default: return null;
+  }
+}
