@@ -664,16 +664,26 @@ export class ModernRenderer {
       }
     }
     // Gate leaves: each hinged at the inside of its post, reaching 8 px to the middle when shut and drawn in as the
-    // gate opens (it opens 16 px).
-    const opening = new Map(m.gates.map((g) => [g.tile, g.opening / 65536]));
+    // gate opens (it opens 16 px). A shut gate is a building on its tile; an opening one is taken off the tile (the
+    // sim's Gate), so its posts are drawn here too until it settles back into a building.
+    const gates: { tile: number; bid: number; opening: number }[] = m.gates.map((g) => ({ tile: g.tile, bid: g.building, opening: g.opening / 65536 }));
     for (let i = 0; i < GRID * GRID; i++) {
       const bid = world.building[i]!;
-      if (bid !== GATE_H && bid !== GATE_H + 1) continue;
-      const len = Math.max(0.3, 8 * (1 - Math.min(16, opening.get(i) ?? 0) / 16));
+      if (bid === GATE_H || bid === GATE_H + 1) gates.push({ tile: i, bid, opening: 0 });
+    }
+    const moving = new Set(m.gates.map((g) => g.tile));
+    for (const { tile: i, bid, opening } of gates) {
+      const len = Math.max(0.3, 8 * (1 - Math.min(16, opening) / 16));
       const owner = world.owner[i]!;
       const team = owner < 0 ? NEUTRAL : this.paints[owner] ?? NEUTRAL;
       const cx = (i % GRID) * TILE + TILE / 2;
       const cy = Math.floor(i / GRID) * TILE + TILE / 2;
+      if (moving.has(i)) {
+        const def = world.defs[bid];
+        const key = `gateposts:${bid}:${owner}`;
+        const posts = def && this.pool(key, () => this.mesh(key, () => building(def, def.name, this.boxes[bid] ?? null, i) ?? new Kit(), team)).take();
+        posts?.position.set(cx, 0, cy);
+      }
       for (const s of [-1, 1]) {
         const leaf = this.pool(`leaf:${owner}`, () => this.mesh(`leaf:${owner}`, () => gateLeaf(1), team)).take();
         leaf.scale.set(len, 1, 1);
