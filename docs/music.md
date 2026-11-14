@@ -86,7 +86,9 @@ SoundFont.
 
 Riffs are written once (`riff()` in `pieces-modern.ts`: upper case is an open power chord, lower case a palm-muted
 chug) and become the lines of both guitars, both palm mutes and the bass; `lock()` writes breakdown drums that hit
-with the riff. Any piece can be replaced with a MIDI file at `assets/generated/music/modern-<name>.mid`.
+with the riff. Every piece also has a hardcore breakdown (`breakdown()`): the tempo drops, the kit goes
+half-time on the china, the sub drops under the first hit and a stop sets up the last drop; the short stings end
+on a two-bar one. Any piece can be replaced with a MIDI file at `assets/generated/music/modern-<name>.mid`.
 
 Every piece is original to this project, 2026, released under [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/):
 

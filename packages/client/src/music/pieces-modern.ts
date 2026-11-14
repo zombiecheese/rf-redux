@@ -4,7 +4,7 @@
 // a pad, an 808 sub for the drops and a metal kit, all played by the built-in synthesiser's modern rig (synth.ts).
 // Every note here was written for this project and is released under CC0 (docs/music.md).
 
-import { pitch, PPQ, ticks, type PartDef, type PieceDef } from './score.js';
+import { pitch, PPQ, ticks, type PartDef, type PieceDef, type SectionDef } from './score.js';
 
 // ---- The band ----------------------------------------------------------------------------------------------------
 
@@ -103,7 +103,8 @@ function lock(line: string, o: { snare: number[]; top: string; every?: number; c
     if (barStart < 0) barStart = i.at;
     const pos = i.at - barStart;
     const onBeat = pos % every === 0;
-    const snare = o.snare.some((b) => pos === b * PPQ);
+    // A long rest is a stop (the mosh call before the drop): the kit holds off too.
+    const snare = o.snare.some((b) => pos === b * PPQ) && (i.kind !== 'rest' || i.len < 2 * PPQ);
     const parts: string[] = [];
     if (snare) parts.push('sn');
     else if (i.kind !== 'rest') parts.push('bd');
@@ -378,6 +379,52 @@ const drums: PieceDef = {
     { name: 'loop', parts: with_(riff(menuLoop), { drums: `mf ${crashOn(rep(4, 'bd+hh/8 hh sn+hh> bd+hh r/8 bd+hh sn+hh> hh', 'bd+hh/8 hh sn+hh> bd+hh bd+hh hh sn+hh> oh'))}` }) },
   ],
 };
+
+// ---- Breakdowns ---------------------------------------------------------------------------------------------------
+// Every piece gets a hardcore breakdown: the tempo drops, the kit goes half-time on the china with the kick locked to
+// the chugs, the sub drops under the first hit, and a stop (the mosh call) sets up the last drop.
+
+const BD_A = 'C2/8> r/8 c2/16 c2 r/8 C2/8> r/8 c2/16 c2 c2/8';
+const BD_B = 'C2/8> r/8 c2/16 c2 r/8 Db2:b5/4> r/4';
+const BD_C = 'C2/8t> C2> C2> r/4 c2/16 c2 r/8 F#2:b5/4>';
+const BD_D = 'C2/4> r/4 r/2';
+const BD_E = 'C2/4.> c2/16 c2 Db2/4.> c2/16 c2';
+const BD_F = 'c2/16 c2 c2 c2 C2/8> r/8 c2/16 c2 c2 c2 Eb2:b5/8> D2:b5/8>';
+const BD_G = 'C2/8> c2/16 c2 r/8 c2/16 c2 G2:b5/4> F#2:b5/4>';
+
+/**
+ * A breakdown section: its bars of riff, the bars the sub drops on, and its tempo. A lead line can ride on top.
+ */
+function breakdown(name: string, bpm: number, barsOf: string[], drops: number[], extra: Record<string, string> = {}): SectionDef {
+  const line = `ff ${join(...barsOf)}`;
+  return { name, bpm, parts: with_(riff(line), {
+    drums: lock(line, { snare: [2], top: 'cn' }),
+    sub: join(...barsOf.map((_, i) => (drops.includes(i) ? 'C2/1' : 'r/1'))),
+  }, extra) };
+}
+
+/** Adds a section to a piece (before another, or at the end), giving the piece a sub if it has none. */
+function add(piece: PieceDef, section: SectionDef, before?: string): void {
+  if (!piece.parts.some((p) => p.name === 'sub')) piece.parts.push(SUB);
+  const at = before ? piece.sections.findIndex((x) => x.name === before) : -1;
+  if (at >= 0) piece.sections.splice(at, 0, section);
+  else piece.sections.push(section);
+}
+
+const BIG = [BD_A, BD_B, BD_A, BD_D, BD_E, BD_F, BD_C, BD_D];
+add(tank, breakdown('d', 130, BIG, [0, 4]));
+add(jeep, breakdown('c', 150, [BD_A, BD_B, BD_A, BD_G, BD_A, BD_B, BD_C, BD_D], [0, 4]));
+add(asv, breakdown('c', 68, [BD_E, BD_C, BD_E, BD_D, BD_F, BD_G, BD_C, BD_D], [0, 4]));
+add(heli, breakdown('c', 128, BIG, [0, 4], { lead: `f ${join('r/1', 'r/1', 'r/1', 'r/2 G5/4 F#5/4~', 'r/1', 'r/1', 'r/1', 'r/2 Db6/4 C6/4~')}` }));
+add(flagPickup, breakdown('c', 140, [BD_F, BD_B, BD_F, BD_D, BD_A, BD_G, BD_C, BD_D], [0, 4]));
+add(win, breakdown('breakdown', 120, [BD_A, BD_B, BD_C, BD_D], [0]), 'end');
+add(bunker, breakdown('b', 76, [BD_E, BD_B, BD_E, BD_D], [0], { pad: `pp ${join('C4+Eb4+G4/1', 'Ab3+C4+Eb4/1', 'C4+Eb4+G4/1', 'C4+Eb4+G4/1')}` }));
+add(sub, breakdown('b', 60, [BD_E, BD_C], [0]));
+add(drums, breakdown('breakdown', 112, [BD_A, BD_B, BD_A, BD_D], [0]));
+// The stings end on a two-bar breakdown hit.
+const STING = [BD_C, 'C2:b5/1~'];
+for (const piece of [tankDeath, asvDeath, heliDeath, flagDiscovery]) add(piece, breakdown('breakdown', 120, STING, [0]));
+add(death, breakdown('breakdown', 120, STING, [0]));
 
 /** The modern soundtrack, by the file name the director uses. The splash's fanfare is the band book's. */
 export const MODERN_BOOK: Record<string, PieceDef> = {
