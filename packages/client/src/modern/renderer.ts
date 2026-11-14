@@ -145,6 +145,9 @@ export class ModernRenderer {
   private feed = false;
   private thermal = false;
   private pass: LookPass | null = null;
+  /** Recent blasts (seconds on the performance clock), and when each player's vehicle was last hit or destroyed. */
+  private readonly blasts: { x: number; y: number; at: number; power: number }[] = [];
+  private readonly struck = new Map<number, { at: number; long: boolean }>();
 
   constructor(private readonly assets: GameAssets) {
     this.gl = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true, powerPreference: 'high-performance' });
@@ -214,6 +217,41 @@ export class ModernRenderer {
   /** The match's events of one tick, for the effects. */
   events(events: readonly MatchEvent[], m: Match): void {
     const px = (n: number) => n / 65536;
+    const now = performance.now() / 1000;
+    const blast = (x: number, y: number, power: number) => {
+      this.blasts.push({ x, y, at: now, power });
+      if (this.blasts.length > 32) this.blasts.shift();
+    };
+    for (const e of events) {
+      // What shakes the drone's stream: a blast near what it watches, and above all a hit on the player's vehicle.
+      switch (e.type) {
+        case 'destroyed':
+          blast(px(e.x), px(e.y), 0.5);
+          this.struck.set(e.player, { at: now, long: true });
+          break;
+        case 'wreckBlown':
+          blast(px(e.x), px(e.y), 0.4);
+          break;
+        case 'droneDown':
+          blast(px(e.x), px(e.y), 0.35);
+          break;
+        case 'buildingDestroyed': {
+          const small = /BUSH|TREE|PALM|CACTUS|ROCK|TENT|PLANTER/i.test(m.world.defs[e.building]?.name ?? '');
+          blast((e.tile % GRID) * TILE + TILE / 2, Math.floor(e.tile / GRID) * TILE + TILE / 2, e.crushed || small ? 0.2 : 0.55);
+          break;
+        }
+        case 'hit':
+          if (e.target === 'vehicle') {
+            for (const p of m.players) {
+              const v = p.vehicle;
+              if (v && Math.hypot(v.x - e.x, v.y - e.y) < 18 * 65536 && !(this.struck.get(p.id)?.long && now - this.struck.get(p.id)!.at < 1.2)) this.struck.set(p.id, { at: now, long: false });
+            }
+          }
+          break;
+        default:
+          break;
+      }
+    }
     for (const e of events) {
       switch (e.type) {
         case 'fired': {
@@ -328,7 +366,7 @@ export class ModernRenderer {
       this.place(v.cam, v.rect);
       this.gl.render(this.scene, this.camera);
     }
-    if (field.length && (this.feed || this.thermal)) (this.pass ??= new LookPass(MODERN_W, MODERN_H)).apply(this.gl, field.map((v) => v.rect), this.feed, this.thermal, now / 1000);
+    if (field.length && (this.feed || this.thermal)) (this.pass ??= new LookPass(MODERN_W, MODERN_H)).apply(this.gl, field.map((v) => v.rect), field.map((v) => this.glitchFor(v)), this.feed, this.thermal, now / 1000);
     for (const v of views) {
       const r = v.rect;
       at(r);
@@ -355,6 +393,18 @@ export class ModernRenderer {
       }
     }
     ctx.drawImage(this.gl.domElement, 0, 0);
+  }
+
+  /** How hard the drone's stream breaks up over a view now: blasts near what it watches, and hits on its player. */
+  private glitchFor(v: ModernView): number {
+    const now = performance.now() / 1000;
+    const fade = (age: number, span: number) => (age < 0 || age > span ? 0 : 1 - age / span);
+    const pose = v.cam.pose();
+    let g = 0;
+    for (const b of this.blasts) if (Math.abs(b.x - pose.x) < 480 && Math.abs(b.y - pose.y) < 360) g = Math.max(g, b.power * fade(now - b.at, 0.45));
+    const s = this.struck.get(v.viewer);
+    if (s) g = Math.max(g, fade(now - s.at, s.long ? 1.2 : 0.6));
+    return g;
   }
 
   /** Stands the camera where the retro camera projects from, framing the rectangle as the retro view frames its own. */

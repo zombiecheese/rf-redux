@@ -1,8 +1,8 @@
 // The modern view's camera look: a surveillance drone's feed over the toy-soldier world, and its thermal camera.
 //
 // The drone feed is a pass over the finished picture: a slightly washed, cool grade, a soft lens (colour fringes and
-// a darker rim), film grain, a faint rolling line and now and then the encoder's errors (torn rows, broken
-// macroblocks), as a feed streamed from high up looks. Thermal is drawn by the models
+// a darker rim), film grain, a faint rolling line, and the stream's encoder errors (torn rows, broken macroblocks)
+// when something is destroyed nearby, worst when the player's own vehicle is hit. Thermal is drawn by the models
 // themselves: every material shows its heat instead of its lit colour (vehicles, soldiers and drones hot, wrecks
 // warm, buildings and ground cool, the sea cold, lit windows warm at night), so darkness hides nothing; the pass then
 // shows it white-hot, grainy and a touch soft, as an infrared camera does.
@@ -41,6 +41,7 @@ const FRAGMENT = /* glsl */ `
   uniform float drone;
   uniform float thermal;
   uniform vec4 rects[2];
+  uniform float glitches[2];
   uniform int count;
   varying vec2 vUv;
 
@@ -50,41 +51,42 @@ const FRAGMENT = /* glsl */ `
   void main() {
     vec2 px = gl_FragCoord.xy;
     vec4 r = vec4(0.0, 0.0, res);
+    float glitch = 0.0;
     for (int i = 0; i < 2; i++) {
       if (i >= count) break;
       vec4 q = rects[i];
-      if (px.x >= q.x && px.x < q.x + q.z && px.y >= q.y && px.y < q.y + q.w) r = q;
+      if (px.x >= q.x && px.x < q.x + q.z && px.y >= q.y && px.y < q.y + q.w) {
+        r = q;
+        glitch = glitches[i];
+      }
     }
     vec2 local = (px - r.xy) / r.zw;
     vec2 d = local - 0.5;
     vec2 texel = 1.0 / res;
     float grain = hash(floor(px) + fract(time * 13.7) * 91.0) - 0.5;
     vec2 uv = vUv;
-    // The feed's encoder errors: now and then (a few times a minute) a short burst tears rows sideways, smears
-    // and discolours macroblocks and splits the colours; between bursts a stray block glitches now and again.
-    float slot = floor(time * 4.0);
-    float burst = drone * step(0.965, hash(vec2(slot, 7.0)));
-    float stray = drone * step(0.995, hash(vec2(floor(time * 9.0), 3.0)));
+    // The feed's encoder errors, set off by the blast of something destroyed (glitch, 0-1, fading as it settles;
+    // strongest when the player's own vehicle is hit): rows torn sideways, slices of misplaced macroblocks,
+    // discoloured blocks and split colours, flickering on and off from one frame slot to the next.
+    float slot = floor(time * 14.0);
+    float burst = drone * step(0.001, glitch) * step(1.0 - min(1.0, glitch * 1.4), hash(vec2(slot, 7.0)));
     vec2 block = floor(px / 16.0);
     float hit = 0.0;
     if (burst > 0.5) {
       float band = floor(px.y / (6.0 + 20.0 * hash(vec2(slot, 2.0))));
       float tear = hash(vec2(band, slot));
-      if (tear > 0.72) uv.x += (hash(vec2(band, slot + 1.0)) - 0.5) * 60.0 * texel.x;
+      if (tear > 1.0 - 0.45 * glitch) uv.x += (hash(vec2(band, slot + 1.0)) - 0.5) * (30.0 + 90.0 * glitch) * texel.x;
       // A corrupt slice: from some way along a row of blocks to its end, the blocks come from the wrong place.
       float slice = hash(vec2(block.y, slot + 0.5));
       float from = hash(vec2(block.y, slot + 1.5)) * res.x / 16.0;
-      if (slice > 0.88 && block.x >= from) {
+      if (slice > 1.0 - 0.22 * glitch && block.x >= from) {
         vec2 shift = (vec2(hash(vec2(block.y, slot + 2.5)), hash(vec2(block.y, slot + 3.5))) - 0.5) * vec2(160.0, 48.0);
         uv = (floor(px) + floor(shift) + 0.5) * texel;
         hit = step(0.8, hash(block + slot));
-      } else if (hash(block + slot * 1.31) > 0.997) {
+      } else if (hash(block + slot * 1.31) > 1.0 - 0.012 * glitch) {
         hit = 1.0;
         uv = (block * 16.0 + 8.0) * texel;
       }
-    } else if (stray > 0.5 && hash(block + floor(time * 9.0)) > 0.985) {
-      hit = 1.0;
-      uv = (floor(uv * res / 16.0) * 16.0 + 8.0) * texel;
     }
     vec3 col;
     if (thermal > 0.5) {
@@ -99,7 +101,7 @@ const FRAGMENT = /* glsl */ `
       col = vec3(t) * vec3(0.98, 1.0, 1.02);
     } else {
       // A lens: colour fringes growing to the rim.
-      vec2 off = d * 2.6 * texel + vec2(burst * 4.0 * texel.x, 0.0);
+      vec2 off = d * 2.6 * texel + vec2(burst * (2.0 + 8.0 * glitch) * texel.x, 0.0);
       col = vec3(texture2D(frame, uv + off).r, texture2D(frame, uv).g, texture2D(frame, uv - off).b);
       // A feed's grade: a little washed out and cool, the blacks lifted a touch.
       float g = lum(col);
@@ -149,6 +151,7 @@ export class LookPass {
         drone: { value: 1 },
         thermal: { value: 0 },
         rects: { value: [new THREE.Vector4(), new THREE.Vector4()] },
+        glitches: { value: [0, 0] },
         count: { value: 0 },
       },
       vertexShader: VERTEX,
@@ -165,7 +168,7 @@ export class LookPass {
    * Copies what gl has drawn so far and draws it back through the look. rects are the map views, top-left origin,
    * so each gets its own lens.
    */
-  apply(gl: THREE.WebGLRenderer, rects: readonly LookRect[], drone: boolean, thermal: boolean, seconds: number): void {
+  apply(gl: THREE.WebGLRenderer, rects: readonly LookRect[], glitch: readonly number[], drone: boolean, thermal: boolean, seconds: number): void {
     gl.setViewport(0, 0, this.w, this.h);
     gl.setScissor(0, 0, this.w, this.h);
     gl.copyFramebufferToTexture(this.frame, this.origin);
@@ -180,6 +183,8 @@ export class LookPass {
       list[i]!.set(r.x, this.h - r.y - r.h, r.w, r.h);
     }
     u.count!.value = n;
+    const g = u.glitches!.value as number[];
+    for (let i = 0; i < 2; i++) g[i] = glitch[i] ?? 0;
     gl.render(this.scene, this.camera);
   }
 
