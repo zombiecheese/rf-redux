@@ -534,6 +534,8 @@ async function startOnline(s: MatchStart): Promise<void> {
     const { picture } = game;
     const played = game;
     const outcome = await game.done;
+    // The host may have picked the visuals, and with them the soundtrack: back to the player's own.
+    applyMusicStyle();
     if (mine !== run || !outcome) return;
     game = null;
     onlineGame = null;

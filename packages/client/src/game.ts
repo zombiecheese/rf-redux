@@ -194,6 +194,10 @@ export class Game {
     const signal = this.abort.signal;
     const start = online?.start;
     const net = online?.net;
+    /** Retro or modern: the host's pick for everyone online, or the player's own. */
+    const wanted = () => (start?.visuals && start.visuals !== 'any' ? start.visuals : this.o.visuals?.());
+    // The host's pick brings its own soundtrack too.
+    if (start?.visuals && start.visuals !== 'any') music.setStyle(start.visuals === 'modern' && modernAvailable() ? 'modern' : 'retro');
     const players = online ? 1 : this.o.players;
     let sides = activeControls();
     const pick = () => (online || players === 1 ? [sides.solo] : this.o.swapSides ? [sides.right, sides.left] : [sides.left, sides.right]);
@@ -692,13 +696,13 @@ export class Game {
         }
       }
       // The modern view draws once its code has loaded (and only where there is WebGL); until then, retro.
-      if (this.o.visuals?.() === 'modern' && !modern && modernAvailable()) {
+      if (wanted() === 'modern' && !modern && modernAvailable()) {
         modernModule ??= import('./modern/renderer.js');
         void modernModule.then((mod) => {
           if (!modern && !signal.aborted) modern = new mod.ModernRenderer(assets);
         });
       }
-      const useModern = this.o.visuals?.() === 'modern' && !!modern;
+      const useModern = wanted() === 'modern' && !!modern;
       frame.setClip(0, 0, SCREEN_W, SCREEN_H);
       frame.fill(0xff000000);
       const extras = effects.current(match.tick);
@@ -756,7 +760,7 @@ export class Game {
       display.sides = v.map((p) => match.players[p]!.base);
       if (useModern && modern) {
         const rects = modernLayout(cameras.length);
-        const night = this.o.lighting?.() === 'night';
+        const night = (start?.lighting && start.lighting !== 'any' ? start.lighting : this.o.lighting?.()) === 'night';
         const look = this.o.camera?.() ?? { drone: false, thermal: false };
         modern.setNight(night);
         modern.setLook(look.drone, look.thermal);

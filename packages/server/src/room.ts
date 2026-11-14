@@ -16,7 +16,7 @@ import {
   HASH_EVERY, TICK_MS, VEHICLE_KINDS, botThink, buildWorld, createBot, createMatch, hashMatch, snapshotMatch,
   type BotState, type BuildingDef, type Match, type RfwMap, type ShoreTable, type Snapshot,
 } from '@rfw/sim';
-import {
+import { type LobbyLighting, type LobbyVisuals, 
   applyFrame, commandCode, encodeFrames, packInput,
   type Frame, type MatchResult, type MatchSeat, type MatchStart, type SeatStatus, type ServerMessage,
 } from '@rfw/net';
@@ -64,6 +64,9 @@ export interface RoomOptions {
   difficulty: number;
   /** Extra vehicles for the smaller side. */
   handicap?: boolean;
+  /** The host's picks of visuals and lighting for everyone. */
+  visuals?: LobbyVisuals;
+  lighting?: LobbyLighting;
   /** Friends' games pause while a player is reconnecting. */
   pauseOnDrop: boolean;
   /** Where desync reports are written (DATA_DIR/desyncs), or null to skip writing them. */
@@ -126,7 +129,7 @@ export class Room {
   private startFor(player: number | null): MatchStart {
     const o = this.o;
     return {
-      gameId: o.id, mapId: o.mapId, map: o.map, seed: o.seed, difficulty: o.difficulty, handicap: o.handicap === true, seats: o.seats, you: player,
+      gameId: o.id, mapId: o.mapId, map: o.map, seed: o.seed, difficulty: o.difficulty, handicap: o.handicap === true, visuals: o.visuals ?? 'any', lighting: o.lighting ?? 'any', seats: o.seats, you: player,
       snapshot: this.match.tick > 0 ? snapshotMatch(this.match) : undefined,
     };
   }
