@@ -39,6 +39,7 @@ import { SCREEN_H, SCREEN_W } from './raster.js';
 import { Stage } from './stage.js';
 import { winScene, winTier } from './winscene.js';
 import { modernWinScene } from './modern/finale.js';
+import { loadModern } from './modern/load.js';
 import { addTouchControls } from './touch.js';
 import './ui.css';
 
@@ -64,6 +65,8 @@ const music = new Music(settings.music);
 // mid-match (the thermal camera, say) never swaps the soundtrack.
 const applyMusicStyle = () => music.setStyle(seenVisuals() === 'modern' && modernAvailable() ? 'modern' : 'retro');
 music.setStyle(settings.visuals === 'modern' && modernAvailable() ? 'modern' : 'retro');
+// A player whose view is Modern gets its renderer's code while still in the menus, so a match opens straight in it.
+if (settings.visuals === 'modern' && modernAvailable()) void loadModern();
 /** How the match on screen is drawn: the host's pick online, or the player's own Options > Visuals. */
 function seenVisuals(): Settings['visuals'] {
   return game?.fixedVisuals ?? settings.visuals;
@@ -140,6 +143,7 @@ function save(next: Settings): void {
 /** Lets the page's buttons follow the picture: the IR button shows over a modern match, lit while thermal is on. */
 function syncLook(): void {
   document.body.dataset.visuals = seenVisuals();
+  if (seenVisuals() === 'modern' && modernAvailable()) void loadModern();
   // The thermal camera is only there at night.
   document.body.classList.toggle('night', game?.night ?? settings.lighting === 'night');
   document.body.classList.toggle('thermal', thermal);
