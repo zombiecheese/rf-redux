@@ -1,7 +1,6 @@
 // The front end's dialogs: Player Selector, Level Selector, Hall of Fame, Help, System Info, About and the exit question, plus the
-// Windows 95 menu bar the level editor keeps (RFireEng.dll MENU 101). They are DOM elements drawn over the game
-// picture, so they stay sharp at any window size: the game page dresses them as modern panels (ui.css), the editor
-// as the original's Win95 controls (w95.css).
+// level editor's menu bar. They are DOM elements drawn over the game picture, so they stay sharp at any window size,
+// and both the game page and the editor dress them as the modern panels of ui.css.
 
 import { DIFFICULTY, clampDifficulty, type RfwMap } from '@rfw/sim';
 import { artSprites, loadCommon, type MapEntry } from './assets.js';
