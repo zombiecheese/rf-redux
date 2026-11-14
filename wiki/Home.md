@@ -4,6 +4,14 @@
 
 It keeps the original's look, handling and rules, and adds online play for one to four players, computer opponents, accounts and lobbies, chat, replays and a web level editor.
 
+![The title screen with the main menu](images/title-menu.png)
+
+*The title screen and main menu.*
+
+![A tank firing near an enemy gate, with the cockpit panel below](images/tank.png)
+
+*A match: your vehicle in the middle, the cockpit panel with radar, fuel and ammunition below.*
+
 ## Start here
 
 | I want to... | Page |

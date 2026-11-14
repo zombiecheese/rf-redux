@@ -30,6 +30,10 @@ A player whose base is out stays in the match as a watcher. Their view follows a
 
 You drive one vehicle at a time, launched from the lift in your bunker. Each map sets how many of each you get. A common set is 8 jeeps, 3 tanks, 3 ASVs and 3 helicopters, and some maps give unlimited numbers.
 
+![The lift screen with the four vehicle bays](images/lift-screen.png)
+
+*The bunker's lift screen, where you pick a vehicle. The number is how many of that vehicle you have left.*
+
 | Vehicle | Good at | Watch out for |
 | --- | --- | --- |
 | **Jeep** | The only vehicle that carries a flag. Fast, throws grenades at vehicles close by, and can blow up its tyres to float across deep water | Lightly armoured. Lose them all and your base is out |
@@ -55,6 +59,10 @@ You drive one vehicle at a time, launched from the lift in your bunker. Each map
 - **Water:** vehicles wade through shallows and sink in deep water. The jeep can float across on its tyres.
 - **Shots fly in 3D.** Tank shells pass over rocks and men, and ground fire only reaches a helicopter when it is raised at it.
 - **The edge of the map:** drive far outside it and you will not be left alone.
+
+![A tank firing near a walled enemy gate](images/tank.png)
+
+*A tank shelling its way towards a walled gate.*
 
 ## Teams and bases
 

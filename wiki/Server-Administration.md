@@ -16,6 +16,10 @@ Roles rank player, moderator, admin, owner. Each can do everything the roles bel
 
 **Admin Panel** is in the game's main menu for moderators, admins and the owner. The address `/admin` opens it too, once you are signed in.
 
+![The admin panel dashboard](images/admin-panel.png)
+
+*The admin panel's dashboard on a fresh site.*
+
 | Section | Who | What it covers |
 | --- | --- | --- |
 | Dashboard | moderator | Players online, lobbies, games, accounts, sign-ups, server load, open reports |

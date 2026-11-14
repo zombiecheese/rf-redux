@@ -17,12 +17,24 @@ The title screen shows the menu after the splash. Any key or a tap brings it bac
 
 Training and Two Players open the **Player Selector** (names and the computer's skill, 1 to 9), then the **Level Selector**, which lists the maps by level 1 to 9 with a preview of each. On a map with three or four bases you are also asked for the team layout.
 
+![The Level Selector with levels, maps and a map preview](images/level-selector.png)
+
+*The Level Selector: levels on the left, that level's maps, and a preview of the picked map with each base marked.*
+
 ## Your first match
 
 1. You start in your bunker on the lift screen. Pick a vehicle with **1 2 3 4** (jeep, tank, ASV, helicopter).
 2. Take a tank or a helicopter first and find the enemy base. Destroy its buildings until the flag appears.
 3. Drive back onto your own base and press **R** to go back into the bunker.
 4. Launch a jeep, drive it over the flag to pick it up, and bring it home.
+
+![The lift screen in the bunker with four vehicle bays](images/lift-screen.png)
+
+*The lift screen. The four bays hold the helicopter, tank, ASV and jeep, and the panel shows how many of the picked vehicle are left.*
+
+![A tank beside its lift pad and a tower](images/home-base.png)
+
+*Just launched: a tank beside its base's lift pad. Drive back onto the pad and press R to dock.*
 
 ## Controls
 
@@ -98,6 +110,14 @@ Phones and tablets play solo, in landscape, with faded on-screen buttons. Held u
 - **The bars** show fuel, ammunition and damage for the vehicle you are driving.
 - **The radar** shows what is around you.
 - **The camouflage bars** beside the picture are in the colour of the player being watched.
+
+![A helicopter over the coast with its cockpit panel](images/helicopter.png)
+
+*The helicopter's panel has its own gauges. The camouflage bars at the sides are brown because Brown is being watched.*
+
+![Split screen with two players and two cockpit panels](images/two-players.png)
+
+*Two Players: Brown on the left half, Green on the right, each with their own panel.*
 
 ## Replays
 

@@ -8,6 +8,10 @@ The level editor is **Level Editor** in the main menu, or `/editor.html`. It nee
 - **The map** in the middle, top down or in the game's tilted view (Tab). The wheel zooms, a right-drag or Space and drag pans, and 0 fits the whole map.
 - **The side panel** on the right: the palette for the current tool, the Map tab and the Problems tab.
 
+![The level editor showing a whole island map](images/editor-map.png)
+
+*A whole map in the editor, with the tools on the left, the palette on the right and the minimap in the corner. The numbers mark each base's start.*
+
 | Tool | Key | Tool | Key |
 | --- | --- | --- | --- |
 | Select | S | Building | B |
@@ -27,6 +31,10 @@ Painting tools take a shape: a brush 1, 2, 3, 5 or 7 tiles across, a line, a box
 4. **Place flag sites.** Each base needs at least one building the flag can hide in. One is picked at random when a match starts.
 5. **Add buildings, gun towers, depots, roads and bridges.** Alt and click takes the tile or building under the cursor as the brush.
 6. **Set the map's details** on the Map tab: name, size, players, vehicle counts for the map and for each base, random mines, attack drones and music.
+
+![The editor zoomed in on a base with the building palette open](images/editor-buildings.png)
+
+*Zoomed in with the Building tool: buildings, defences and scenery are picked from the palette and owned by a base or left neutral.*
 
 ## Checking and testing
 

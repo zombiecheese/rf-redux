@@ -14,6 +14,10 @@ The site's owner decides whether sign-ups are open, invite-only or closed.
 
 Everything is under **Online** in the main menu.
 
+![The Online menu](images/online-menu.png)
+
+*The Online menu, signed in.*
+
 | Item | Does |
 | --- | --- |
 | Quick Match | Joins an open lobby that has room, or makes one |
@@ -35,6 +39,14 @@ The lobby's owner picks:
 - **The difficulty** of the bots.
 - **Open or private.** An open lobby is listed. A private one needs its code or invite link.
 - **Handicap for the smaller side**, off by default.
+
+![The Host a Game dialog with the map picker](images/host-a-game.png)
+
+*Host a Game: name the lobby, choose who can join and the teams, and pick a map from the list with its preview.*
+
+![A lobby with two seats, the map, settings and chat](images/lobby.png)
+
+*A lobby. Each base has a seat card, the code and invite link are at the top, and chat is on the right.*
 
 When every player is ready, the owner starts the match. Others can watch as spectators. After the match the results show and the lobby is ready for a rematch.
 
