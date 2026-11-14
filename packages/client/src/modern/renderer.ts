@@ -363,7 +363,7 @@ export class ModernRenderer {
       this.gl.setScissor(r.x, MODERN_H - r.y - r.h, r.w, r.h);
     };
     // The map from each camera, then the drone's lens or the thermal camera over it, then the bunker and skull
-    // screens, which are the player's own screens and not the feed.
+    // screens, which are the player's own screens (the bunker then gets its security camera's look).
     const field = views.filter((v) => !v.skip);
     for (const v of field) {
       at(v.rect);
@@ -398,6 +398,9 @@ export class ModernRenderer {
         this.gl.autoClear = true;
       }
     }
+    // The bunker is watched by a security camera: the same lens, grain and grade as the drone's, never thermal.
+    const cams = views.filter((v) => v.screen?.kind === 'bunker').map((v) => v.rect);
+    if (cams.length) (this.pass ??= new LookPass(MODERN_W, MODERN_H)).apply(this.gl, cams, cams.map(() => 0), true, false, now / 1000);
     ctx.drawImage(this.gl.domElement, 0, 0);
   }
 

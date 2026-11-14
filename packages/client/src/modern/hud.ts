@@ -459,81 +459,349 @@ export function drawName(g: CanvasRenderingContext2D, name: string, x: number, y
 /** The modern screen's point for a bunker point, from the renderer. */
 export type BunkerPoint = (rect: ModernRect, x: number, y: number, z?: number) => { x: number; y: number };
 
-/** The bunker's labels: each bay's vehicle and lives over its ceiling, the chosen one lit, and how to choose. */
-export function drawBunkerPanel(
-  g: CanvasRenderingContext2D, rect: ModernRect, at: BunkerPoint, lives: Lives, selected: VehicleKind, elevator: Elevator | null, base: number, touch: boolean,
-): void {
+/** What the bunker's camera shows: the side's vehicles and the lift, and how the player chooses. */
+export interface BunkerFeed {
+  lives: Lives;
+  selected: VehicleKind;
+  elevator: Elevator | null;
+  base: number;
+  /** A touch screen: the help says tap. */
+  touch: boolean;
+  /** Night: the camera has switched to its infrared, black and white. */
+  night: boolean;
+  /** For the clock and the live read-outs. */
+  now: Date;
+}
+
+/** What a parked vehicle takes up in its bay, in the bunker's units: half its length across, its height, half its depth. */
+const PARKED: Record<VehicleKind, [number, number, number]> = { heli: [24, 17, 9], tank: [19, 13, 9], asv: [17, 12, 9], jeep: [12, 12, 8] };
+/** The middle of a bay's depth, where the models are parked. */
+const PARK_Z = -19;
+const BAY_NO: Record<VehicleKind, string> = { heli: 'B1', tank: 'B2', asv: 'B3', jeep: 'B4' };
+
+/** The analysis' brief on each vehicle: what it is for, what it fears, and ratings the numbers don't give. */
+const BRIEF: Record<VehicleKind, { cls: string; role: string; terrain: string; vuln: string; fire: number; arms: string }> = {
+  tank: { cls: 'MAIN BATTLE TANK', role: 'ASSAULT / ANTI-ARMOR', terrain: 'LAND', vuln: 'AIR, MINES', fire: 0.75, arms: 'SHELLS' },
+  jeep: { cls: 'LIGHT RECON', role: 'FLAG RETRIEVAL ONLY UNIT', terrain: 'LAND + WATER', vuln: 'ALL FIRE', fire: 0.35, arms: 'GRENADES' },
+  asv: { cls: 'ARMORED SUPPORT', role: 'SIEGE / MINE LAYER', terrain: 'LAND', vuln: 'AIR, SLOW', fire: 0.9, arms: 'MISSILES, MINES' },
+  heli: { cls: 'ATTACK HELICOPTER', role: 'AIR STRIKE / RECON', terrain: 'AIR', vuln: 'ASV, TOWERS', fire: 0.8, arms: 'GUN, MISSILES' },
+};
+
+/** A vehicle's ratings from its definition: tank shells to destroy it, top speed, and fuel. */
+function ratings(kind: VehicleKind): { hits: number; kph: number; fuel: number } {
+  const d = VEHICLES[kind];
+  return {
+    hits: Math.ceil(d.health / Math.max(ONE / 16, ONE - d.armour)),
+    kph: Math.round((d.maxForward / ONE) * 40),
+    fuel: Math.round(d.fuel / ONE),
+  };
+}
+const MOST = (() => {
+  const all = (Object.keys(VEHICLES) as VehicleKind[]).map(ratings);
+  return { hits: Math.max(...all.map((r) => r.hits)), kph: Math.max(...all.map((r) => r.kph)), fuel: Math.max(...all.map((r) => r.fuel)) };
+})();
+
+/** A smooth wander between -1 and 1, for the feed's live read-outs. */
+function wander(t: number, seed: number): number {
+  return 0.6 * Math.sin(t * 0.9 + seed * 2.1) + 0.4 * Math.sin(t * 2.3 + seed * 5.3);
+}
+
+let scan: { canvas: HTMLCanvasElement; pattern: CanvasPattern | null } | null = null;
+
+/** The security camera's picture: washed out by day and black and white infrared by night, scanlines, a rolling bar and a dark rim. */
+function cctv(g: CanvasRenderingContext2D, rect: ModernRect, night: boolean, t: number): void {
+  g.save();
+  g.globalCompositeOperation = 'saturation';
+  g.fillStyle = night ? '#808080' : 'rgba(128, 128, 128, 0.45)';
+  g.fillRect(rect.x, rect.y, rect.w, rect.h);
+  if (night) {
+    // Infrared lifts the dark and flattens the picture.
+    g.globalCompositeOperation = 'screen';
+    g.fillStyle = 'rgba(46, 52, 48, 1)';
+    g.fillRect(rect.x, rect.y, rect.w, rect.h);
+  }
+  g.globalCompositeOperation = 'source-over';
+  if (!scan) {
+    const c = document.createElement('canvas');
+    c.width = 4;
+    c.height = 3;
+    const s = c.getContext('2d')!;
+    s.fillStyle = 'rgba(0, 0, 0, 0.18)';
+    s.fillRect(0, 0, 4, 1);
+    scan = { canvas: c, pattern: g.createPattern(c, 'repeat') };
+  }
+  if (scan.pattern) {
+    g.fillStyle = scan.pattern;
+    g.fillRect(rect.x, rect.y, rect.w, rect.h);
+  }
+  // The rolling bar of a camera on a long cable.
+  const span = rect.h + 160;
+  const y = rect.y - 80 + ((t * 70) % span);
+  const bar = g.createLinearGradient(0, y - 60, 0, y + 60);
+  bar.addColorStop(0, 'rgba(255, 255, 255, 0)');
+  bar.addColorStop(0.5, 'rgba(255, 255, 255, 0.05)');
+  bar.addColorStop(1, 'rgba(255, 255, 255, 0)');
+  g.fillStyle = bar;
+  g.fillRect(rect.x, y - 60, rect.w, 120);
+  const cx = rect.x + rect.w / 2;
+  const cy = rect.y + rect.h / 2;
+  const rim = g.createRadialGradient(cx, cy, Math.min(rect.w, rect.h) * 0.35, cx, cy, Math.hypot(rect.w, rect.h) * 0.62);
+  rim.addColorStop(0, 'rgba(0, 0, 0, 0)');
+  rim.addColorStop(1, 'rgba(0, 0, 0, 0.6)');
+  g.fillStyle = rim;
+  g.fillRect(rect.x, rect.y, rect.w, rect.h);
+  g.restore();
+}
+
+/** A row of a vehicle's card: a name and a value, with a rating bar between them when it has one. */
+interface CardRow {
+  k: string;
+  v: string;
+  bar?: number;
+  css?: string;
+}
+
+/** The analysis' card on a vehicle, for choosing what to launch: what it is, its ratings, its arms and how many are left. */
+function cardRows(kind: VehicleKind, n: number, mine: boolean, elevator: Elevator | null, tick: number): CardRow[] {
+  const b = BRIEF[kind];
+  const r = ratings(kind);
+  const d = VEHICLES[kind];
+  const ammo = d.weapons.map((w) => (w.ammo === UNLIMITED ? '--' : String(w.ammo))).join('/');
+  const units = n === UNLIMITED ? 'UNLIMITED' : n === 0 ? '0  DEPLETED' : `${n}  READY`;
+  const status = elevator && mine
+    ? (elevator.lift < ELEVATOR_REST_PX * ONE ? `LAUNCHING ${Math.round(Math.min(100, (100 * (ELEVATOR_REST_PX * ONE - elevator.lift)) / (ELEVATOR_REST_PX * ONE)))}%` : 'LOADING LIFT')
+    : n === 0 && !mine ? 'UNAVAILABLE' : mine ? ((tick >> 4) & 1 ? 'SELECTED  > LAUNCH' : 'SELECTED') : 'STANDBY';
+  return [
+    { k: 'CLASS', v: b.cls },
+    { k: 'ROLE', v: b.role, css: kind === 'jeep' ? AMBER : undefined },
+    { k: 'ARMOR', v: `${r.hits} HITS`, bar: r.hits / MOST.hits },
+    { k: 'SPEED', v: `${r.kph} KPH`, bar: r.kph / MOST.kph },
+    { k: 'FIRE', v: b.fire >= 0.8 ? 'HEAVY' : b.fire >= 0.6 ? 'MEDIUM' : 'LIGHT', bar: b.fire },
+    { k: 'FUEL', v: `${r.fuel} U`, bar: r.fuel / MOST.fuel },
+    { k: 'ARMS', v: `${b.arms} ${ammo}` },
+    { k: 'TERRAIN', v: b.terrain },
+    { k: 'VULN', v: b.vuln, css: HOSTILE },
+    { k: 'UNITS', v: units, css: n === 0 ? HOSTILE : n === UNLIMITED || n > 2 ? '#7dffa0' : AMBER },
+    { k: 'STATUS', v: status, css: mine ? AMBER : n === 0 ? HOSTILE : undefined },
+  ];
+}
+const ELEVATOR_REST_PX = 110;
+
+/** Draws a vehicle's card with its top left at x, y in the given scale; returns nothing. */
+function card(g: CanvasRenderingContext2D, x: number, y: number, w: number, s: number, head: string, rows: readonly CardRow[], css: string, dim: boolean): void {
+  const rh = 12 * s;
+  const h = (rows.length + 1) * rh + 12 * s;
+  g.save();
+  g.globalAlpha = dim ? 0.62 : 1;
+  readout(g, x, y, w, h, 'ANALYSIS', css);
+  g.textBaseline = 'middle';
+  g.textAlign = 'left';
+  g.font = `700 ${Math.round(12 * s)}px ${MONO}`;
+  g.fillStyle = css;
+  g.fillText(head, x + 8 * s, y + 6 * s + rh / 2 + 2 * s, w - 16 * s);
+  g.fillStyle = 'rgba(236, 242, 232, 0.25)';
+  g.fillRect(x + 8 * s, y + 6 * s + rh + 2 * s, w - 16 * s, 1);
+  const keyW = 62 * s;
+  rows.forEach((r, i) => {
+    const ry = y + 6 * s + (i + 1) * rh + rh / 2 + 4 * s;
+    g.font = `600 ${Math.round(10 * s)}px ${MONO}`;
+    g.fillStyle = MUTED;
+    g.fillText(r.k, x + 8 * s, ry);
+    let vx = x + 8 * s + keyW;
+    if (r.bar !== undefined) {
+      const segs = 8;
+      const sw = 6 * s;
+      const lit = Math.max(1, Math.round(r.bar * segs));
+      for (let k = 0; k < segs; k++) {
+        g.fillStyle = k < lit ? (r.css ?? css) : 'rgba(236, 242, 232, 0.16)';
+        g.fillRect(vx + k * (sw + 1.5 * s), ry - 3.5 * s, sw, 7 * s);
+      }
+      vx += segs * (sw + 1.5 * s) + 6 * s;
+    }
+    g.font = `600 ${Math.round(11 * s)}px ${MONO}`;
+    g.fillStyle = r.css ?? INK;
+    g.fillText(r.v, vx, ry, x + w - 8 * s - vx);
+  });
+  g.restore();
+}
+
+/**
+ * The bunker as a security camera's feed analysed by the machine vision: the picture washed out (black and white
+ * infrared at night), a detection box on each bay's vehicle with its class and confidence, a card beside it with the
+ * vehicle's ratings for choosing what to launch, and the camera's live read-outs: its clock and REC, the link, and
+ * the lift's state.
+ */
+export function drawBunkerPanel(g: CanvasRenderingContext2D, rect: ModernRect, at: BunkerPoint, f: BunkerFeed): void {
+  const { lives, selected, elevator, base } = f;
+  const t = f.now.getTime() / 1000;
+  const tick = Math.floor(t * 30);
   g.save();
   g.beginPath();
   g.rect(rect.x, rect.y, rect.w, rect.h);
   g.clip();
-  const scale = Math.min(1, rect.w / 900);
+  cctv(g, rect, f.night, t);
+  const s = Math.min(1, rect.w / 900);
   const chosen = elevator?.kind ?? selected;
+  // Room beside the bays for the cards; on a narrow view only the chosen vehicle's card shows, below the bays.
+  // On a phone or tablet the cards are too small to read at the view's scale: only the chosen vehicle's shows, larger.
+  const cs = f.touch ? Math.max(s, 1.45 * Math.min(1, rect.w / 1280)) : s;
+  const bayL = at(rect, -72, -72, 0).x;
+  const cardW = 236 * cs;
+  const roomy = bayL - rect.x - 8 >= cardW;
   for (const kind of Object.keys(BAY_AT) as VehicleKind[]) {
     if (elevator && kind !== chosen) continue;
     const b = BAY_AT[kind];
-    // Upper bays are named above their ceilings, lower bays below their floors.
-    const top = b.floor > -100;
-    const p = at(rect, b.x, top ? b.floor + 31 : b.floor - 3, 0);
     const n = lives[kind];
     const mine = kind === chosen;
-    const count = n === UNLIMITED ? 'Unlimited' : n === 0 ? 'None left' : `${n} left`;
-    g.font = `700 ${Math.round(16 * scale)}px ${FONT}`;
-    const nameW = g.measureText(NAMES[kind]).width;
-    g.font = `600 ${Math.round(12 * scale)}px ${FONT}`;
-    const countW = g.measureText(count).width;
-    const w = nameW + countW + 34 * scale;
-    const h = 30 * scale;
-    const x = p.x - w / 2;
-    const y = top ? p.y - h - 4 * scale : p.y + 4 * scale;
-    rounded(g, x, y, w, h, h / 2);
-    g.fillStyle = mine ? 'rgba(46, 34, 12, 0.88)' : PANEL;
-    g.fill();
-    g.strokeStyle = mine ? ACCENT : LINE;
-    g.lineWidth = mine ? 2 : 1;
-    g.stroke();
-    g.textBaseline = 'middle';
+    const [hl, ht, hd] = PARKED[kind];
+    const dx = mine && elevator ? elevator.dx / ONE : 0;
+    const dy = mine && elevator ? elevator.dy / ONE : 0;
+    let x0 = Infinity;
+    let y0 = Infinity;
+    let x1 = -Infinity;
+    let y1 = -Infinity;
+    for (const ex of [-hl, hl]) {
+      for (const ey of [0, ht]) {
+        for (const ez of [-hd, hd]) {
+          const p = at(rect, b.x + dx + ex, b.floor - dy + ey, PARK_Z + ez);
+          x0 = Math.min(x0, p.x);
+          y0 = Math.min(y0, p.y);
+          x1 = Math.max(x1, p.x);
+          y1 = Math.max(y1, p.y);
+        }
+      }
+    }
+    // The detector trails a little and its box breathes.
+    const jit = Math.sin(t * 7 + b.x) * 1.2;
+    x0 -= jit;
+    x1 += jit;
+    const empty = n === 0 && !mine;
+    const css = mine ? AMBER : empty ? 'rgba(236, 242, 232, 0.45)' : FRIEND;
+    const l = Math.max(6, Math.min(16, (x1 - x0) / 5));
+    g.strokeStyle = css;
+    g.lineWidth = mine ? 2 : 1.5;
+    if (empty) {
+      g.setLineDash([4, 4]);
+      g.strokeRect(x0, y0, x1 - x0, y1 - y0);
+      g.setLineDash([]);
+    } else {
+      g.beginPath();
+      for (const [x, y, ddx, ddy] of [[x0, y0, 1, 1], [x1, y0, -1, 1], [x0, y1, 1, -1], [x1, y1, -1, -1]] as const) {
+        g.moveTo(x, y + ddy * l);
+        g.lineTo(x, y);
+        g.lineTo(x + ddx * l, y);
+      }
+      g.stroke();
+      g.fillStyle = mine ? 'rgba(255, 196, 74, 0.08)' : 'rgba(98, 224, 255, 0.06)';
+      g.fillRect(x0, y0, x1 - x0, y1 - y0);
+    }
+    // The class and confidence over the box.
+    g.font = `600 ${Math.round(11 * Math.max(0.8, s))}px ${MONO}`;
+    g.textBaseline = 'bottom';
     g.textAlign = 'left';
-    g.font = `700 ${Math.round(16 * scale)}px ${FONT}`;
-    g.fillStyle = n === 0 && !mine ? MUTED : mine ? '#ffd58a' : TEXT;
-    g.fillText(NAMES[kind], x + 13 * scale, y + h / 2 + 1);
-    g.font = `600 ${Math.round(12 * scale)}px ${FONT}`;
-    g.fillStyle = n === 0 ? BAD : MUTED;
-    g.fillText(count, x + 21 * scale + nameW, y + h / 2 + 1);
+    const tag = empty ? `${BAY_NO[kind]} BAY EMPTY 0.99` : `${NAMES[kind].toUpperCase()} ${confidence(Object.keys(BAY_AT).indexOf(kind) * 3 + base, tick)}`;
+    const tw = g.measureText(tag).width + 8;
+    g.fillStyle = 'rgba(6, 10, 12, 0.66)';
+    g.fillRect(x0, y0 - 15, tw, 14);
+    g.fillStyle = css;
+    g.fillText(tag, x0 + 4, y0 - 2);
+    if ((!roomy || f.touch) && !mine) continue;
+    // The card: beside the bay, out from the shaft (upper bays rise from their floor, lower ones hang from their ceiling).
+    const rows = cardRows(kind, n, mine, elevator, tick);
+    const h = (rows.length + 1) * 12 * cs + 12 * cs;
+    // Large cards all stand on their bay's floor, clear of the controls along the bottom.
+    const top = b.floor > -100 || f.touch;
+    let cx: number;
+    let cy: number;
+    if (roomy) {
+      const edge = at(rect, b.left ? -72 : 72, b.floor + (top ? 0 : 28), 0);
+      cx = b.left ? edge.x - 14 * cs - cardW : edge.x + 14 * cs;
+      cy = top ? edge.y - h : edge.y;
+    } else {
+      cx = rect.x + (rect.w - cardW) / 2;
+      cy = rect.y + rect.h - h - 96 * s;
+    }
+    cx = Math.max(rect.x + 8, Math.min(rect.x + rect.w - cardW - 8, cx));
+    cy = Math.max(rect.y + 56 * s, cy);
+    // A leader from the box to its card.
+    if (roomy) {
+      g.strokeStyle = css;
+      g.lineWidth = 1;
+      g.globalAlpha = 0.6;
+      g.beginPath();
+      const fromX = b.left ? x0 : x1;
+      const toX = b.left ? cx + cardW : cx;
+      const midY = (y0 + y1) / 2;
+      g.moveTo(fromX, midY);
+      g.lineTo(toX, Math.max(cy + 8, Math.min(cy + h - 8, midY)));
+      g.stroke();
+      g.globalAlpha = 1;
+    }
+    const head = `${NAMES[kind].toUpperCase()}  ${BAY_NO[kind]}  UID ${base + 1}${kind[0]!.toUpperCase()}-${String(n === UNLIMITED ? 99 : n).padStart(2, '0')}`;
+    card(g, cx, cy, cardW, cs, head, rows, css, empty || (!mine && !!elevator));
   }
-  if (!elevator) {
-    // The heading and the help along the bottom.
-    const side = TEAMS[base];
-    const title = 'Choose your vehicle';
-    const help = touch ? 'Tap a bay to choose it, tap it again to launch' : 'Arrows or click to choose, fire or click again to launch';
-    g.font = `700 ${Math.round(20 * scale)}px ${FONT}`;
-    const tw = g.measureText(title).width;
-    g.font = `500 ${Math.round(13 * scale)}px ${FONT}`;
-    const hw = g.measureText(help).width;
-    const w = Math.max(tw, hw) + 56 * scale;
-    const h = 64 * scale;
-    const x = rect.x + (rect.w - w) / 2;
-    const y = rect.y + rect.h - h - 20 * scale;
-    rounded(g, x, y, w, h, 14 * scale);
-    g.fillStyle = PANEL;
-    g.fill();
-    g.strokeStyle = LINE;
-    g.lineWidth = 1;
-    g.stroke();
-    g.textAlign = 'center';
+  // The camera's own overlay: brackets, its name, the clock and REC.
+  drawFeed(g, rect, { name: `CAM-0${base + 1}  BUNKER`, mode: f.night ? 'IR  B/W  NIGHT' : 'CCTV  COLOR  DAY', lines: [], now: f.now });
+  // The link's read-outs, ticking, at the bottom right.
+  const ms = Math.floor(t * 25);
+  const link = [
+    `SIG   ${(-52 + 3 * wander(t, 1)).toFixed(0)} dBm`,
+    `BIT   ${(4.6 + 0.5 * wander(t, 2)).toFixed(2)} Mb/s`,
+    `FPS   ${(25 - Math.max(0, 0.4 * wander(t * 3, 3))).toFixed(1)}`,
+    `LAT   ${Math.round(112 + 18 * wander(t * 2, 4))} ms`,
+    `LOSS  ${Math.max(0, 0.2 + 0.25 * wander(t * 1.5, 5)).toFixed(2)}%`,
+    `FRM   ${String(ms % 10000000).padStart(7, '0')}`,
+  ];
+  const lift = elevator
+    ? [
+      `LIFT  ${elevator.lift < ELEVATOR_REST_PX * ONE ? 'RAISING' : 'LOADING'}`,
+      `POS   ${Math.max(0, Math.round(elevator.lift / ONE))} / ${ELEVATOR_REST_PX}`,
+      `DOORS ${elevator.lift < 60 * ONE ? 'OPEN' : 'SEALED'}`,
+      `UNIT  ${NAMES[chosen].toUpperCase()}`,
+    ]
+    : ['LIFT  STANDBY', `POS   ${ELEVATOR_REST_PX} / ${ELEVATOR_REST_PX}`, 'DOORS SEALED', `PWR   ${(48 + 0.6 * wander(t, 6)).toFixed(1)} V`];
+  const block = (lines: readonly string[], tag: string, x: number, align: 'left' | 'right') => {
+    g.font = `600 ${Math.round(11 * s)}px ${MONO}`;
+    const w = Math.max(...lines.map((l) => g.measureText(l).width)) + 20 * s;
+    const h = lines.length * 14 * s + 12 * s;
+    const bx = align === 'left' ? x : x - w;
+    const by = rect.y + rect.h - h - 22 * s;
+    readout(g, bx, by, w, h, tag);
+    g.fillStyle = INK;
+    g.textAlign = 'left';
     g.textBaseline = 'middle';
-    g.font = `700 ${Math.round(20 * scale)}px ${FONT}`;
-    g.fillStyle = TEXT;
-    g.fillText(title, x + w / 2, y + 22 * scale);
+    lines.forEach((l, i) => g.fillText(l, bx + 10 * s, by + 6 * s + 7 * s + i * 14 * s));
+    return w;
+  };
+  const wide = rect.w >= 800;
+  if (wide) block(lift, 'LIFT', rect.x + 22 * s, 'left');
+  block(link, 'LINK', rect.x + rect.w - 22 * s, 'right');
+  if (!elevator) {
+    // What to do, at the bottom middle.
+    const side = TEAMS[base];
+    const title = `AWAITING UNIT SELECTION${side ? `  /  ${side.name.toUpperCase()} BASE` : ''}`;
+    const help = f.touch ? 'TAP A BAY TO SELECT, TAP AGAIN TO LAUNCH' : 'ARROWS OR CLICK TO SELECT, FIRE OR CLICK AGAIN TO LAUNCH';
+    g.font = `700 ${Math.round(13 * s)}px ${MONO}`;
+    const tw = g.measureText(title).width;
+    g.font = `500 ${Math.round(11 * s)}px ${MONO}`;
+    const hw = g.measureText(help).width;
+    const w = Math.max(tw, hw) + 36 * s;
+    const h = 46 * s;
+    const x = wide ? rect.x + (rect.w - w) / 2 : rect.x + 22 * s;
+    const y = rect.y + rect.h - h - 22 * s;
+    readout(g, x, y, w, h, 'SYS', AMBER);
+    g.textAlign = 'left';
+    g.textBaseline = 'middle';
+    g.font = `700 ${Math.round(13 * s)}px ${MONO}`;
+    g.fillStyle = AMBER;
+    g.fillText(title, x + 18 * s, y + 17 * s);
     if (side) {
       g.fillStyle = side.css;
-      g.beginPath();
-      g.arc(x + w / 2 - tw / 2 - 14 * scale, y + 22 * scale, 6 * scale, 0, Math.PI * 2);
-      g.fill();
+      g.fillRect(x + 7 * s, y + 13 * s, 7 * s, 7 * s);
     }
-    g.font = `500 ${Math.round(13 * scale)}px ${FONT}`;
-    g.fillStyle = MUTED;
-    g.fillText(help, x + w / 2, y + 45 * scale);
+    g.font = `500 ${Math.round(11 * s)}px ${MONO}`;
+    g.fillStyle = INK;
+    g.fillText(help, x + 18 * s, y + 33 * s);
   }
   g.restore();
 }
