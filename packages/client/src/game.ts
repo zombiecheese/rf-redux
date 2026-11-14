@@ -101,8 +101,8 @@ export interface GameOptions {
   visuals?: () => 'retro' | 'modern';
   /** The modern view's lighting. */
   lighting?: () => 'day' | 'night';
-  /** The modern view's camera: the drone's feed or a clean picture, and the thermal camera. */
-  camera?: () => { drone: boolean; thermal: boolean };
+  /** Whether the modern view's thermal camera is on (its key or button in the match). */
+  thermal?: () => boolean;
 }
 
 /** What a replay's controls (main.ts) show and change. */
@@ -838,7 +838,8 @@ export class Game {
       if (useModern && modern) {
         const rects = modernLayout(cameras.length);
         const night = nightNow();
-        const look = this.o.camera?.() ?? { drone: false, thermal: false };
+        // The modern view is always the drone's feed; thermal is the player's to switch in the match.
+        const look = { drone: true, thermal: this.o.thermal?.() ?? false };
         modern.setNight(night);
         modern.setLook(look.drone, look.thermal);
         modern.draw(match, cameras.map((cam, i) => ({ cam, rect: rects[i]!, viewer: v[i]!, skip: !field[i], screen: screens[i] })), extras);

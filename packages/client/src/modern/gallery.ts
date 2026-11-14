@@ -1,7 +1,7 @@
 // A sheet of every modern model, for reviewing the art in the dev server (npm run dev, then /modern-gallery.html).
 // ?part=buildings (the default) lays out every building for Brown, Green and neutral; ?part=vehicles every vehicle
 // in the four sides' colours; ?part=bunker and ?part=skull the two screens (skull takes &face=1-7 and &angle=0-63);
-// ?part=finale the modern win scene (&base=0-3 wins, &tier=0-3, &night=1, &thermal=1, &clean=1, &t=ms to hold at).
+// ?part=finale the modern win scene (&base=0-3 wins, &tier=0-3, &night=1, &thermal=1, &t=ms to hold at).
 // It is not part of the build.
 
 import * as THREE from 'three';
@@ -26,7 +26,7 @@ if (part === 'finale') {
   const match = createMatch(world, assets.map, world.bases.map((b) => ({ base: b.id, team: b.id })), 1, { difficulty: 5 });
   const modern = new ModernRenderer(assets);
   modern.setNight(q.get('night') === '1');
-  modern.setLook(q.get('clean') !== '1', q.get('thermal') === '1');
+  modern.setLook(true, q.get('thermal') === '1');
   const scene = modernWinScene(match, { renderer: modern, extras: { wrecks: [], splats: [] } }, Number(q.get('base') ?? 0), Number(q.get('tier') ?? 1), 754000);
   const out = document.createElement('canvas');
   out.width = 1280;

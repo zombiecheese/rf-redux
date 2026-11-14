@@ -55,7 +55,7 @@ export async function testPlay(data: GameData, map: RfwMap, started: () => void)
   const master = prefs.volume.muted ? 0 : gainOf(prefs.volume.master);
   sound.setVolume(master * gainOf(prefs.volume.effects));
   music.setVolume(master * gainOf(prefs.volume.music));
-  const display = new Display('sharp', prefs.crt);
+  const display = new Display('sharp');
   display.canvas.classList.add('testplay');
   const names = map.bases.map((_, i) => `Base ${i + 1}`);
   const game = new Game({

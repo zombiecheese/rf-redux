@@ -141,7 +141,7 @@ export class ModernRenderer {
   /** How much windows and lamps glow: 0 by day, 1 at night. */
   private readonly glow = { value: 0 };
   private skull: SkullScene | null = null;
-  /** The drone's feed over the picture (Options > Camera), and the thermal camera (I). */
+  /** The drone's feed over the picture (always on in a match), and the thermal camera (switched in the match). */
   private feed = false;
   private thermal = false;
   private pass: LookPass | null = null;

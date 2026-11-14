@@ -6,8 +6,7 @@
 //
 // Dev shortcuts: ?mode=solo or ?mode=local2 starts a match at once on ?map= (with ?bots=0, ?seed=, ?difficulty=, ?teams=2,2, ?handicap=1, ?together=1),
 // ?scale=integer picks whole-number scaling, ?visuals=modern or ?visuals=retro picks the picture, and ?lighting=night
-// or ?lighting=day the modern view's lighting, ?camera=drone or ?camera=clean its camera, and ?thermal=1 the
-// thermal camera.
+// or ?lighting=day the modern view's lighting, and ?thermal=1 starts the thermal camera on.
 
 import { checkMap, clampDifficulty } from '@rfw/sim';
 import type { MatchStart, Replay } from '@rfw/net';
@@ -54,12 +53,10 @@ let settings = loadSettings();
 if (params.get('difficulty') !== null) settings.difficulty = clampDifficulty(Number(params.get('difficulty')));
 if (params.get('visuals') === 'modern' || params.get('visuals') === 'retro') settings.visuals = params.get('visuals') as Settings['visuals'];
 if (params.get('lighting') === 'night' || params.get('lighting') === 'day') settings.lighting = params.get('lighting') as Settings['lighting'];
-if (params.get('camera') === 'drone' || params.get('camera') === 'clean') settings.camera = params.get('camera') as Settings['camera'];
-if (params.get('thermal') !== null) settings.thermal = params.get('thermal') === '1';
 if (params.get('scale') === 'integer' || params.get('scale') === 'sharp') settings.scale = params.get('scale') as Settings['scale'];
 if (handheld) settings.players = 1;
 
-const display = new Display(settings.scale, settings.crt);
+const display = new Display(settings.scale);
 const stage = new Stage(display);
 const sound = new Sound();
 const music = new Music(settings.music);
@@ -84,7 +81,12 @@ applyVolume(settings.volume);
 /** Options > Visuals, read by a running match every frame so it can change mid-game. */
 const visuals = (): Settings['visuals'] => settings.visuals;
 const lighting = (): Settings['lighting'] => settings.lighting;
-const camera = () => ({ drone: settings.camera === 'drone', thermal: settings.thermal });
+/**
+ * The modern view's thermal camera: part of playing, not a setting, so it is switched in the match (its key, or the
+ * THERMAL button) and every match starts without it.
+ */
+let thermal = params.get('thermal') === '1';
+const thermalOn = () => thermal;
 
 /** Options > Sound: the master volume scales both the effects and the music. */
 function applyVolume(v: Volume): void {
@@ -127,7 +129,6 @@ function save(next: Settings): void {
   settings = next;
   saveSettings(settings);
   display.mode = settings.scale;
-  display.crt = settings.crt;
   setBindings(settings.keys);
   applyVolume(settings.volume);
   applyMusicStyle();
@@ -138,17 +139,17 @@ function save(next: Settings): void {
 /** Lets the page's buttons follow the picture: the IR button shows over a modern match, lit while thermal is on. */
 function syncLook(): void {
   document.body.dataset.visuals = seenVisuals();
-  document.body.classList.toggle('thermal', settings.thermal);
-  thermalState.textContent = settings.thermal ? 'ON' : 'OFF';
+  document.body.classList.toggle('thermal', thermal);
+  thermalState.textContent = thermal ? 'ON' : 'OFF';
   thermalKey.textContent = thermalKeys();
-  thermalButton.setAttribute('aria-pressed', String(settings.thermal));
-  thermalButton.title = `Thermal camera ${settings.thermal ? 'on' : 'off'} (${thermalKeys()}; change it in Options > Controls)`;
+  thermalButton.setAttribute('aria-pressed', String(thermal));
+  thermalButton.title = `Thermal camera ${thermal ? 'on' : 'off'} (${thermalKeys()}; change the key in Options > Controls)`;
 }
 
 // ---- Profile (profiles card) ---------------------------------------------------------------------------------
 
 /** The settings an account keeps on the server, so they follow the player to another browser. */
-const PROFILE_KEYS = ['names', 'difficulty', 'level', 'mapId', 'swapSides', 'scale', 'crt', 'visuals', 'lighting', 'camera', 'thermal', 'instruments', 'volume', 'keys', 'music'] as const;
+const PROFILE_KEYS = ['names', 'difficulty', 'level', 'mapId', 'swapSides', 'scale', 'visuals', 'lighting', 'instruments', 'volume', 'keys', 'music'] as const;
 let profileTimer = 0;
 
 function signedIn(): boolean {
@@ -175,7 +176,6 @@ async function loadProfile(): Promise<void> {
   saveSettings(settings);
   settings = loadSettings();
   display.mode = settings.scale;
-  display.crt = settings.crt;
   setBindings(settings.keys);
   applyVolume(settings.volume);
   applyMusicStyle();
@@ -267,11 +267,12 @@ async function startGame(opts: { bots?: boolean; seed?: number; ask?: boolean } 
       save({ ...settings, teams: choice });
     }
     const teams = bases > 2 ? teamsFor(settings.teams, bases, settings.players) : undefined;
+    thermal = params.get('thermal') === '1';
     game = new Game({
       assets, display, sound, music, seed: opts.seed ?? ((Date.now() % 0x7fffffff) | 0 || 1), players: settings.players,
       difficulty: settings.difficulty, names: settings.names, swapSides: settings.swapSides, bots: opts.bots ?? (settings.players === 1 || settings.teams.bots), handheld,
       teams, handicap: teams !== undefined && settings.teams.handicap,
-      mapId: settings.mapId, mapName: entry?.name ?? assets.map.name, onReplay: (r) => void saveReplay(r), visuals, lighting, camera,
+      mapId: settings.mapId, mapName: entry?.name ?? assets.map.name, onReplay: (r) => void saveReplay(r), visuals, lighting, thermal: thermalOn,
     });
     setScreen('game');
     const { picture } = game;
@@ -320,9 +321,10 @@ async function watchReplay(r: Replay): Promise<void> {
     const assets = await loadAssetsWith(r.map);
     status.textContent = '';
     if (mine !== run) return;
+    thermal = params.get('thermal') === '1';
     const g = new Game({
       assets, display, sound, music, seed: r.seed, players: 1, difficulty: r.difficulty, names: [], swapSides: false, bots: false, handheld,
-      replay: r, visuals, lighting, camera,
+      replay: r, visuals, lighting, thermal: thermalOn,
     });
     game = g;
     replayBar = new ReplayBar(g.replayControl!, r, () => g.paused, () => void togglePause(), () => void leave());
@@ -550,9 +552,10 @@ async function startOnline(s: MatchStart): Promise<void> {
     const assets = await loadAssetsWith(s.map);
     status.textContent = '';
     if (mine !== run) return;
+    thermal = params.get('thermal') === '1';
     game = new Game({
       assets, display, sound, music, seed: s.seed, players: 1, difficulty: s.difficulty, names: settings.names, swapSides: false, bots: false, handheld,
-      online: { start: s, net }, mapName: s.map.name, onReplay: (r) => void saveReplay(r), visuals, lighting, camera,
+      online: { start: s, net }, mapName: s.map.name, onReplay: (r) => void saveReplay(r), visuals, lighting, thermal: thermalOn,
     });
     setScreen('game');
     const { picture } = game;
@@ -802,13 +805,6 @@ function optionItems(): MenuEntry[] {
       action: () => save({ ...settings, lighting: settings.lighting === 'night' ? 'day' : 'night' }),
     },
     {
-      label: 'Camera', hint: 'A drone\'s feed, or a clean picture (modern)',
-      value: () => (settings.camera === 'clean' ? 'Clean' : 'Drone feed'),
-      action: () => save({ ...settings, camera: settings.camera === 'clean' ? 'drone' : 'clean' }),
-    },
-    { label: 'Thermal', key: thermalKeys(), hint: 'See heat in the dark (modern)', value: () => onOff(settings.thermal), action: toggleThermal },
-    { label: 'CRT Look', hint: 'Subtle scanlines and glow (retro)', value: () => onOff(settings.crt), action: () => save({ ...settings, crt: !settings.crt }) },
-    {
       label: 'Sound', hint: 'Master, effects and music volume',
       value: () => (settings.volume.muted ? 'Muted' : `${settings.volume.master}%`),
       action: () => void overGame(async () => {
@@ -856,10 +852,11 @@ function helpItems(): MenuEntry[] {
   ];
 }
 
-/** The thermal camera on or off (Options > Thermal, its key in Options > Controls, the Thermal button). */
+/** The thermal camera on or off in a modern match (its key, set in Options > Controls, or the THERMAL button). */
 function toggleThermal(): void {
-  save({ ...settings, thermal: !settings.thermal });
-  toast(settings.thermal ? 'Thermal camera on' : 'Thermal camera off');
+  thermal = !thermal;
+  syncLook();
+  toast(thermal ? 'Thermal camera on' : 'Thermal camera off');
 }
 
 /** The thermal camera's keys as the button and menus show them: each hand's, as either works for a solo player. */
