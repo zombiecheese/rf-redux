@@ -154,7 +154,7 @@ export const ONLINE_KEYS = {
   chat: 'KeyT',
   /** Held: the scoreboard. In the chat line: the next (Shift: previous) recipient. */
   scoreboard: 'Tab',
-  /** A spectator follows player 1-4. */
+  /** A spectator, or a player whose base is out, follows player 1-4. */
   follow: ['Digit1', 'Digit2', 'Digit3', 'Digit4'],
 } as const;
 

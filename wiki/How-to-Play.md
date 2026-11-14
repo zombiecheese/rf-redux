@@ -85,7 +85,7 @@ Online only:
 | --- | --- |
 | T | Open the chat line. Tab picks everyone, your team or one player; Enter sends; Esc closes |
 | Tab (hold) | The scoreboard |
-| 1 to 4 | Spectators: follow that player |
+| 1 to 4 | Spectators: follow that player (← and → step through them) |
 
 In the menus, the arrow keys move, Enter or Space picks, and Esc goes back. A mouse or a finger works as well.
 
@@ -105,6 +105,7 @@ Phones and tablets play solo, in landscape, with faded on-screen buttons. Held u
 | ◀ ● ▶ | Tank: swing the turret, ● centres it. Helicopter: strafe |
 | Jeep, Tank, ASV, Heli (top, lift screen) | Launch that vehicle |
 | Dock (top, while driving) | Back into the bunker on your base |
+| P1 to P4 (top, once you are out) | Watch that player |
 | ❚❚ / ☰ | Pause / the menu |
 
 ## The screen

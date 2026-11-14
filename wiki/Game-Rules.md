@@ -11,7 +11,7 @@ A base is out of the match when either of these happens:
 - **Its flag is captured.** An enemy jeep carries the flag home. Home is the jeep's own base, or the base of any teammate still in the match.
 - **It has no jeeps left.** None in the bunker and none on the map. A base that cannot capture a flag cannot win, so it is out.
 
-A player whose base is out stays in the match as a watcher. Their view follows a teammate who is still playing.
+A player whose base is out stays in the match as a watcher. Their view starts on a teammate who is still playing (or anyone still in), and they can switch between the players still in the match: the turn keys (← and →, or a split-screen half's own) step through them, fire steps on, and the launch keys or 1 to 4 pick player 1 to 4. On a phone or tablet, P1 to P4 at the top do the same. This works in the classic and the modern view, offline and online.
 
 ## How a match ends
 

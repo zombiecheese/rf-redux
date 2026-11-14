@@ -7,6 +7,7 @@ Each release's section below becomes its GitHub release notes (`.github/workflow
 ### Added
 
 - Guide arrows at the edges of the modern view, in each rival base's colour, point to where its flag may be: every standing flag building of a rival (without giving away which one hides it), a flag lying in the open, and the way home while your jeep carries one, each with its distance.
+- A player whose base is out can switch between the players still in the match, in the classic and modern views, offline (including each half of Two Players) and online: the turn keys step through them (fire steps on), the launch keys or 1–4 pick one, and on a phone or tablet P1–P4 at the top. The view starts on a teammate who is still playing, or else anyone still in, and the game says how to switch when you go out. Online spectators can step through the players with ← / → as well as 1–4.
 
 ### Changed
 
