@@ -9,7 +9,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import {
-  DOORS_OPEN, FINE_TURN, type Elevator, type Lives, type SkullLook, GRID, LIFT_SPEED, PROJECTILES, VEHICLES, mineArmed, sceneryEntry, subFrame, type Match, type MatchEvent, type Vehicle, type VehicleKind, type World,
+  DEEP, DOORS_OPEN, FINE_TURN, LAND, SHALLOW, groundAt, type Elevator, type Lives, type SkullLook, GRID, LIFT_SPEED, PROJECTILES, VEHICLES, mineArmed, sceneryEntry, subFrame, type Match, type MatchEvent, type Vehicle, type VehicleKind, type World,
 } from '@rfw/sim';
 import type { GameAssets, Model } from '../assets.js';
 import { FOCAL, type Camera } from '../camera.js';
@@ -20,7 +20,8 @@ import { Fx } from './fx.js';
 import { LAMP_REACH, LampMap, lampLight, type Lamp } from './lampmap.js';
 import { LIGHT_TIME, LookPass, THERMAL, grainLights, heatFragment } from './look.js';
 import { BunkerScene, SkullScene } from './screens.js';
-import { Ground, TILE } from './ground.js';
+import { Ground, TILE, type SeaInputs } from './ground.js';
+import { WaterMarks } from './water.js';
 import { Kit, NEUTRAL, teamPaint, type TeamPaint } from './kit.js';
 import * as V from './vehicles.js';
 import { MODERN_H, MODERN_W, modernLayout, type ModernRect } from './layout.js';
@@ -71,6 +72,26 @@ export interface ModernView {
 }
 
 const radians = (heading: number) => (heading / 65536 / 64) * Math.PI * 2;
+const rand = (a: number, b: number) => a + Math.random() * (b - a);
+/** Sim ticks a second, for vehicles' speeds in pixels a second. */
+const TICKS = 62.5;
+/** Where the moon stands for its path on the sea: high in the north-west, ahead of the camera. */
+const MOON = new THREE.Vector3(-0.32, 0.6, -0.74).normalize();
+
+/**
+ * How each ground vehicle disturbs the water: its wheels' or tracks' half spacing and how far back they are (px),
+ * how wide a line each leaves, the foam, chop and silt of that line, how much it throws up (spray a second at full
+ * pace, and its colour), its bow wave's foam, the speed that counts as full pace (px/s), and how low it sits in the
+ * shallows (px).
+ */
+const WAKES: Record<Exclude<VehicleKind, 'heli'>, { half: number; back: number; line: number; foam: number; chop: number; silt: number; spray: number; muddy: boolean; bow: number; fast: number; wade: number }> = {
+  // Narrow tyres: two thin white lines and a light kick of spray.
+  jeep: { half: 4.5, back: 5, line: 3.2, foam: 0.5, chop: 0.35, silt: 0.08, spray: 40, muddy: false, bow: 0.35, fast: 60, wade: 1.6 },
+  // Wide tracks: broad lanes of brown churned water, a heavy bow wave, clods of muddy water thrown up.
+  tank: { half: 7, back: 7, line: 6, foam: 0.3, chop: 0.55, silt: 0.32, spray: 26, muddy: true, bow: 0.65, fast: 40, wade: 2.4 },
+  // Six big wheels: white water, a bit of mud, and rooster tails of spray off the back.
+  asv: { half: 6.5, back: 9, line: 4.5, foam: 0.55, chop: 0.45, silt: 0.16, spray: 55, muddy: false, bow: 0.5, fast: 30, wade: 2 },
+};
 
 interface VehicleRig {
   root: THREE.Group;
@@ -82,6 +103,9 @@ interface VehicleRig {
   wheels: THREE.Group[];
   /** How far the jeep's tyres are blown up, 0 to 1, eased toward the vehicle's state. */
   inflate: number;
+  /** How low it sits in the water (px), eased; and seconds to its next ripple ring. */
+  wade: number;
+  ringIn: number;
 }
 
 /** Objects of one kind reused frame to frame: take() hands out the next, end() hides the ones not taken. */
@@ -159,6 +183,10 @@ export class ModernRenderer {
   private readonly struck = new Map<number, { at: number; long: boolean }>();
   /** The stream breaking up regardless of what it watches (0-1): the feed cutting out at the end of the win scene. */
   private jamming = 0;
+  /** What the vehicles leave on the sea: foam, chop, silt and ripples. */
+  private readonly marks = new WaterMarks();
+  /** The headlights for the sea shader, which lights itself. */
+  private readonly sea: SeaInputs;
 
   constructor(private readonly assets: GameAssets) {
     this.gl = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true, powerPreference: 'high-performance' });
@@ -207,6 +235,21 @@ export class ModernRenderer {
     sc.far = 1600;
     this.scene.add(this.sun, this.sun.target, this.statics, this.dynamic, this.fx.group);
     this.boxes = assets.parts.map((parts) => bodyBox(parts));
+    this.sea = {
+      marks: this.marks.texture,
+      rings: this.marks.ringData,
+      lampMap: this.lampMap.texture,
+      glare: this.lampMap.glare,
+      night: this.glow,
+      heads: {
+        pos: Array.from({ length: HEADLIGHTS }, () => new THREE.Vector3()),
+        dir: Array.from({ length: HEADLIGHTS }, () => new THREE.Vector3(0, -1, 0)),
+        col: Array.from({ length: HEADLIGHTS }, () => new THREE.Vector3()),
+        cone: Array.from({ length: HEADLIGHTS }, () => new THREE.Vector2(0.9, 0.95)),
+      },
+      moon: MOON.clone(),
+      flashes: { pos: Array.from({ length: 4 }, () => new THREE.Vector3()), power: [0, 0, 0, 0] },
+    };
   }
 
   /**
@@ -283,7 +326,11 @@ export class ModernRenderer {
           const y = px(e.y);
           const z = px(e.z ?? 0);
           const gun = typeof e.shot === 'number' && (e.shot === 0 || e.shot === 7 || e.shot === 11);
-          if (e.target === 'water') this.fx.splash(x, y, !gun);
+          if (e.target === 'water') {
+            this.fx.splash(x, y, !gun);
+            this.marks.ring(x, y, gun ? 0.3 : 0.7, gun ? 22 : 34, gun ? 1 : 1.8);
+            this.marks.stamp(x, y, gun ? 5 : 14, gun ? 0.6 : 1, 0.6, 0);
+          }
           else if (e.target === 'ground') {
             if (gun) this.fx.dirt(x, y);
             else this.fx.explosion(x, y, 0, 0.8, { scorch: true });
@@ -294,7 +341,7 @@ export class ModernRenderer {
           const x = px(e.x);
           const y = px(e.y);
           const z = px(e.z);
-          if (e.drowned) this.fx.splash(x, y, true);
+          if (e.drowned) this.bigSplash(x, y);
           else if (!e.fuelOut) this.fx.explosion(x, y, z, 1.8, { scorch: z < 2, chunks: this.chunkColours(e.player >= 0 ? m.players[e.player]?.base ?? -1 : -1), smokeFor: 3 });
           break;
         }
@@ -302,7 +349,7 @@ export class ModernRenderer {
           this.fx.explosion(px(e.x), px(e.y), px(e.z), 1.5, { scorch: true, chunks: this.chunkColours(e.base) });
           break;
         case 'wreckSunk':
-          this.fx.splash(px(e.x), px(e.y), true);
+          this.bigSplash(px(e.x), px(e.y));
           break;
         case 'buildingDestroyed': {
           if (e.crushed) {
@@ -329,8 +376,10 @@ export class ModernRenderer {
           break;
         }
         case 'soldierKilled':
-          if (e.water) this.fx.splash(px(e.x), px(e.y), false);
-          else this.fx.dirt(px(e.x), px(e.y));
+          if (e.water) {
+            this.fx.splash(px(e.x), px(e.y), false);
+            this.marks.ring(px(e.x), px(e.y), 0.35, 20, 1.2);
+          } else this.fx.dirt(px(e.x), px(e.y));
           break;
         case 'smoke':
           this.fx.smokeAt(px(e.x), px(e.y), px(e.z));
@@ -342,6 +391,14 @@ export class ModernRenderer {
           break;
       }
     }
+  }
+
+  /** Something big going under: a splash, rings and a patch of foam. */
+  private bigSplash(x: number, y: number): void {
+    this.fx.splash(x, y, true);
+    this.marks.ring(x, y, 0.9, 36, 2);
+    this.marks.ring(x, y, 0.5, 20, 2.2);
+    this.marks.stamp(x, y, 22, 1, 0.8, 0.2);
   }
 
   private chunkColours(base: number): THREE.Color[] {
@@ -368,7 +425,10 @@ export class ModernRenderer {
     this.syncDynamic(m, extras, views.filter((v) => !v.skip).map((v) => v.cam), dt);
     this.aimHeadlights(m);
     this.lightBuildings();
+    this.waterFx(m, dt);
     this.fx.step(dt);
+    this.fx.flashes(this.sea.flashes.pos, this.sea.flashes.power);
+    this.marks.render(this.gl, dt);
 
     const ctx = this.canvas.getContext('2d')!;
     const at = (r: ModernRect) => {
@@ -576,10 +636,21 @@ export class ModernRenderer {
         l.target.position.set(x + fx * b.reach, 0, y + fz * b.reach);
         l.target.updateMatrixWorld();
         l.updateMatrixWorld();
-        l.shadow.needsUpdate = !this.thermal;
+        // On the thermal camera shadows are not drawn, but a light must have drawn its shadow map once to be used.
+        l.shadow.needsUpdate = !this.thermal || !l.shadow.map;
+        const h = this.sea.heads;
+        h.pos[i]!.copy(l.position);
+        h.dir[i]!.copy(l.target.position).sub(l.position).normalize();
+        const c = l.color;
+        h.col[i]!.set(c.r, c.g, c.b).multiplyScalar(b.power / 260);
+        h.cone[i]!.set(Math.cos(b.angle), Math.cos(b.angle * (1 - b.soft)));
       }
     }
-    for (let i = 0; i < HEADLIGHTS; i++) if (!lit[i]) this.heads[i]!.intensity = 0;
+    for (let i = 0; i < HEADLIGHTS; i++) {
+      if (lit[i]) continue;
+      this.heads[i]!.intensity = 0;
+      this.sea.heads.col[i]!.set(0, 0, 0);
+    }
   }
 
   /** A point of the bunker (its own units: across from the shaft, up from its top) on the modern screen in a view. */
@@ -604,7 +675,8 @@ export class ModernRenderer {
       this.statics.remove(this.ground.group);
       this.ground.dispose();
     }
-    this.ground = new Ground(this.assets, world, SUN, this.gl.capabilities.maxTextureSize >= 8192, (shader) => lampLight(shader, this.lampMap.texture, this.glow));
+    this.marks.clear();
+    this.ground = new Ground(this.assets, world, SUN, this.gl.capabilities.maxTextureSize >= 8192, this.sea, (shader) => lampLight(shader, this.lampMap.texture, this.glow));
     this.statics.add(this.ground.group);
     this.waterLight(this.ground.water.uniforms);
     for (let i = 0; i < this.chunks.length; i++) {
@@ -952,9 +1024,158 @@ export class ModernRenderer {
       const spin = (v.speed / 65536) * dt * 25;
       for (const w of rig.wheels) w.children[0]!.rotation.x -= spin;
     }
+    // In the shallows a ground vehicle sits down in the water, and a floating jeep rides low on its tyres.
+    if (v.kind !== 'heli') {
+      const wade = onLift || v.ground === LAND ? 0 : v.ground === DEEP ? (v.tyres ? 2.6 : 0) : WAKES[v.kind].wade;
+      rig.wade += Math.sign(wade - rig.wade) * Math.min(Math.abs(wade - rig.wade), dt * 8);
+      rig.root.position.y -= rig.wade;
+    }
     // A badly hit vehicle smokes.
     const max = VEHICLES[v.kind].health;
     if (v.health < max * 0.4 && z > -4) this.fx.trail(v.x / 65536, v.y / 65536, z + 4, v.health < max * 0.2, dt);
+  }
+
+  /**
+   * What the vehicles do to the water this frame. In the shallows a ground vehicle leaves lines of foam and silt
+   * behind its wheels or tracks, pushes a bow wave out to the sides and throws up spray, each kind its own way
+   * (WAKES); a jeep floating in deep water leaves a V of foam and a wash behind it; a vehicle going under boils the
+   * water with bubbles; one standing still sends out slow rings. A helicopter low over water flattens and roughens
+   * it under the rotor and blows rings, chop and spray out across it. Swimmers and the surfacing sub ripple it.
+   */
+  private waterFx(m: Match, dt: number): void {
+    const world = this.world;
+    if (!world || dt <= 0) return;
+    const w = this.marks;
+    const pace = Math.min(1, dt * 60);
+    const lifted = new Set(m.lifts.map((l) => l.vehicle));
+    for (const pl of m.players) {
+      const v = pl.vehicle;
+      const rig = v && this.rigs.get(v);
+      if (!v || !rig || lifted.has(v)) continue;
+      const x = v.x / 65536;
+      const y = v.y / 65536;
+      if (v.kind === 'heli') {
+        this.downwash(v, x, y, dt);
+        continue;
+      }
+      if (v.ground === LAND) continue;
+      const a = radians(v.heading);
+      const fx = Math.sin(a);
+      const fy = -Math.cos(a);
+      const rx = Math.cos(a);
+      const ry = Math.sin(a);
+      const speed = (v.speed / 65536) * TICKS;
+      const sp = Math.abs(speed);
+      // Which way is behind it as it goes: its back, or its front when reversing.
+      const back = speed >= 0 ? 1 : -1;
+      const k = WAKES[v.kind];
+      rig.ringIn -= dt;
+      if (v.ground === DEEP && !v.tyres) {
+        // Going under: the water boils with air coming up.
+        if (Math.random() < dt * 24) w.stamp(x + rand(-8, 8), y + rand(-8, 8), rand(4, 10), 0.6, 0.5, 0.1);
+        if (Math.random() < dt * 12) this.fx.bubbles(x + rand(-6, 6), y + rand(-6, 6));
+        if (rig.ringIn <= 0) {
+          w.ring(x + rand(-4, 4), y + rand(-4, 4), 0.55, 22, 1.4);
+          rig.ringIn = 0.22;
+        }
+        continue;
+      }
+      if (sp < 4) {
+        // Standing in the water: it laps round the vehicle.
+        if (rig.ringIn <= 0) {
+          w.ring(x, y, 0.22, 14, 1.8);
+          rig.ringIn = 1.1;
+        }
+        continue;
+      }
+      const t = Math.min(1, sp / k.fast);
+      const sx = x - fx * back * k.back;
+      const sy = y - fy * back * k.back;
+      const bx = x + fx * back * k.back;
+      const by = y + fy * back * k.back;
+      if (v.ground === SHALLOW) {
+        for (const s of [-1, 1]) {
+          const wx = sx + rx * s * k.half;
+          const wy = sy + ry * s * k.half;
+          w.stamp(wx, wy, k.line, k.foam * t * pace, k.chop * t * pace, k.silt * pace);
+          if (Math.random() < dt * k.spray * t) {
+            this.fx.spray(wx, wy, -fx * back * sp * (v.kind === 'asv' ? 0.6 : 0.3) + rx * s * rand(4, 14), -fy * back * sp * (v.kind === 'asv' ? 0.6 : 0.3) + ry * s * rand(4, 14), v.kind === 'asv' ? rand(50, 85) : rand(30, 60), k.muddy, v.kind === 'tank' ? 2.6 : 1.8);
+          }
+          // The bow wave, pushed out to the sides.
+          if (Math.random() < dt * 16 * t) {
+            w.patch({
+              x: bx + rx * s * k.half, y: by + ry * s * k.half, vx: rx * s * (8 + sp * 0.35), vy: ry * s * (8 + sp * 0.35),
+              life: rand(0.9, 1.3), s0: 3, s1: 9, foam: k.bow, chop: 0.6, silt: k.silt * 0.4, drag: 0.25,
+            });
+          }
+        }
+      } else {
+        // A jeep floating on its tyres: a V of foam spreading out behind it, and a wash where it has been.
+        if (Math.random() < dt * 36) {
+          for (const s of [-1, 1]) {
+            w.patch({
+              x: sx + rx * s * 5, y: sy + ry * s * 5, vx: rx * s * (5 + sp * 0.3), vy: ry * s * (5 + sp * 0.3),
+              life: rand(1.4, 1.9), s0: 2.5, s1: 5.5, foam: 0.4, chop: 0.7, silt: 0, drag: 0.55,
+            });
+          }
+        }
+        w.stamp(sx, sy, 6, 0.45 * t * pace, 0.55 * t * pace, 0);
+        if (Math.random() < dt * 16 * t) this.fx.spray(bx, by, rx * rand(-12, 12), ry * rand(-12, 12), rand(18, 34), false, 1.4);
+      }
+      if (rig.ringIn <= 0) {
+        w.ring(bx, by, 0.2 + 0.3 * t, 30, 1.2);
+        rig.ringIn = 0.3;
+      }
+    }
+    // Swimmers paddling.
+    for (const s of m.soldiers) if (s.water && Math.random() < dt * 1.4) w.ring(s.x / 65536, s.y / 65536, 0.18, 12, 1.3);
+    // The sub coming up or going down: the water boils over it.
+    if (m.sub) {
+      const f = subFrame(m.sub);
+      if (f >= 0 && f < 20 && Math.random() < dt * 10) {
+        const x = m.sub.x / 65536 + rand(-10, 10);
+        const y = m.sub.y / 65536 + rand(-10, 10);
+        w.stamp(x, y, rand(6, 12), 0.7, 0.6, 0);
+        if (Math.random() < 0.3) w.ring(x, y, 0.45, 24, 1.5);
+      }
+    }
+  }
+
+  /**
+   * A helicopter's downwash over water, stronger the lower it is (it shows at its cruising height of 50 px and is
+   * gone by about 100): the water under the rotor pressed flat and roughened, and air rushing out across the surface
+   * in rings of chop, foam and spray.
+   */
+  private downwash(v: Vehicle, x: number, y: number, dt: number): void {
+    const h = v.heli;
+    if (!h || !this.world) return;
+    const z = v.z / 65536;
+    const spin = h.rotorSpeed / 0x40000;
+    const s = spin * Math.min(1, Math.max(0, (100 - z) / 55));
+    if (s < 0.05 || groundAt(this.world, v.x, v.y, 0) === LAND) return;
+    const w = this.marks;
+    const pace = Math.min(1, dt * 60);
+    const r0 = 3 + z * 0.12;
+    w.stamp(x, y, 16 + z * 0.35, 0.012 * s * pace, 0.3 * s * pace, 0);
+    w.stamp(x, y, 26 + z * 0.5, 0.02 * s * pace, 0.2 * s * pace, 0, true);
+    const n = dt * 70 * s;
+    for (let i = 0; i < n || Math.random() < n - i; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const c = Math.cos(a);
+      const d = Math.sin(a);
+      const out = rand(40, 70) * (0.6 + 0.4 * s);
+      w.patch({ x: x + c * r0, y: y + d * r0, vx: c * out, vy: d * out, life: rand(0.55, 0.95), s0: 3, s1: 8, foam: 0.1 * s, chop: 0.9 * s, silt: 0, drag: 0.3 });
+      if (i > 60) break;
+    }
+    const rig = this.rigs.get(v);
+    if (rig) {
+      rig.ringIn -= dt;
+      if (rig.ringIn <= 0) {
+        w.ring(x, y, 0.5 * s, 42, 1.1);
+        rig.ringIn = 0.2;
+      }
+    }
+    this.fx.mist(x, y, s, dt);
   }
 
   private rig(v: Vehicle): VehicleRig {
@@ -967,7 +1188,7 @@ export class ModernRenderer {
     this.dynamic.add(root);
     const body = this.mesh(`${key}:body`, () => kits.body, team, this.hot);
     root.add(body);
-    rig = { root, body, wheels: [], inflate: v.tyres ? 1 : 0 };
+    rig = { root, body, wheels: [], inflate: v.tyres ? 1 : 0, wade: 0, ringIn: 0 };
     if (kits.turret) {
       rig.turret = new THREE.Group();
       rig.turret.add(this.mesh(`${key}:turret`, () => kits.turret!, team, this.hot));
@@ -1041,6 +1262,7 @@ export class ModernRenderer {
   dispose(): void {
     this.ground?.dispose();
     this.pass?.dispose();
+    this.marks.dispose();
     for (const c of this.chunks) c?.geometry.dispose();
     for (const g of this.geoCache.values()) g.dispose();
     this.gl.dispose();

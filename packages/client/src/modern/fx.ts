@@ -187,6 +187,14 @@ export class Fx {
     }
   }
 
+  /** The blasts' flashes for the sea, which lights itself: where each is and how bright now (0 when out). */
+  flashes(pos: THREE.Vector3[], power: number[]): void {
+    this.lights.forEach((l, i) => {
+      pos[i]?.copy(l.light.position);
+      power[i] = l.light.intensity;
+    });
+  }
+
   /** The point batches size their points for the view's height in pixels and its focal length. */
   setScale(pixelsPerUnitAtOne: number): void {
     this.glow.material.uniforms.scale!.value = pixelsPerUnitAtOne;
@@ -250,6 +258,44 @@ export class Fx {
       });
     }
     this.puff(x, y, 1, big ? 8 : 3, 1.2, [0.85, 0.93, 0.97], big ? 8 : 4, big ? 26 : 12);
+  }
+
+  /** A throw of water off a wheel or track: droplets that arc and fall back, white or (muddy) brown. */
+  spray(x: number, y: number, vx: number, vy: number, vz: number, muddy: boolean, size: number): void {
+    const n = 3;
+    for (let i = 0; i < n; i++) {
+      const shade = rand(0.88, 1.05);
+      const c = muddy && Math.random() < 0.6 ? [0.62, 0.53, 0.4] : [0.9, 0.96, 1];
+      this.soft.push({
+        x: x + rand(-1.5, 1.5), y: y + rand(-1.5, 1.5), z: 0.5, vx: vx + rand(-6, 6), vy: vy + rand(-6, 6), vz: vz * rand(0.7, 1.1), age: 0, life: rand(0.45, 0.75),
+        size0: size, size1: size * 1.8, r: c[0]! * shade, g: c[1]! * shade, b: c[2]! * shade, alpha: 0.75, drag: 0.55, rise: 0, gravity: GRAVITY,
+      });
+    }
+  }
+
+  /** Spray blown out low across the water by a helicopter's rotor (strength 0-1), called each frame. */
+  mist(x: number, y: number, strength: number, dt: number): void {
+    const n = dt * 45 * strength;
+    for (let i = 0; i < n || Math.random() < n - i; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const r = rand(4, 10);
+      const s = rand(35, 65);
+      this.soft.push({
+        x: x + Math.cos(a) * r, y: y + Math.sin(a) * r, z: rand(0.5, 2), vx: Math.cos(a) * s, vy: Math.sin(a) * s, vz: rand(4, 14), age: 0, life: rand(0.6, 1.1),
+        size0: 3, size1: rand(9, 15), r: 0.86, g: 0.93, b: 0.98, alpha: 0.45 * strength + 0.1, drag: 0.35, rise: 2, gravity: 0,
+      });
+      if (i > 20) break;
+    }
+  }
+
+  /** Air coming up from something going under: a few bubbles bursting at the surface. */
+  bubbles(x: number, y: number): void {
+    for (let i = 0; i < 3; i++) {
+      this.soft.push({
+        x: x + rand(-2, 2), y: y + rand(-2, 2), z: 0, vx: rand(-4, 4), vy: rand(-4, 4), vz: rand(10, 30), age: 0, life: rand(0.3, 0.5),
+        size0: 1.6, size1: 2.6, r: 0.88, g: 0.95, b: 1, alpha: 0.8, drag: 0.5, rise: 0, gravity: GRAVITY,
+      });
+    }
   }
 
   /** Air rushing out of (or into) the jeep's tyres. */

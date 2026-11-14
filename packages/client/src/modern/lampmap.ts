@@ -51,9 +51,15 @@ const smooth = (a: number, b: number, x: number) => {
   return t * t * (3 - 2 * t);
 };
 
+/** How far a lamp's own glow spreads on the glare map, for its reflection on the sea (pixels). */
+const GLARE = 13;
+
 export class LampMap {
   readonly texture: THREE.DataTexture;
   private readonly data = new Uint8Array(SIZE * SIZE * 4);
+  /** Each lamp's own glow where it stands, for the sea's reflections of the lamps (water.ts, ground.ts). */
+  readonly glare: THREE.DataTexture;
+  private readonly glareData = new Uint8Array(SIZE * SIZE * 4);
   /** Light (irradiance on the ground, linear RGB) per texel, and the strongest lamp's share and seed there. */
   private readonly light = new Float32Array(SIZE * SIZE * 3);
   private readonly best = new Float32Array(SIZE * SIZE);
@@ -68,6 +74,11 @@ export class LampMap {
     this.texture.minFilter = THREE.LinearFilter;
     this.texture.generateMipmaps = false;
     this.texture.needsUpdate = true;
+    this.glare = new THREE.DataTexture(this.glareData, SIZE, SIZE, THREE.RGBAFormat, THREE.UnsignedByteType);
+    this.glare.magFilter = THREE.LinearFilter;
+    this.glare.minFilter = THREE.LinearFilter;
+    this.glare.generateMipmaps = false;
+    this.glare.needsUpdate = true;
   }
 
   /**
@@ -84,11 +95,13 @@ export class LampMap {
     for (let r = r0; r < r1; r++) {
       this.light.fill(0, (r * SIZE + c0) * 3, (r * SIZE + c1) * 3);
       this.best.fill(0, r * SIZE + c0, r * SIZE + c1);
+      this.glareData.fill(0, (r * SIZE + c0) * 4, (r * SIZE + c1) * 4);
     }
     const seeds = new Uint8Array(SIZE * SIZE);
     for (const lamp of lamps) {
       if (lamp.x + LAMP_REACH < a.x0 || lamp.x - LAMP_REACH > a.x1 || lamp.y + LAMP_REACH < a.y0 || lamp.y - LAMP_REACH > a.y1) continue;
       this.one(lamp, c0, r0, c1, r1, seeds);
+      this.glow(lamp, c0, r0, c1, r1);
     }
     for (let r = r0; r < r1; r++) {
       for (let c = c0; c < c1; c++) {
@@ -98,6 +111,29 @@ export class LampMap {
       }
     }
     this.texture.needsUpdate = true;
+    this.glare.needsUpdate = true;
+  }
+
+  /** A lamp's own glow on the glare map: its colour, brightest where it stands, by its power; alpha its height. */
+  private glow(lamp: Lamp, c0: number, r0: number, c1: number, r1: number): void {
+    const col = new THREE.Color(lamp.colour);
+    const k = Math.min(1, 0.45 + lamp.power / 3000);
+    const x0 = Math.max(c0, Math.floor((lamp.x - GLARE * 2) / CELL));
+    const x1 = Math.min(c1, Math.ceil((lamp.x + GLARE * 2) / CELL));
+    const y0 = Math.max(r0, Math.floor((lamp.y - GLARE * 2) / CELL));
+    const y1 = Math.min(r1, Math.ceil((lamp.y + GLARE * 2) / CELL));
+    for (let cy = y0; cy < y1; cy++) {
+      for (let cx = x0; cx < x1; cx++) {
+        const d = Math.hypot((cx + 0.5) * CELL - lamp.x, (cy + 0.5) * CELL - lamp.y) / GLARE;
+        const e = k * Math.exp(-d * d * 2);
+        if (e < 0.01) continue;
+        const i = (cy * SIZE + cx) * 4;
+        this.glareData[i] = Math.max(this.glareData[i]!, Math.round(e * col.r * 255));
+        this.glareData[i + 1] = Math.max(this.glareData[i + 1]!, Math.round(e * col.g * 255));
+        this.glareData[i + 2] = Math.max(this.glareData[i + 2]!, Math.round(e * col.b * 255));
+        this.glareData[i + 3] = Math.max(this.glareData[i + 3]!, Math.round(Math.min(1, lamp.z / 40) * 255));
+      }
+    }
   }
 
   /** What stands on the map, for the lamps' shadows: the solid buildings' bodies, as tall as they are. */
