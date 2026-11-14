@@ -29,7 +29,7 @@ import { setTouchMode, touchModeFor } from './touch.js';
 import { Effects } from './effects.js';
 import { LINE, drawText, textWidth } from './font.js';
 import { drawHud } from './hud.js';
-import { ONLINE_KEYS, REPLAY_KEYS, activeControls, bindingsVersion, keyName, playKeys, typingIn } from './keys.js';
+import { ONLINE_KEYS, REPLAY_KEYS, activeControls, bindingsVersion, keyName, playKeys, typingIn, type Controls } from './keys.js';
 import type { Net } from './online/net.js';
 import { ChatInput, chatRuns, drawChat, drawNames, drawScoreboard, scoreRows } from './online/overlay.js';
 import { Frame, SCREEN_H, SCREEN_W } from './raster.js';
@@ -39,6 +39,7 @@ import { drawSkull } from './skull.js';
 import { drawView } from './view.js';
 import { MODERN_H, MODERN_W, modernAvailable, modernLayout, type ModernRect } from './modern/layout.js';
 import type { ModernRenderer, ModernScreen } from './modern/renderer.js';
+import type { ModernFinale } from './modern/finale.js';
 import { bunkerBayAt, dimView, drawBanner, drawBunkerPanel, drawChatLines, drawLog, drawFeed, drawModernHud, drawName, drawNote, drawScoreTable } from './modern/hud.js';
 import { TEAMS } from './paint.js';
 
@@ -100,8 +101,8 @@ export interface GameOptions {
   visuals?: () => 'retro' | 'modern';
   /** The modern view's lighting. */
   lighting?: () => 'day' | 'night';
-  /** The modern view's camera: the drone's feed or a clean picture, and the thermal camera. */
-  camera?: () => { drone: boolean; thermal: boolean };
+  /** Whether the modern view's thermal camera is on (its key or button in the match). */
+  thermal?: () => boolean;
 }
 
 /** What a replay's controls (main.ts) show and change. */
@@ -136,7 +137,7 @@ export class Game {
   /** Settles with the outcome once the match is over and has been on screen a moment, or null when stopped. */
   readonly done: Promise<Outcome | null>;
   /** The match as it ended, for the win scene; null until then. */
-  finale: { match: Match; assets: GameAssets } | null = null;
+  finale: { match: Match; assets: GameAssets; modern: ModernFinale | null } | null = null;
   private finish!: (o: Outcome | null) => void;
   private readonly abort = new AbortController();
   private raf = 0;
@@ -155,6 +156,21 @@ export class Game {
 
   get online(): boolean {
     return !!this.o.online;
+  }
+
+  /**
+   * The visuals this match is shown in whatever the player's Options say: a replay as its match was seen, or the
+   * host's pick for everyone online; null when the player's own choice applies.
+   */
+  /** Whether the match is at night: the replay's, the host's pick online, or the player's own. */
+  get night(): boolean {
+    const start = this.o.online?.start;
+    return (this.o.replay?.look?.lighting ?? (start ? lobbyLighting(start.lighting) : this.o.lighting?.())) === 'night';
+  }
+
+  get fixedVisuals(): 'retro' | 'modern' | null {
+    const v = this.o.replay?.look?.visuals ?? this.o.online?.start.visuals;
+    return v === 'retro' || v === 'modern' ? v : null;
   }
 
   /** Set while a replay plays: its position and speed, for the replay bar. */
@@ -194,11 +210,11 @@ export class Game {
     const signal = this.abort.signal;
     const start = online?.start;
     const net = online?.net;
-    /** Retro or modern: the host's pick for everyone online, or the player's own. */
-    const hostVisuals = start ? lobbyVisuals(start.visuals) : undefined;
-    const wanted = () => hostVisuals ?? this.o.visuals?.();
+    /** Retro or modern: a replay as its match was seen, the host's pick for everyone online, or the player's own. */
+    const wanted = () => replay?.look?.visuals ?? (start ? lobbyVisuals(start.visuals) : this.o.visuals?.());
+    const nightNow = () => this.night;
     // The host's pick brings its own soundtrack too.
-    if (hostVisuals) music.setStyle(hostVisuals === 'modern' && modernAvailable() ? 'modern' : 'retro');
+    if (this.fixedVisuals) music.setStyle(this.fixedVisuals === 'modern' && modernAvailable() ? 'modern' : 'retro');
     const players = online ? 1 : this.o.players;
     let sides = activeControls();
     const pick = () => (online || players === 1 ? [sides.solo] : this.o.swapSides ? [sides.right, sides.left] : [sides.left, sides.right]);
@@ -223,17 +239,58 @@ export class Game {
     const handicap = (replay ? replay.handicap : start ? start.handicap : this.o.handicap) === true;
     const startSlots = match.players.map((p) => ({ base: p.base, team: p.team }));
     const startLives = match.players.map((p) => startingLives(replay?.map ?? start?.map ?? assets.map, startSlots, p.id, handicap));
-    // Who each view follows: the local players, or online this browser's seat (a spectator picks with 1-4).
+    // Who each view follows: the local players, or online this browser's seat (a spectator picks with 1-4 or the arrows).
     let watched = start ? (start.you ?? 0) : 0;
     const me = start ? start.you : replay ? null : 0;
-    // A player whose base is out watches a teammate still in the match.
-    const follow = (p: number): number => {
+    /** Still in the match: worth watching. */
+    const playing = (id: number): boolean => {
+      const q = match.players[id];
+      return !!q && q.state !== 'out' && !match.eliminated[q.base];
+    };
+    /** The player each view has picked to watch once its own base is out (null: not picked yet). */
+    const picked: (number | null)[] = [null, null];
+    // A player whose base is out watches the one they picked, else a teammate still in the match, else anyone still in.
+    const follow = (p: number, i: number): number => {
       const pl = match.players[p]!;
       if (pl.state !== 'out') return p;
-      return match.players.find((q) => q.team === pl.team && !match.eliminated[q.base] && q.state !== 'out')?.id ?? p;
+      const c = picked[i];
+      if (c !== null && c !== undefined && playing(c)) return c;
+      return match.players.find((q) => q.team === pl.team && playing(q.id))?.id ?? match.players.find((q) => playing(q.id))?.id ?? p;
     };
     const seats = (): number[] => (online || replay ? [watched] : Array.from({ length: players }, (_, p) => p));
     const viewers = (): number[] => (me === null ? seats() : seats().map(follow));
+    /** Watching (a spectator, or a player whose base is out): view i follows player n, if they are still in. */
+    const choose = (i: number, n: number): boolean => {
+      if (me === null) {
+        if (n < 0 || n >= match.players.length || n === watched) return false;
+        watched = n;
+        return true;
+      }
+      if (!playing(n) || viewers()[i] === n) return false;
+      picked[i] = n;
+      return true;
+    };
+    /** Watching: view i moves on to the next (step 1) or the one before (step -1) of the players still in. */
+    const cycle = (i: number, step: 1 | -1): boolean => {
+      const left = match.players.filter((q) => playing(q.id)).map((q) => q.id);
+      if (!left.length) return false;
+      const at = left.indexOf(viewers()[i]!);
+      const n = at < 0 ? left[step > 0 ? 0 : left.length - 1]! : left[(at + step + left.length) % left.length]!;
+      return choose(i, n);
+    };
+    /**
+     * A key pressed by someone watching: turn left / right step through the players still in (fire steps on), and the
+     * launch keys (or 1-4) pick player 1-4. Returns whether the view changed.
+     */
+    const watchKey = (i: number, c: Controls, code: string): boolean => {
+      if (c.left.includes(code)) return cycle(i, -1);
+      if (c.right.includes(code) || c.fire.includes(code)) return cycle(i, 1);
+      const slot = c.launch.findIndex((codes) => codes.includes(code));
+      if (slot >= 0) return choose(i, slot);
+      // One view on the screen: the number keys (and the touch buttons P1-P4) pick a player too.
+      const n = players === 1 || online ? (ONLINE_KEYS.follow as readonly string[]).indexOf(code) : -1;
+      return n >= 0 && choose(i, n);
+    };
     const names = replay ? match.players.map((p) => replay.seats[p.id]?.name ?? `Base ${p.base + 1}`) : this.o.names;
     // A replay shows names as an online match does, from its seats.
     const shown: MatchStart | undefined = start ?? (replay ? {
@@ -254,6 +311,7 @@ export class Game {
       at: Date.now(), mode: online ? 'online' : players === 2 ? 'tournament' : 'training',
       mapId: start?.mapId ?? this.o.mapId ?? '', mapName: this.o.mapName ?? (start?.map ?? assets.map).name ?? 'Untitled',
       map: start?.map ?? assets.map, seed: start?.seed ?? this.o.seed, difficulty: start?.difficulty ?? this.o.difficulty, ...(handicap ? { handicap } : {}),
+      look: { visuals: wanted() === 'modern' && modernAvailable() ? 'modern' : 'retro', lighting: nightNow() ? 'night' : 'day' },
       seats: start ? start.seats.map((x) => ({ base: x.base, team: x.team, name: x.name }))
         : match.players.map((p) => ({ base: p.base, team: p.team, name: names[p.base] ?? `Base ${p.base + 1}` })),
       ...(start?.snapshot ? { snapshot: start.snapshot } : {}),
@@ -278,7 +336,10 @@ export class Game {
     let modern: ModernRenderer | null = null;
     /** Modern: where each view went on the last picture, for taps on the bunker. */
     let modernRects: ModernRect[] | null = null;
-    signal.addEventListener('abort', () => modern?.dispose());
+    // The modern renderer outlives the match when it is handed to the win scene, which disposes of it.
+    signal.addEventListener('abort', () => {
+      if (!this.finale?.modern) modern?.dispose();
+    });
 
     const chat = online ? new ChatInput(net!, start!, signal) : null;
     let scoreboard = false;
@@ -397,6 +458,21 @@ export class Game {
       }
     };
 
+    /** When a base played on this screen goes out: how to pick who to watch, if anyone is left to watch. */
+    const outHint = (base: number) => {
+      if (me === null || replay) return;
+      const ours = seats().filter((p) => match.players[p]!.base === base);
+      if (!ours.length || !match.players.some((q) => playing(q.id))) return;
+      if (this.o.handheld) return say('You are out: P1-P4 pick who to watch');
+      for (const p of ours) {
+        const i = seats().indexOf(p);
+        const c = controls[i]!;
+        // One view: the arrows (the last of the merged keys) or 1-4; split screen: that half's own turn keys.
+        const keys = players > 1 ? `${keyName(c.left[0]!)} / ${keyName(c.right[0]!)}` : `${keyName(c.left.at(-1)!)} / ${keyName(c.right.at(-1)!)} or 1-4`;
+        say(`${players > 1 ? `${baseName(base)} is out` : 'You are out'}: ${keys} pick who to watch`);
+      }
+    };
+
     /** Effects, sounds, messages and cameras after a tick, local or online. */
     const afterTick = () => {
       effects.add(match.events, match);
@@ -411,6 +487,7 @@ export class Game {
       for (const e of match.events) {
         const text = describe(e);
         if (text) say(text);
+        if (e.type === 'eliminated') outHint(e.base);
         if (e.type === 'captured') captures[e.player] = (captures[e.player] ?? 0) + 1;
       }
       const v = viewers();
@@ -442,6 +519,11 @@ export class Game {
       for (const code of pressed.splice(0)) {
         for (let p = 0; p < players; p++) {
           const c = controls[p]!;
+          // Out of the match: the keys pick who to watch.
+          if (match.players[p]!.state === 'out') {
+            if (watchKey(p, c, code)) sound.ui('click');
+            continue;
+          }
           const slot = c.launch.findIndex((codes) => codes.includes(code));
           if (slot >= 0) {
             selected[p] = LAUNCH_ORDER[slot]!;
@@ -579,12 +661,12 @@ export class Game {
         } else net!.command({ launch: kind });
       }
       for (const code of pressed.splice(0)) {
-        if (me === null) {
-          const n = (ONLINE_KEYS.follow as readonly string[]).indexOf(code);
-          if (n >= 0 && n < match.players.length) watched = n;
+        const c = controls[0]!;
+        // A spectator, or a player whose base is out, picks who to watch.
+        if (me === null || match.players[me]!.state === 'out') {
+          if (watchKey(0, c, code)) sound.ui('click');
           continue;
         }
-        const c = controls[0]!;
         const slot = c.launch.findIndex((codes) => codes.includes(code));
         if (slot >= 0) {
           selected[0] = LAUNCH_ORDER[slot]!;
@@ -761,8 +843,10 @@ export class Game {
       display.sides = v.map((p) => match.players[p]!.base);
       if (useModern && modern) {
         const rects = modernLayout(cameras.length);
-        const night = (start ? lobbyLighting(start.lighting) : this.o.lighting?.()) === 'night';
-        const look = this.o.camera?.() ?? { drone: false, thermal: false };
+        const night = nightNow();
+        // The modern view is always the drone's feed; thermal is the player's to switch in the match.
+        // The thermal camera is for the dark: by day there is none.
+        const look = { drone: true, thermal: night && (this.o.thermal?.() ?? false) };
         modern.setNight(night);
         modern.setLook(look.drone, look.thermal);
         modern.draw(match, cameras.map((cam, i) => ({ cam, rect: rects[i]!, viewer: v[i]!, skip: !field[i], screen: screens[i] })), extras);
@@ -838,11 +922,11 @@ export class Game {
         endedAt ??= now;
         // Online, wait a moment longer for the server's result if it has not come yet.
         if (now - endedAt >= END_HOLD_MS && (!online || outcome.result || now - endedAt >= END_HOLD_MS * 2)) {
+          this.finale = { match, assets, modern: useModern && modern ? { renderer: modern, extras } : null };
           this.abort.abort();
           sound.reset();
           music.endMatch();
           handOverReplay(outcome.team ?? outcome.winnerBase);
-          this.finale = { match, assets };
           this.finish(outcome);
           return;
         }
@@ -864,7 +948,7 @@ export class Game {
       say(me === null ? 'Watching: P1-P4 pick a player' : 'Stick picks a bay, Launch sends it up');
       if (me !== null) say('Dock takes a vehicle back in on your base');
     } else if (online) {
-      if (me === null) say('Watching: 1-4 pick a player, Tab the scores');
+      if (me === null) say(`Watching: ${keyName(sides.solo.left[0]!)} / ${keyName(sides.solo.right[0]!)} or 1-4 pick a player, Tab the scores`);
       else {
         say(`Drive keys pick a bay, ${keyName(sides.left.fire[0]!)} launches`);
         say(`${keyName(ONLINE_KEYS.chat)} to chat, ${keyName(ONLINE_KEYS.scoreboard)} the scores`);

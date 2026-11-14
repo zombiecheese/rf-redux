@@ -5,7 +5,7 @@
 // shallows, foam and colour come from how far each point is from land.
 
 import * as THREE from 'three';
-import { THERMAL } from './look.js';
+import { THERMAL, grainLights } from './look.js';
 import { GRID, NO_TERRAIN, type World } from '@rfw/sim';
 import type { GameAssets } from '../assets.js';
 
@@ -127,6 +127,7 @@ export class Ground {
             vec2 f = fract(t);
             if (texture2D(pits, (floor(t) + 0.5) / ${GRID}.0).r > 0.5 && f.x > 0.06 && f.x < 0.94 && f.y > 0.06 && f.y < 0.94) discard;
           }`);
+      grainLights(shader);
     };
     const plane = new THREE.Mesh(new THREE.PlaneGeometry(GRID * TILE, GRID * TILE), mat);
     plane.rotateX(-Math.PI / 2);

@@ -110,7 +110,7 @@ export class Display {
    * @param crt Scanlines and a soft glow over the picture, like a TV of the time. Only drawn when each picture line
    * is at least two screen pixels tall, where the lines can be told apart.
    */
-  constructor(public mode: ScaleMode = 'sharp', public crt = false) {
+  constructor(public mode: ScaleMode = 'sharp', public crt = true) {
     document.body.appendChild(this.canvas);
   }
 

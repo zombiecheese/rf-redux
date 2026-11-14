@@ -51,7 +51,8 @@ differ and Brown's is a brown change hue, so lights, glass, tracks and shading s
 
 **Winning.** As in solo play, a base is out when an enemy jeep takes its flag home or it has no jeeps left (none in the bunker and none on the map). Home
 is the jeep's own base or the base of any teammate still in the match. A player whose base is out stays in the match
-as a watcher: their view follows a teammate who is still playing, and they can still chat. The
+as a watcher: their view starts on a teammate who is still playing (or anyone still in), the turn keys, fire, 1–4 or
+P1–P4 switch between the players still in, and they can still chat. The
 last team standing wins. If the last bases go out on the same tick the match is a draw. A match stops after two hours:
 the team with the most jeeps left (in its bunkers and on the map) then wins, and level counts make it a draw.
 
@@ -67,7 +68,7 @@ fire key when it is closed, as offline. Tab with the chat line closed shows the 
 Chat and Scores buttons at the top do the same; the chat line opens at the top of the screen, clear of the keyboard,
 and tapping its label picks who it goes to.
 Right-click a message to report it or block its sender; moderators can mute players. A spectator presses 1–4 (on a
-touch screen, P1–P4 at the top) to follow a player.
+touch screen, P1–P4 at the top) to follow a player, or ← / → to step through them.
 
 **No pausing.** An online match is shared, so no player can pause it: P and the touch pause
 button do nothing online (the menu and dialogs open over the match while it plays on, and the menu has no Pause). Only the server stops the
@@ -89,7 +90,7 @@ invites. An account can have up to 200 friends and requests.
 the ☁ button on a replay saves it to your account, where it can be watched or saved as a file from any browser
 you sign in on. The site setting "Replays one account keeps" caps how many (30 by default; 0 turns it off).
 
-**Stats.** A signed-in player's profile keeps their settings (names, key bindings, difficulty, volume and music, visuals and lighting, picture and CRT look, Swap Sides,
+**Stats.** A signed-in player's profile keeps their settings (names, key bindings, difficulty, volume and music, visuals and lighting, picture scaling, Swap Sides,
 the last map picked) and
 online stats: wins, losses, flags captured, vehicles lost and the vehicle they launch most. The ladder is an Elo
 rating starting at 1000, counted from matches with at least two signed-in players on opposing teams. A solo best

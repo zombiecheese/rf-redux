@@ -17,12 +17,14 @@ export interface Controls {
   turretRight: string[];
   /** Launch keys, one list per vehicle in LAUNCH_ORDER (jeep, tank, ASV, helicopter). */
   launch: string[][];
+  /** The thermal camera on or off (the modern view; main.ts reads it, the match does not). */
+  thermal: string[];
 }
 
 /** Everything a half of the keyboard does, one key each: what Config > Controls lists and rebinds. */
 export const ACTIONS = [
   'up', 'down', 'left', 'right', 'fire', 'fire2', 'fire3', 'turretLeft', 'turretRight', 'dock',
-  'launchJeep', 'launchTank', 'launchAsv', 'launchHeli',
+  'launchJeep', 'launchTank', 'launchAsv', 'launchHeli', 'thermal',
 ] as const;
 export type Action = (typeof ACTIONS)[number];
 export type Bindings = Record<Action, string>;
@@ -35,25 +37,26 @@ export const ACTION_LABELS: Record<Action, string> = {
   up: 'Forward', down: 'Back', left: 'Turn left', right: 'Turn right', fire: 'Fire', fire2: 'Second button', fire3: 'Third button',
   turretLeft: 'Turret left', turretRight: 'Turret right', dock: 'Back into the bunker',
   launchJeep: 'Launch jeep', launchTank: 'Launch tank', launchAsv: 'Launch ASV', launchHeli: 'Launch helicopter',
+  thermal: 'Thermal camera (modern, at night)',
 };
 
 /** The original's Tournament layout: Brown on the left half of the keyboard, Green on the right. */
 export const DEFAULT_BINDINGS: Record<Half, Bindings> = {
   left: {
     up: 'KeyW', down: 'KeyS', left: 'KeyA', right: 'KeyD', fire: 'Space', fire2: 'ShiftLeft', fire3: 'KeyF', turretLeft: 'KeyQ', turretRight: 'KeyE',
-    dock: 'KeyR', launchJeep: 'Digit1', launchTank: 'Digit2', launchAsv: 'Digit3', launchHeli: 'Digit4',
+    dock: 'KeyR', launchJeep: 'Digit1', launchTank: 'Digit2', launchAsv: 'Digit3', launchHeli: 'Digit4', thermal: 'KeyG',
   },
   right: {
     up: 'ArrowUp', down: 'ArrowDown', left: 'ArrowLeft', right: 'ArrowRight', fire: 'Enter', fire2: 'ShiftRight', fire3: 'Slash',
     turretLeft: 'BracketLeft', turretRight: 'BracketRight', dock: 'Backspace', launchJeep: 'Digit7', launchTank: 'Digit8', launchAsv: 'Digit9',
-    launchHeli: 'Digit0',
+    launchHeli: 'Digit0', thermal: 'KeyI',
   },
 };
 
 export function controlsFrom(b: Bindings): Controls {
   return {
     up: [b.up], down: [b.down], left: [b.left], right: [b.right], fire: [b.fire], fire2: [b.fire2], fire3: [b.fire3], dock: [b.dock],
-    turretLeft: [b.turretLeft], turretRight: [b.turretRight], launch: LAUNCH_ACTIONS.map((a) => [b[a]]),
+    turretLeft: [b.turretLeft], turretRight: [b.turretRight], launch: LAUNCH_ACTIONS.map((a) => [b[a]]), thermal: [b.thermal],
   };
 }
 
@@ -63,7 +66,7 @@ function merge(a: Controls, b: Controls): Controls {
   return {
     up: both(a.up, b.up), down: both(a.down, b.down), left: both(a.left, b.left), right: both(a.right, b.right), fire: both(a.fire, b.fire),
     fire2: both(a.fire2, b.fire2), fire3: both(a.fire3, b.fire3), dock: both(a.dock, b.dock), turretLeft: both(a.turretLeft, b.turretLeft),
-    turretRight: both(a.turretRight, b.turretRight), launch: a.launch.map((k, i) => both(k, b.launch[i]!)),
+    turretRight: both(a.turretRight, b.turretRight), launch: a.launch.map((k, i) => both(k, b.launch[i]!)), thermal: both(a.thermal, b.thermal),
   };
 }
 
@@ -151,7 +154,7 @@ export const ONLINE_KEYS = {
   chat: 'KeyT',
   /** Held: the scoreboard. In the chat line: the next (Shift: previous) recipient. */
   scoreboard: 'Tab',
-  /** A spectator follows player 1-4. */
+  /** A spectator, or a player whose base is out, follows player 1-4. */
   follow: ['Digit1', 'Digit2', 'Digit3', 'Digit4'],
 } as const;
 
@@ -184,7 +187,7 @@ export const REPLAY_KEYS = {
   follow: ['Digit1', 'Digit2', 'Digit3', 'Digit4'],
 } as const;
 
-export type ShortcutId = 'help' | 'newGame' | 'pause' | 'fullScreen' | 'restart' | 'hallOfFame' | 'menus' | 'swapSides' | 'mute' | 'thermal';
+export type ShortcutId = 'help' | 'newGame' | 'pause' | 'fullScreen' | 'restart' | 'hallOfFame' | 'menus' | 'swapSides' | 'mute';
 
 export interface Shortcut {
   id: ShortcutId;
@@ -205,7 +208,6 @@ export const SHORTCUTS: Shortcut[] = [
   { id: 'hallOfFame', code: 'KeyL', label: 'Hall of Fame' },
   { id: 'menus', code: 'KeyM', label: 'Open the menu' },
   { id: 'mute', code: 'KeyV', label: 'Sound off / on' },
-  { id: 'thermal', code: 'KeyI', label: 'Thermal camera on / off (modern)' },
   { id: 'restart', code: 'KeyR', alt: true, label: 'Restart' },
   { id: 'fullScreen', code: 'Enter', alt: true, label: 'Full Screen' },
   { id: 'swapSides', code: 'Digit3', alt: true, label: 'Swap Sides' },
@@ -250,6 +252,7 @@ export const CONTROL_ROWS: [string, (c: Controls) => string[], string][] = [
   ['Tank turret left / right', (c) => [...c.turretLeft, ...c.turretRight], ' / '],
   ['Launch jeep, tank, ASV, helicopter', (c) => c.launch.map((k) => k[0]!), ' '],
   ['Back into the bunker (on your base)', (c) => c.dock, ''],
+  ['Thermal camera on / off (modern view, at night)', (c) => c.thermal, ''],
 ];
 
 /**

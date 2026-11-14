@@ -17,7 +17,7 @@ import { drawMark, type Splat, type Wreck as MarkWreck } from '../effects.js';
 import { TEAMS } from '../paint.js';
 import { building, gateLeaf, lightOf, lookOf, towerGun, type Box } from './buildings.js';
 import { Fx } from './fx.js';
-import { LookPass, THERMAL, heatFragment } from './look.js';
+import { LIGHT_TIME, LookPass, THERMAL, grainLights, heatFragment } from './look.js';
 import { BunkerScene, SkullScene } from './screens.js';
 import { Ground, TILE } from './ground.js';
 import { Kit, NEUTRAL, teamPaint, type TeamPaint } from './kit.js';
@@ -141,13 +141,15 @@ export class ModernRenderer {
   /** How much windows and lamps glow: 0 by day, 1 at night. */
   private readonly glow = { value: 0 };
   private skull: SkullScene | null = null;
-  /** The drone's feed over the picture (Options > Camera), and the thermal camera (I). */
+  /** The drone's feed over the picture (always on in a match), and the thermal camera (switched in the match). */
   private feed = false;
   private thermal = false;
   private pass: LookPass | null = null;
   /** Recent blasts (seconds on the performance clock), and when each player's vehicle was last hit or destroyed. */
   private readonly blasts: { x: number; y: number; at: number; power: number }[] = [];
   private readonly struck = new Map<number, { at: number; long: boolean }>();
+  /** The stream breaking up regardless of what it watches (0-1): the feed cutting out at the end of the win scene. */
+  private jamming = 0;
 
   constructor(private readonly assets: GameAssets) {
     this.gl = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true, powerPreference: 'high-performance' });
@@ -209,6 +211,7 @@ export class ModernRenderer {
         .replace('void main() {', 'uniform float nightGlow;\nuniform float thermal;\nvarying float vGlow;\nvoid main() {')
         .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n  totalEmissiveRadiance += vec3(1.0, 0.78, 0.42) * vGlow * nightGlow * 1.6;')
         .replace('#include <dithering_fragment>', `#include <dithering_fragment>\n${heatFragment(heat, true)}`);
+      grainLights(shader);
     };
   }
 
@@ -339,6 +342,7 @@ export class ModernRenderer {
    */
   draw(m: Match, views: readonly ModernView[], extras: { wrecks: readonly MarkWreck[]; splats: readonly Splat[] }): void {
     const now = performance.now();
+    LIGHT_TIME.value = (now / 1000) % 1000;
     const dt = Math.min(0.1, (now - this.lastTime) / 1000);
     this.lastTime = now;
     if (m.world !== this.world) this.setWorld(m.world);
@@ -404,7 +408,7 @@ export class ModernRenderer {
     for (const b of this.blasts) if (Math.abs(b.x - pose.x) < 480 && Math.abs(b.y - pose.y) < 360) g = Math.max(g, b.power * fade(now - b.at, 0.45));
     const s = this.struck.get(v.viewer);
     if (s) g = Math.max(g, fade(now - s.at, s.long ? 1.2 : 0.6));
-    return g;
+    return Math.max(g, this.jamming);
   }
 
   /** Stands the camera where the retro camera projects from, framing the rectangle as the retro view frames its own. */
@@ -441,6 +445,16 @@ export class ModernRenderer {
    * The camera's look: the drone's feed (or a clean picture), and the thermal camera, which shows heat instead of
    * light, so night hides nothing from it.
    */
+  /** Breaks the stream up by this much (0-1) whatever is on screen, until set back to 0. */
+  jam(level: number): void {
+    this.jamming = Math.max(0, Math.min(1, level));
+  }
+
+  /** The look last set: whether the drone's feed and the thermal camera are on, and whether it is night. */
+  get look(): { drone: boolean; thermal: boolean; night: boolean } {
+    return { drone: this.feed, thermal: this.thermal, night: this.night };
+  }
+
   setLook(drone: boolean, thermal: boolean): void {
     this.feed = drone;
     if (thermal === this.thermal) return;

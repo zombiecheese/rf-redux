@@ -28,17 +28,11 @@ export interface Settings {
   volume: Volume;
   /** Options > Controls: keys the player has changed from the original layout, per half of the keyboard. */
   keys: Partial<Record<Half, Partial<Bindings>>>;
-  /** Options > Picture: a subtle CRT look (scanlines and glow) over the picture. */
-  crt: boolean;
-  /** Options > Visuals: the retro 320 x 240 picture, or the modern 3D view at 1280 x 720. */
+  /** Options > View > Visuals (online, the host picks): the retro 320 x 240 picture, or the modern 3D view at 1280 x 720. */
   visuals: 'retro' | 'modern';
-  /** Options > Lighting: the modern view by day, or at night with headlights and glowing fire. */
+  /** Time of day on the Player Selector (online, the host picks): the modern view by day, or at night with headlights and glowing fire. */
   lighting: 'day' | 'night';
-  /** Options > Camera: the modern view as a surveillance drone's feed, or a clean picture. */
-  camera: 'drone' | 'clean';
-  /** Options > Thermal (I): the modern view through a thermal camera, white-hot, to see in the dark. */
-  thermal: boolean;
-  /** Options > Instruments: the band on the built-in synthesiser, or sampled from the site's SoundFont. */
+  /** Options > Sound and Music > Instruments: the band on the built-in synthesiser, or sampled from the site's SoundFont. */
   instruments: 'builtin' | 'sampled';
   /** The last choices on the Teams dialog, for offline games on maps with three or four bases. */
   teams: TeamChoice;
@@ -68,7 +62,7 @@ const KEY = 'rfw.settings';
 const DEFAULTS: Settings = {
   names: ['Brown', 'Green'], difficulty: DIFFICULTY.default, players: 1, level: 1, mapId: 'rfmap101',
   swapSides: false, scale: 'sharp', music: true,
-  volume: { master: 80, effects: 100, music: 70, muted: false }, keys: {}, crt: true, visuals: 'retro', lighting: 'day', camera: 'drone', thermal: false, instruments: 'builtin',
+  volume: { master: 80, effects: 100, music: 70, muted: false }, keys: {}, visuals: 'retro', lighting: 'day', instruments: 'builtin',
   teams: { layout: '', handicap: false, together: false, bots: true },
 };
 
@@ -104,11 +98,8 @@ export function loadSettings(): Settings {
   s.music = s.music !== false;
   s.volume = cleanVolume(s.volume);
   s.keys = s.keys && typeof s.keys === 'object' ? s.keys : {};
-  s.crt = s.crt !== false;
   if (s.visuals !== 'modern') s.visuals = 'retro';
   if (s.lighting !== 'night') s.lighting = 'day';
-  if (s.camera !== 'clean') s.camera = 'drone';
-  s.thermal = s.thermal === true;
   if (s.instruments !== 'sampled') s.instruments = 'builtin';
   s.teams = { layout: typeof s.teams?.layout === 'string' ? s.teams.layout : '', handicap: s.teams?.handicap === true, together: s.teams?.together === true, bots: s.teams?.bots !== false };
   return s;

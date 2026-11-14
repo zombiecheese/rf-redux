@@ -57,7 +57,7 @@ When every player is ready, the owner starts the match. Others can watch as spec
 - **Chat:** T opens the chat line. Tab switches between everyone, your team and one player. Right-click a message to report it or block its sender.
 - **Scoreboard:** hold Tab.
 - **No pausing.** The match is shared, so P does nothing online.
-- **Out of the match?** You stay as a watcher following a teammate, and you can still chat.
+- **Out of the match?** You stay as a watcher, starting on a teammate, and can still chat. ← and → (or 1 to 4, or P1 to P4 on a touch screen) switch between the players still in.
 
 ## Dropped connections
 

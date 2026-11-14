@@ -66,10 +66,20 @@ body[data-screen=game] .main-menu { justify-content: center; background: rgba(0,
   font: 600 var(--ui-size)/1 system-ui, sans-serif; cursor: pointer; opacity: .25; transition: opacity .15s; }
 body[data-screen=game]:not(.menu-open) .menu-fab { display: block; }
 .menu-fab:hover, .menu-fab:focus-visible, body.handheld .menu-fab { opacity: .85; }
-/* The thermal camera's button, beside the menu button, over a modern match only; lit while it is on. */
-.thermal-fab { left: calc(max(1.2vmin, env(safe-area-inset-left)) + 2.9em); font-size: calc(var(--ui-size) * .78); width: 3.1em; height: 3.1em; }
-body:not([data-visuals=modern]) .thermal-fab { display: none !important; }
-body.thermal .thermal-fab { background: rgba(240, 240, 240, .85); color: #111; opacity: .9; }
+/* The thermal camera's toggle, beside the menu button over a modern match: always in view, with its state and key. */
+.thermal-fab { display: none; position: fixed; z-index: 12; top: max(1.2vmin, env(safe-area-inset-top));
+  left: calc(max(1.2vmin, env(safe-area-inset-left)) + 3em); height: 2.4em; padding: 0 .8em 0 .6em; align-items: center; gap: .45em;
+  border-radius: 1.2em; border: 1px solid rgba(255, 255, 255, .35); background: rgba(0, 0, 0, .55); color: #fff; cursor: pointer;
+  font: 700 calc(var(--ui-size) * .78)/1 ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace; letter-spacing: .06em; opacity: .9; }
+body.night[data-screen=game][data-visuals=modern]:not(.menu-open) .thermal-fab { display: inline-flex; }
+.thermal-fab:hover, .thermal-fab:focus-visible { opacity: 1; border-color: rgba(255, 255, 255, .7); }
+.thermal-fab .thermal-icon { font-size: 1.25em; }
+.thermal-fab .thermal-state { color: #9aa39a; }
+.thermal-fab kbd { font: inherit; font-size: .85em; padding: .15em .4em; border-radius: .3em; border: 1px solid rgba(255, 255, 255, .35); color: #d8dcd4; }
+body.thermal .thermal-fab { background: rgba(245, 245, 240, .92); color: #111; border-color: #fff; }
+body.thermal .thermal-fab .thermal-state { color: #b3261e; }
+body.thermal .thermal-fab kbd { color: #333; border-color: rgba(0, 0, 0, .3); }
+body.replay .thermal-fab { display: none; }
 
 /* ---- Dialogs ---- */
 
@@ -485,3 +495,23 @@ body.handheld .chatline span { padding: 4px 8px; border: 1px solid #888; cursor:
 .ui .view-card img[src*="classic"] { image-rendering: pixelated; }
 .ui .view-card small { color: var(--ui-muted); }
 .ui .view-picker.view-shown { grid-template-columns: minmax(9.5em, 14em); pointer-events: none; }
+body.handheld .thermal-fab kbd { display: none; }
+
+/* Over a modern match the menu and thermal buttons take the computer vision's look: thin frames, monospace, the
+   feed's off-white ink. */
+body[data-screen=game][data-visuals=modern] .menu-fab,
+body[data-screen=game][data-visuals=modern] .thermal-fab {
+  border-radius: 2px; border: 1px solid rgba(236, 242, 232, .7); background: rgba(6, 10, 12, .62); color: #ecf2e8; opacity: .95;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, .35); }
+body[data-screen=game][data-visuals=modern] .menu-fab { font: 700 calc(var(--ui-size) * .9)/1 ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace; }
+body[data-screen=game][data-visuals=modern] .thermal-fab kbd { border-radius: 2px; }
+body[data-screen=game][data-visuals=modern].thermal .thermal-fab { background: rgba(236, 242, 232, .92); color: #0b0f10; }
+/* Messages to the player over a modern match (thermal on or off, sound, the leaderboard) as the computer vision's
+   read-outs. */
+body[data-screen=game][data-visuals=modern] .toast { position: relative; border-radius: 0; background: rgba(6, 10, 12, .78); color: #ecf2e8;
+  border: 1px solid rgba(236, 242, 232, .4); border-left: 2px solid #ecf2e8; text-transform: uppercase; letter-spacing: .04em;
+  font: 600 calc(var(--ui-size) * .82)/1.3 ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace; padding-top: .9em; }
+body[data-screen=game][data-visuals=modern] .toast::before { content: 'SYS'; position: absolute; top: -.55em; left: .6em; padding: 0 .35em;
+  background: #ecf2e8; color: #0b0f10; font-size: .7em; font-weight: 700; line-height: 1.1; }
+/* Clear of the drone overlay's corners and the tactical plot: under the clock at the top right. */
+body[data-screen=game][data-visuals=modern] .toasts { top: 14vh; bottom: auto; right: 2.5vmin; }
