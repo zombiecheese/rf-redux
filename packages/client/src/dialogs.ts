@@ -1,4 +1,4 @@
-// The front end's dialogs: Player Selector, Level Selector, Hall of Fame, Help, About and the exit question, plus the
+// The front end's dialogs: Player Selector, Level Selector, Hall of Fame, Help, System Info, About and the exit question, plus the
 // Windows 95 menu bar the level editor keeps (RFireEng.dll MENU 101). They are DOM elements drawn over the game
 // picture, so they stay sharp at any window size: the game page dresses them as modern panels (ui.css), the editor
 // as the original's Win95 controls (w95.css).
@@ -428,16 +428,70 @@ export async function hallOfFame(table: ScoreTable, start: ScoreMode): Promise<v
   await dialog('Hall of Fame', el('div', {}, el('div', { class: 'scroll' }, grid), modes), [['Close', 'ok']]);
 }
 
+/** The game's version, from the root package.json (vite.config.ts). */
+export const VERSION: string = typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : 'dev';
+
+const ul = (...items: string[]) => el('ul', { class: 'help-list' }, ...items.map((t) => el('li', {}, t)));
+const h = (text: string) => el('h3', { class: 'help-head' }, text);
+
+/**
+ * Pages picked by pill tabs along the top (the arrow keys move between them, as in any radio group), one shown at a
+ * time so the dialog stays the same size.
+ */
+function tabbed(name: string, pages: [string, HTMLElement][]): HTMLElement {
+  const tabs = el('div', { class: 'segmented help-tabs', role: 'radiogroup' } as Partial<HTMLDivElement>,
+    ...pages.map(([label], i) => radio(name, label, i === 0, String(i))));
+  const panes = pages.map(([, page], i) => {
+    page.hidden = i !== 0;
+    return page;
+  });
+  tabs.addEventListener('change', () => {
+    const at = Number(tabs.querySelector<HTMLInputElement>('input:checked')!.value);
+    panes.forEach((p, i) => (p.hidden = i !== at));
+  });
+  return el('div', { class: 'stack help-book' }, tabs, el('div', { class: 'scroll help-page' }, ...panes));
+}
+
 export async function about(): Promise<void> {
-  await dialog('About Return Fire: Redux', el('div', { class: 'stack' },
-    el('b', {}, 'Return Fire: Redux'),
-    el('p', {}, 'A browser remake of Return Fire (Silent Software, 1995), rebuilt from the original so it plays the same.'),
-    el('p', {}, 'Return Fire is a trademark of its owners. This build uses the game data you imported from your own copy.')),
+  const link = (href: string, text: string) => el('a', { href, target: '_blank', rel: 'noopener' }, text);
+  await dialog('About Return Fire: Redux', el('div', { class: 'stack about' },
+    el('b', {}, `Return Fire: Redux ${VERSION}`),
+    el('p', {}, 'A browser remake of Return Fire (Silent Software, 1995), the capture-the-flag game of jeeps, tanks, ASVs and helicopters. It is traced from the original Windows 95 release so it handles and plays the same, and adds online play for up to four, computer players, a level editor, replays and a modern 3D view.'),
+    el('p', {}, 'It stands on its own: you need no copy of the original and nothing is imported. Every sprite, 3D model, sound, picture and piece of music is the project\'s own. Two things come from the original: its measurements (model shapes and number tables) and its 104 two-player map layouts, which are the work of the original designers. The 3- and 4-base maps are made for this game.'),
+    el('p', {}, 'Music: the classic view plays the project\'s own band arrangements of public-domain marches and calls; the modern view has its own hardcore and metalcore soundtrack. Sampled instruments use the GeneralUser GS SoundFont by S. Christian Collins. The modern view is drawn with three.js.'),
+    el('p', {}, 'Source code and releases: ', link('https://github.com/zombiecheese/rf-redux', 'github.com/zombiecheese/rf-redux'), '.'),
+    el('p', { class: 'hint' }, 'Return Fire is a trademark of its owners. This is a fan remake, not connected with them.')),
   [['OK', 'ok']]);
 }
 
-/** Help Topics: every key, since the original's WinHelp file does not carry over. Built from keys.ts, so it cannot go stale. */
+/** Help Topics: how to play, the views, sound, online and every key. The keys are built from keys.ts, so they cannot go stale. */
 export async function helpTopics(): Promise<void> {
+  await dialog('Return Fire: Redux Help', tabbed('help-tab', [
+    ['How to Play', howToPlay()], ['Keys', keysPage()], ['Views', viewsPage()], ['Online', onlinePage()], ['More', morePage()],
+  ]), [['OK', 'ok']]);
+}
+
+function howToPlay(): HTMLElement {
+  return el('div', { class: 'stack' },
+    el('p', {}, 'Capture the other side\'s flag. It is hidden under one of their flag buildings: shell the buildings to find it, pick it up with your jeep and drive it home to your own base, or a teammate\'s. A base is out when an enemy jeep takes its flag home, or when it has no jeeps left. The last team standing wins.'),
+    h('Your vehicles'),
+    ul(
+      'Jeep: fast, and the only vehicle that can carry a flag. Throws grenades; the second button floats its tyres to cross water, the third puts down or picks up the flag.',
+      'Tank: slow and tough, with a turret that swings on its own keys (both together centre it). The second button fires up at aircraft.',
+      'ASV: the armoured support vehicle fires missiles, lays mines with the third button and fires up at aircraft with the second.',
+      'Helicopter: winds up and lifts off before it can fly, strafes, and only anti-air fire reaches it in the air. The second button fires straight ahead, the third swaps gun and missiles. Land it on your lift to dock.',
+    ),
+    el('p', {}, 'Each vehicle has a few lives. Choose one on the lift screen with the drive keys (or click or tap its bay) and launch it with Fire or its launch key. Refuel and rearm on any depot\'s pad, and drive back onto your lift to dock and pick another.'),
+    h('Games'),
+    ul(
+      'Training: you against the computer, in one full-screen view. Two Players: two people on one keyboard in split screen (not on phones and tablets).',
+      'Maps have two, three or four bases. With more than two you pick the team layout (2v2, 2v1v1 and so on, or everyone for themselves), and the computer plays every base without a player. The handicap helps the smaller side of an uneven match.',
+      'The computer\'s skill runs from 1 to 9 (5 is the default). From 4 up, attack drones come for a vehicle that sits still.',
+      'When your base is out you can watch the players still in (see Keys). The Hall of Fame keeps the best Training and Tournament times.',
+    ));
+}
+
+function keysPage(): HTMLElement {
   // One table, so the sections line up: a heading row, then what each key does.
   const heading = (text: string, ...cols: string[]) => el('tr', {}, el('th', { colSpan: cols.length ? 1 : 3 }, text), ...cols.map((c) => el('th', {}, c)));
   const row = (what: string, ...keys: string[]) =>
@@ -471,27 +525,80 @@ export async function helpTopics(): Promise<void> {
     row('Back to the menu before', `${names(MENU_KEYS.back)} or ${names(MENU_KEYS.close)}`),
     row('Close the menu (from its first page)', names(MENU_KEYS.close)),
     row('Leave the game', 'Esc'),
-    row('Skip the win scene', 'Any key')));
-  const body = el('div', { class: 'stack' },
-    el('p', {}, 'Capture the other side\'s flag: find it under one of their buildings, pick it up with your jeep and bring it home.'),
-    el('div', { class: 'scroll' }, grid),
-    el('p', {}, 'Online play needs an account: Online, then Sign Up in the menu. Training and two-player games on one keyboard need none.'),
-    el('p', {}, 'Second button: jeep floats its tyres, tank and ASV fire at aircraft, helicopter fires straight ahead. Third button: jeep puts down or picks up the flag, ASV lays a mine, helicopter swaps gun and missiles. Both turret keys together centre the turret. On the lift screen the drive keys pick a vehicle and Fire launches it.'),
-    el('p', {}, 'On a phone or tablet: the stick comes to wherever your left thumb lands, Fire is in the right corner with the vehicle\'s own buttons round it (Tyres and Flag, AA, Mine, Ahead and Swap, the turret or strafe), and the top row launches a vehicle on the lift screen, docks while driving, pauses offline and opens the chat and scores online. Hold it sideways: upright, the game waits.'),
-    el('p', {}, 'While a menu is open it has the keyboard and your vehicle takes no keys. Offline the match waits for you; online it carries on.'),
-    el('p', {}, 'In Training, online and in the editor\'s test play either side\'s keys work; Swap Sides (Alt+3) gives Brown the right-hand side, and Options > Controls rebinds any vehicle key. While the chat line is open the vehicle takes no keys, and no game key opens it.'));
-  await dialog('Return Fire: Redux Help', body, [['OK', 'ok']]);
+    row('Skip the splash or the win scene', 'Any key')));
+  return el('div', { class: 'stack' }, grid,
+    el('p', {}, 'In Training, online and in the editor\'s test play either side\'s keys work. Options > Controls rebinds any vehicle key for either hand, and Swap Sides gives Brown the right-hand keys. No game key opens the chat, and while a menu or the chat line is open your vehicle takes no keys. Offline the match waits while a menu is open; online it carries on.'),
+    h('Phones and tablets'),
+    el('p', {}, 'Hold the device sideways: upright, the game waits. The stick comes to wherever your left thumb lands, Fire is in the right corner with the vehicle\'s own buttons round it (Tyres and Flag, AA, Mine, Ahead and Swap, the turret or strafe), and the top row docks while driving, pauses offline and opens the chat and scores online. On the lift screen tap a bay to choose it and tap it again to launch. When you are out, P1 to P4 pick who to watch. Phones and tablets play solo: no split screen and no level editor.'));
 }
 
-/** System Info: what the browser offers the game. */
-export async function systemInfo(): Promise<void> {
+function viewsPage(): HTMLElement {
+  return el('div', { class: 'stack' },
+    el('p', {}, 'Pick the view when you start a game, or switch at any time, even mid-match, with Options > Visuals. Both show the same part of the map, so classic and modern players can share an online match.'),
+    h('Classic'),
+    el('p', {}, 'The original\'s look: a 320 × 240 picture with the tilted 3D camera, scaled to the window with square pixels, with the cockpit panel, bars and radar. Options > CRT Look adds subtle scanlines and glow; Options > Picture picks Fill or whole pixels only. The bars beside the picture are camouflage in your colour.'),
+    h('Modern'),
+    ul(
+      'The same game drawn in 3D at 1280 × 720 with toy-soldier models, sunlight and shadows, an animated sea, smoke, fire and debris, a 3D bunker cutaway and a 3D laughing skull. It needs WebGL; without it the game stays classic.',
+      'Drone feed: the picture looks like a surveillance drone\'s, with grain, a scan line and stream errors when something blows up nearby. Options > Camera switches to a clean picture.',
+      'Computer-vision HUD: tracking boxes with integrity on your vehicle (with its fuel and ammunition), friends, enemy vehicles, gun towers, flag buildings and drones, a tactical plot for the radar, and messages as read-outs.',
+      'Flag arrows: at the edges of the picture, in each rival\'s colour, arrows point to its flag buildings (any of them may hide the flag), to a flag lying in the open, and home while your jeep carries one.',
+      'Day or night (Options > Lighting): night is dark, lit by headlights, fires and the buildings\' windows and lamps.',
+      'Thermal camera: a white-hot picture that sees in the dark. Switch it with the thermal button beside the menu button, Options > Thermal or its key (see Keys).',
+    ),
+    el('p', {}, 'Online the lobby\'s host can set the visuals and the lighting for everyone, or leave both to each player\'s own Options. Replays play back the way their match was seen.'));
+}
+
+function onlinePage(): HTMLElement {
+  return el('div', { class: 'stack' },
+    el('p', {}, 'Online play needs an account (Online > Create an Account) and a game server: the Docker stack or npm start, not the Vite dev server alone. Training and two-player games need neither.'),
+    ul(
+      'Quick Match joins the first open game, Find a Game lists open lobbies, Host a Game makes your own, and Join with a Code takes a private lobby\'s code or invite link.',
+      'The host picks the map, the team layout, the difficulty, who can join, the handicap, and the visuals and lighting. Empty seats get computer players, so 1 to 4 people can play.',
+      'Chat in every lobby and match to everyone, your team or one player, with mute, block and report. Hold the scoreboard key to see the scores.',
+      'Friends (Online > Friends) shows who is online and lets you invite them. Your profile keeps your stats; the leaderboards keep the fastest solo wins and the ladder.',
+      'A dropped player\'s seat is held for a minute while a computer player drives for them. There is no pause online.',
+    ));
+}
+
+function morePage(): HTMLElement {
+  return el('div', { class: 'stack' },
+    h('Replays'),
+    el('p', {}, 'Every match is recorded in your browser: the last 20, plus any you star. Title > Replays plays one back from ¼× to 8× with pause, ten-second jumps, a timeline and a choice of player to follow. Save a replay as a file, or to your account when signed in.'),
+    h('Level Editor'),
+    el('p', {}, 'Title > Level Editor (on a computer) paints land and water with automatic coastlines, lays bridges, places buildings and up to four bases, mirrors or turns your edits for a fair map, checks it for problems and test plays it against the computer. Maps save in your browser, export as files and play from the Level Selector\'s Add-Ons. Signed in, save them to your library as private, unlisted or public; public maps can be searched, liked and played in lobbies.'),
+    h('Sound and music'),
+    el('p', {}, 'The music follows the action as the original\'s did: a piece for each vehicle, the bunker, the flag, deaths and the win. The classic view plays a military band of public-domain marches on the built-in synthesiser, or sampled from the GeneralUser GS SoundFont with Options > Instruments > Sampled (32 MB the first time, then kept by your browser). The modern view has its own hardcore and metalcore soundtrack. Options > Sound sets the master, effects and music volume, Options > Music switches the music off, and the mute key silences everything.'),
+    h('Your settings'),
+    el('p', {}, 'Names, options, keys and the Hall of Fame are kept in this browser; signed in, your settings follow your account. Help > System Info shows what this browser and server offer the game.'));
+}
+
+/** What the game can find out about the server it came from, for System Info (main.ts). */
+export interface ServerInfo {
+  /** A game server answered: online play is open. */
+  online: boolean;
+  /** The server has a SoundFont for Options > Instruments > Sampled. */
+  soundfont: boolean;
+  /** Who is signed in, if anyone. */
+  account?: string;
+}
+
+/** System Info: the game's version and what this browser and server offer it. */
+export async function systemInfo(server: ServerInfo, s: Settings): Promise<void> {
+  const webgl = modernAvailable();
   const rows: [string, string][] = [
+    ['Version', `Return Fire: Redux ${VERSION}`],
+    ['Game data', `The game's own, built in${artSprites ? ` (${artSprites} sprites)` : ''}: no import needed`],
+    ['Online', server.online ? `Game server found${server.account ? `, signed in as ${server.account}` : ', not signed in'}` : 'No game server (solo and two-player only)'],
+    ['View', `${s.visuals === 'modern' && webgl ? 'Modern' : 'Classic'}${s.visuals === 'modern' && webgl ? `, ${s.lighting}, ${s.camera === 'clean' ? 'clean camera' : 'drone feed'}${s.thermal ? ', thermal' : ''}` : ''}`],
+    ['Modern view', webgl ? 'Available (WebGL)' : 'Not available: this browser has no WebGL'],
+    ['Instruments', server.soundfont ? (s.instruments === 'sampled' ? 'Sampled (GeneralUser GS)' : 'Built-in synthesiser (sampled available)') : 'Built-in synthesiser (no SoundFont on this server)'],
+    ['Audio', 'AudioContext' in window ? 'Web Audio' : 'None: the game plays silent'],
     ['Browser', navigator.userAgent], ['Window', `${innerWidth} × ${innerHeight} at ${devicePixelRatio}x`],
     ['Screen', `${screen.width} × ${screen.height}`], ['Touch points', String(navigator.maxTouchPoints)],
-    ['Audio', 'AudioContext' in window ? 'Web Audio' : 'none'], ['Processors', String(navigator.hardwareConcurrency ?? '?')],
-    ['Own art', artSprites ? `${artSprites} sprites from the art pack` : 'none in use'],
+    ['Processors', String(navigator.hardwareConcurrency ?? '?')],
   ];
-  await dialog('System Info', el('table', { class: 'grid' }, el('tbody', {}, ...rows.map(([a, b]) => el('tr', {}, el('th', {}, a), el('td', {}, b))))),
+  await dialog('System Info', el('table', { class: 'grid sysinfo' }, el('tbody', {}, ...rows.map(([a, b]) => el('tr', {}, el('th', {}, a), el('td', {}, b))))),
     [['OK', 'ok']]);
 }
 

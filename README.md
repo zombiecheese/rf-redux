@@ -85,7 +85,8 @@ URL options: `?map=rfmap101` picks the map (`rfmap101`–`rfmap204`, or a 3- or 
 
 ### Controls
 
-Help > Controls and Keys (H) in the game lists every key; it is built from the same table the game reads
+Help > Help Topics (H) in the game explains how to play, the classic and modern views, online play, replays, the level
+editor and the music, and lists every key; the key list is built from the same table the game reads
 (`packages/client/src/keys.ts`), so the two cannot disagree.
 
 | | Player 1 (Brown) | Player 2 (Green, two-player mode) |
@@ -97,7 +98,7 @@ Help > Controls and Keys (H) in the game lists every key; it is built from the s
 | Go back into the bunker (on your base) | R | Backspace |
 | Launch jeep, tank, ASV, helicopter | 1 2 3 4, or drive keys and fire on the lift screen | 7 8 9 0 |
 
-These are the original's keys; Options > Controls rebinds any of them for either half (Controls and Keys always shows
+These are the original's keys; Options > Controls rebinds any of them for either half (Help Topics always shows
 the keys in use). A key the other half, a shortcut, chat or the menus use cannot be taken.
 In one-player mode (Training, online, and the editor's test play) either half of the keyboard works. Swap Sides
 (Alt+3, or Options > Swap Sides) gives player 1 the right-hand keys. The game is played with the keyboard, a mouse
@@ -105,7 +106,7 @@ for the menus, or touch on phones and tablets; there is no gamepad support.
 
 | Shortcut | |
 | --- | --- |
-| H | Controls and Keys (System Info and About are under Help in the menu) |
+| H | Help Topics (System Info and About are under Help in the menu) |
 | N | New Game |
 | Alt+R | Restart |
 | P | Pause / Resume (not online: a shared match never waits for one player) |

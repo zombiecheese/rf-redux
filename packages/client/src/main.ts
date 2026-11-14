@@ -32,7 +32,6 @@ import { Menu, type MenuEntry } from './menu.js';
 import { formatTime, loadScores, recordGame, saveScores } from './scores.js';
 import { controlsDialog, soundDialog } from './options.js';
 import { gainOf, loadSettings, saveSettings, type Settings, type Volume } from './settings.js';
-import { jukebox } from './music/jukebox.js';
 import { Music } from './music/music.js';
 import { modernAvailable } from './modern/layout.js';
 import { Sound } from './sound.js';
@@ -816,7 +815,6 @@ function optionItems(): MenuEntry[] {
         void music.unlock().then(() => music.setSampled(settings.instruments === 'sampled')).then(() => menu.refresh());
       },
     },
-    { label: 'Jukebox', hint: 'Hear the soundtrack, load a SoundFont', action: () => void overGame(() => jukebox(music)) },
     ...(handheld ? [] : [{
       label: 'Swap Sides', hint: `Arrow keys play Brown (${shortcutName('swapSides')})`, value: () => onOff(settings.swapSides),
       action: () => save({ ...settings, swapSides: !settings.swapSides }),
@@ -826,8 +824,8 @@ function optionItems(): MenuEntry[] {
 
 function helpItems(): MenuEntry[] {
   return [
-    { label: 'Controls and Keys', key: shortcutName('help'), action: () => void overGame(helpTopics) },
-    { label: 'System Info', action: () => void overGame(systemInfo) },
+    { label: 'Help Topics', hint: 'How to play, views, online and every key', key: shortcutName('help'), action: () => void overGame(helpTopics) },
+    { label: 'System Info', hint: 'Version, browser and server', action: () => void overGame(() => systemInfo({ online: onlineReady, soundfont: siteFont, account: signedIn() ? net.you!.name : undefined }, settings)) },
     { label: 'About', action: () => void overGame(about) },
   ];
 }

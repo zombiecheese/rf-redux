@@ -67,7 +67,7 @@ With one player (Training, online and the editor's test play) either half of the
 
 | Key | Does |
 | --- | --- |
-| H | Controls and Keys |
+| H | Help Topics |
 | N | New Game |
 | P | Pause or resume (not online) |
 | Alt+R | Restart |

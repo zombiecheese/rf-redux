@@ -8,6 +8,16 @@ Each release's section below becomes its GitHub release notes (`.github/workflow
 
 - A player whose base is out can switch between the players still in the match, in the classic and modern views, offline (including each half of Two Players) and online: the turn keys step through them (fire steps on), the launch keys or 1–4 pick one, and on a phone or tablet P1–P4 at the top. The view starts on a teammate who is still playing, or else anyone still in, and the game says how to switch when you go out. Online spectators can step through the players with ← / → as well as 1–4.
 
+### Changed
+
+- Help Topics (H) is rewritten for the game as it is now, in pages: How to Play (the goal, each vehicle's buttons, game types, computer skill), Keys (every key, and the touch controls), Views (classic and modern, the drone feed, the computer-vision HUD, flag arrows, day and night, the thermal camera, and the host's choice online), Online, and More (replays, the level editor, sound and music, settings).
+- About says what the game is today: its version, that it needs no copy of the original and imports nothing, what comes from the original (its measurements and the 104 two-player map layouts), the music and the SoundFont's credit, and a link to the source.
+- System Info shows the version, whether a game server and an account are there, the view in use and whether this browser can show the modern view, and whether sampled instruments are on offer.
+
+### Removed
+
+- The jukebox (Options > Jukebox), with its player for single pieces and its loader for a SoundFont file of your own. Options > Instruments still plays the site's SoundFont.
+
 ## [0.4.0] - 2026-11-14
 
 The modern view as a drone feed, with a thermal camera and vehicle lights.

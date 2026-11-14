@@ -369,7 +369,7 @@ export class Director<V extends object = object> {
     this.request(DRUMS, 0x32);
   }
 
-  /** Starts the current piece again from the top, after something else used the player (the jukebox). */
+  /** Starts the current piece again from the top, after something else used the player (the splash fanfare) or the soundtrack changed. */
   replay(): void {
     if (this.current === null) return;
     this.changed = true;

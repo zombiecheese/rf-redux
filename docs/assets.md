@@ -115,7 +115,7 @@ console sits in a bay of the panel at the place the game draws it (`hud.ts`).
 - `npm run art-sheet` draws a review sheet of the pack's sprites, enlarged and numbered (`-- --cels 0-93,655-670`
   picks the sprites, `-- --scale 6` enlarges more, `-- --assets <folder>` sets each beside the sprite of the same
   number in another pack). Sheets go to `assets/generated/art-sheets/`, which is git-ignored.
-- Help > System Info in the game says how many of the pack's sprites are in use.
+- Help > System Info in the game shows the version and how many of the pack's sprites are in use.
 
 ### The asset inventory
 
