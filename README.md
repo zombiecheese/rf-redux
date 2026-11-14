@@ -57,8 +57,8 @@ Still to come: two-player maps of the project's own.
 **Replays, options and music**
 
 - Every match is recorded in the browser (the last 20, plus any you star) and plays back at ¼× to 8× with pause, ten-second jumps, a timeline and a choice of player to follow. Replays save as `.rfwreplay.json` files or, signed in, to your account.
-- Options: rebind every vehicle key for either half of the keyboard, master, effects and music volume, retro or modern visuals, day or night lighting for the modern view, a subtle CRT look (on by default), how the picture is scaled, and Swap Sides. Names, settings and the Hall of Fame are kept in the browser, and settings follow a signed-in account.
-- Music chosen the way the original's music director chose it, for each vehicle, the bunker, deaths, the flag, the win and the menus ([docs/music.md](docs/music.md)). The retro view plays MIDI band arrangements of public-domain music on an MT-32-style synthesiser, or on a SoundFont you add. The modern view has its own soundtrack: original hardcore, beatdown and metalcore instrumentals, with a breakdown in every piece, played on the synthesiser's guitar amp, bass and metal kit. Switching the view switches the music at once.
+- Options: rebind every vehicle key for either half of the keyboard, master, effects and music volume, built-in or sampled instruments for the band, retro or modern visuals, day or night lighting for the modern view, a subtle CRT look (on by default), how the picture is scaled, and Swap Sides. Names, settings and the Hall of Fame are kept in the browser, and settings follow a signed-in account.
+- Music chosen the way the original's music director chose it, for each vehicle, the bunker, deaths, the flag, the win and the menus ([docs/music.md](docs/music.md)). The retro view plays MIDI band arrangements of public-domain music on an MT-32-style synthesiser, or, with Options > Instruments > Sampled, from the GeneralUser GS SoundFont (a 32 MB download the first time, then kept by the browser). The modern view has its own soundtrack: original hardcore, beatdown and metalcore instrumentals, with a breakdown in every piece, played on the synthesiser's guitar amp, bass and metal kit. Switching the view switches the music at once.
 
 **The picture, and phones and tablets**
 
@@ -172,6 +172,7 @@ The site serves the original's map layouts. Whether to open it to the internet i
 | `npm run art` | Builds the art pack (`assets/art/pack`) from the code in `tools/art/` and the drawings in `assets/art/cels/`. Commit the pack with the change that produced it; a test fails when it is out of date |
 | `npm run art-sheet` | Review sheets for the art pack: each sprite enlarged and numbered, written to `assets/generated/art-sheets/` (`-- --cels 0-93` picks sprites) |
 | `AUDIT=ffa3,ffa4,2v2 SEEDS=60 npx vitest run packages/sim/test/bot-audit.test.ts` | Bot balance audit: bot-only matches on the test arena, with wins and first-out counts per base appended to `bot-audit.txt` in the temp folder (PowerShell: set `$env:AUDIT` and `$env:SEEDS` first) |
+| `npm run soundfont` | Fetches the GeneralUser GS SoundFont to `assets/generated/music/` so Options > Instruments > Sampled works with the dev server (the Docker image has it already) |
 | `npm run typecheck` | Type-checks all four packages |
 | `npm run build` / `npm start` | Production build, then serve it on port 8080 without Docker |
 

@@ -1,8 +1,7 @@
 // SoundFont 2 (.sf2) instruments for the synthesiser: when one is loaded, every program and drum it has plays from
 // its samples, with its key and velocity splits, loops, tuning, volume envelope, attenuation, pan and filter cutoff.
-// Programs it lacks fall back to the built-in timbres (synth.ts). The game ships no SoundFont; a General MIDI one
-// with a licence that allows it (FluidR3_GM is MIT, GeneralUser GS is free to use and share) can be dropped in
-// (docs/music.md).
+// Programs it lacks fall back to the built-in timbres (synth.ts). The Docker image ships GeneralUser GS for
+// Options > Instruments (tools/soundfont/); a site can put another General MIDI one in its place (docs/music.md).
 
 import type { Voice } from './synth.js';
 

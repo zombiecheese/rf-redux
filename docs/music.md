@@ -27,10 +27,17 @@ instrumentals, chosen by the same director (see "The modern soundtrack" below).
   volume, expression, pan, modulation, sustain, pitch bend and its range.
 - **SoundFonts** (`soundfont.ts`): load a SoundFont 2 file for sampled instruments. Programs it has play from its
   samples (key and velocity splits, loops, tuning, volume envelope, attenuation, pan, filter); the rest stay on the
-  built-in timbres. Put one at `assets/generated/music/soundfont.sf2` (served as `/generated/music/soundfont.sf2`)
-  to load it every time, or load one for a visit from **Options > Jukebox**. None ships with the game. Good
-  General MIDI ones with licences that allow this: FluidR3_GM (MIT licence) and GeneralUser GS (free to use and
-  share; read its licence file).
+  built-in timbres. **Options > Instruments** switches the band between **Built-in** (the default) and **Sampled**,
+  which plays it from the site's SoundFont at `/generated/music/soundfont.sf2`. The browser fetches it the first time
+  Sampled is picked and keeps it in its cache, so later visits start at once; the choice follows a signed-in account.
+  The modern soundtrack always plays its own rig. **Options > Jukebox** can also load any `.sf2` file for one visit.
+- **The SoundFont that ships**: [GeneralUser GS](https://www.schristiancollins.com/generaluser) 2.0.3 by S. Christian
+  Collins (32 MB). Its licence (`tools/soundfont/GeneralUser-GS-LICENSE.txt`) allows using it, changing it and
+  shipping it with software, free or commercial. It is not kept in git: the Docker image fetches it at build time
+  with `tools/soundfont/fetch.mjs`, pinned to one commit of the author's repository and checked against its SHA-256,
+  and puts it with its licence in `/assets/generated/music/`. For the dev server, `npm run soundfont` fetches it to
+  `assets/generated/music/soundfont.sf2`. A site can use another General MIDI SoundFont by putting it there instead
+  (FluidR3_GM is MIT-licensed, but at about 140 MB it is a long download for a browser).
 - **Replacing a piece**: put a MIDI file at `assets/generated/music/<name>.mid`, where `<name>` is one of the file
   names below. Name its sections with marker events to match the start and loop points the director uses.
 - **Options > Music** switches the music off and on (as the original's menu did); **Options > Sound** sets the

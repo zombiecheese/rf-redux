@@ -62,6 +62,12 @@ const music = new Music(settings.music);
 /** The modern view has its own soundtrack; a browser that cannot show the modern view keeps the band. */
 const applyMusicStyle = () => music.setStyle(settings.visuals === 'modern' && modernAvailable() ? 'modern' : 'retro');
 applyMusicStyle();
+/** Options > Instruments: whether this site has the SoundFont (it is fetched only when Sampled is picked). */
+let siteFont = false;
+void music.hasSiteSoundFont().then((has) => {
+  siteFont = has;
+  if (has) void music.setSampled(settings.instruments === 'sampled');
+});
 setBindings(settings.keys);
 applyVolume(settings.volume);
 
@@ -118,7 +124,7 @@ function save(next: Settings): void {
 // ---- Profile (profiles card) ---------------------------------------------------------------------------------
 
 /** The settings an account keeps on the server, so they follow the player to another browser. */
-const PROFILE_KEYS = ['names', 'difficulty', 'level', 'mapId', 'swapSides', 'scale', 'crt', 'visuals', 'lighting', 'volume', 'keys', 'music'] as const;
+const PROFILE_KEYS = ['names', 'difficulty', 'level', 'mapId', 'swapSides', 'scale', 'crt', 'visuals', 'lighting', 'instruments', 'volume', 'keys', 'music'] as const;
 let profileTimer = 0;
 
 function signedIn(): boolean {
@@ -149,6 +155,7 @@ async function loadProfile(): Promise<void> {
   setBindings(settings.keys);
   applyVolume(settings.volume);
   applyMusicStyle();
+  if (siteFont) void music.setSampled(settings.instruments === 'sampled');
   music.setEnabled(settings.music);
 }
 
@@ -777,6 +784,16 @@ function optionItems(): MenuEntry[] {
       action: () => {
         save({ ...settings, music: !settings.music });
         music.setEnabled(settings.music);
+      },
+    },
+    {
+      label: 'Instruments',
+      hint: siteFont ? 'Built-in band, or sampled (32 MB, once)' : 'Sampled needs a SoundFont on the server',
+      value: () => (!siteFont || settings.instruments !== 'sampled' ? 'Built-in' : music.loadingSoundFont ? 'Loading...' : 'Sampled'),
+      action: () => {
+        if (!siteFont) return;
+        save({ ...settings, instruments: settings.instruments === 'sampled' ? 'builtin' : 'sampled' });
+        void music.unlock().then(() => music.setSampled(settings.instruments === 'sampled')).then(() => menu.refresh());
       },
     },
     { label: 'Jukebox', hint: 'Hear the soundtrack, load a SoundFont', action: () => void overGame(() => jukebox(music)) },

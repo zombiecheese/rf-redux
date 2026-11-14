@@ -139,6 +139,7 @@ Replays save as `.rfwreplay.json` files or, signed in, to your account.
 
 - **Controls:** rebind every vehicle key for either half of the keyboard.
 - **Sound:** master, effects and music volume. The retro view plays a military band; the modern view has a hardcore and metalcore soundtrack of its own.
+- **Instruments:** Built-in (the default) or Sampled, which plays the retro band from real instrument samples (the GeneralUser GS SoundFont). The first time you pick Sampled the game downloads it (32 MB); after that your browser keeps it. The modern soundtrack keeps its own guitars and drums either way.
 - **Visuals:** Retro (the original's 320 × 240 pixel picture, the default) or Modern (the same game in 3D at 1280 × 720, with lighting, shadows and effects, a 3D bunker and skull, and modern messages and scoreboard). You can switch during a match; the game plays the same either way.
 - **Lighting:** Day or Night for the modern view. At night the vehicles have headlights, explosions light up the ground, and street lamps, watchtowers and windows are lit.
 - **Picture:** a subtle CRT look (on by default, retro only) and how the picture is scaled.

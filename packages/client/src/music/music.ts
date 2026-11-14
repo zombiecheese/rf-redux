@@ -3,7 +3,8 @@
 // (synth.ts). The game feeds it each tick what the original's
 // triggers saw; the front end tells it about the menus, the win and the Music switch.
 //
-// A SoundFont dropped in as /generated/music/soundfont.sf2 replaces the built-in timbres, and any piece can be
+// The site's SoundFont (/generated/music/soundfont.sf2: GeneralUser GS in the image) plays the band from samples
+// when Options > Instruments is Sampled; it is fetched the first time and kept in the browser's cache. Any piece can be
 // replaced by a MIDI file at /generated/music/<name>.mid (its sections named by markers, as docs/music.md says), or
 // in the modern soundtrack at /generated/music/modern-<name>.mid. The modern soundtrack plays its own rig, never
 // the SoundFont.
@@ -45,6 +46,10 @@ export class Music implements MusicOut {
   private master: GainNode | null = null;
   private volume = 1;
   private style: MusicStyle = 'retro';
+  /** Options > Instruments, the SoundFont once loaded, and the load under way. */
+  private wantSampled = false;
+  private font: SoundFont | null = null;
+  private fontLoad: Promise<SoundFont | null> | null = null;
   readonly director: Director<Vehicle>;
 
   constructor(enabled = true) {
@@ -91,6 +96,7 @@ export class Music implements MusicOut {
     this.master = master;
     this.synth = new Synth(ctx, master);
     this.synth.sampled = this.style === 'retro';
+    if (this.wantSampled) this.synth.soundfont = this.font;
     this.player = new Player(ctx, this.synth, master, LEVEL);
     this.timer = setInterval(() => {
       if (!this.held && !this.auditioning) this.director.update();
@@ -100,15 +106,7 @@ export class Music implements MusicOut {
 
   private async loadOverrides(): Promise<void> {
     const have = await extras();
-    if (have.has('music/soundfont.sf2')) {
-      try {
-        const res = await fetch('/generated/music/soundfont.sf2');
-        const type = res.headers.get('content-type') ?? '';
-        if (res.ok && !type.includes('text/html')) this.loadSoundFont(await res.arrayBuffer());
-      } catch {
-        // None: the built-in timbres play.
-      }
-    }
+    if (this.wantSampled) void this.setSampled(true);
     const files = [...Object.keys(BOOK).map((name) => ['retro', name, name]), ...Object.keys(MODERN_BOOK).map((name) => ['modern', name, `modern-${name}`])];
     await Promise.all(files.filter(([, , file]) => have.has(`music/${file}.mid`)).map(async ([style, name, file]) => {
       try {
@@ -121,11 +119,44 @@ export class Music implements MusicOut {
     }));
   }
 
-  /** Plays every program the SoundFont has from its samples. Throws if the file is not a SoundFont. */
+  /** Plays every program the SoundFont has from its samples, for this visit. Throws if the file is not a SoundFont. */
   loadSoundFont(data: ArrayBuffer): string {
     const sf = new SoundFont(data);
+    this.font = sf;
+    this.wantSampled = true;
     if (this.synth) this.synth.soundfont = sf;
     return sf.name;
+  }
+
+  /** Whether this site has a SoundFont for Options > Instruments. */
+  async hasSiteSoundFont(): Promise<boolean> {
+    return (await extras()).has(`music/${SITE_FONT}`);
+  }
+
+  /** Whether the SoundFont is still being fetched. */
+  get loadingSoundFont(): boolean {
+    return !!this.fontLoad;
+  }
+
+  /**
+   * Options > Instruments: the band from the site's SoundFont, or on the built-in timbres. The SoundFont is fetched
+   * the first time (from the browser's cache after that) and kept for the visit, so switching back is instant.
+   * Resolves to whether samples are playing. The modern soundtrack plays its own rig either way.
+   */
+  async setSampled(on: boolean): Promise<boolean> {
+    this.wantSampled = on;
+    if (!on) {
+      if (this.synth) this.synth.soundfont = null;
+      return false;
+    }
+    if (!this.font) {
+      this.fontLoad ??= fetchSiteFont().finally(() => {
+        this.fontLoad = null;
+      });
+      this.font = (await this.fontLoad) ?? this.font;
+    }
+    if (this.synth && this.wantSampled) this.synth.soundfont = this.font;
+    return !!this.font && this.wantSampled;
   }
 
   /** A piece laid out for playing: a replacement file if one was found, else our arrangement compiled. */
@@ -323,6 +354,31 @@ export class Music implements MusicOut {
 }
 
 export type MusicStyle = 'retro' | 'modern';
+
+const SITE_FONT = 'soundfont.sf2';
+const FONT_CACHE = 'rf-soundfont';
+
+/** The site's SoundFont, from the browser's cache when it has been fetched before; null when there is none. */
+async function fetchSiteFont(): Promise<SoundFont | null> {
+  if (!(await extras()).has(`music/${SITE_FONT}`)) return null;
+  const url = `/generated/music/${SITE_FONT}`;
+  try {
+    let res: Response | undefined;
+    // The Cache API needs a secure page (HTTPS or localhost); elsewhere the browser's own cache does what it can.
+    const cache = typeof caches !== 'undefined' ? await caches.open(FONT_CACHE).catch(() => null) : null;
+    res = await cache?.match(url);
+    if (!res) {
+      res = await fetch(url);
+      const type = res.headers.get('content-type') ?? '';
+      if (!res.ok || type.includes('text/html')) return null;
+      await cache?.put(url, res.clone()).catch(() => {});
+    }
+    return new SoundFont(await res.arrayBuffer());
+  } catch {
+    // Unreadable or not a SoundFont: the built-in timbres play.
+    return null;
+  }
+}
 
 /** What sub_40f2f0 looks at for the vehicle being scored. */
 function scoring(m: Match, v: Vehicle): Scored<Vehicle> | null {

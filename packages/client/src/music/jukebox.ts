@@ -1,6 +1,6 @@
 // Options > Jukebox: plays any of the director's eighteen pieces from the soundtrack in use (the band book, or the
 // modern view's), and loads a SoundFont for
-// sampled instruments (kept for this visit; one placed at /generated/music/soundfont.sf2 loads every time).
+// sampled instruments for this visit (Options > Instruments plays the site's own).
 
 import { dialog, el } from '../dialogs.js';
 import { PIECES } from './director.js';
