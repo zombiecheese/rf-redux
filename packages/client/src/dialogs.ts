@@ -484,7 +484,7 @@ function howToPlay(): HTMLElement {
     el('p', {}, 'Each vehicle has a few lives. Choose one on the lift screen with the drive keys (or click or tap its bay) and launch it with Fire or its launch key. Refuel and rearm on any depot\'s pad, and drive back onto your lift to dock and pick another.'),
     h('Games'),
     ul(
-      'Training: you against the computer, in one full-screen view. Two Players: two people on one keyboard in split screen (not on phones and tablets).',
+      'Local Play > Training: you against the computer, in one full-screen view. Local Play > Split Screen: two people on one keyboard (not on phones and tablets).',
       'Maps have two, three or four bases. With more than two you pick the team layout (2v2, 2v1v1 and so on, or everyone for themselves), and the computer plays every base without a player. The handicap helps the smaller side of an uneven match.',
       'The computer\'s skill runs from 1 to 9 (5 is the default). From 4 up, attack drones come for a vehicle that sits still.',
       'When your base is out you can watch the players still in (see Keys). The Hall of Fame keeps the best Training and Tournament times.',
@@ -534,7 +534,7 @@ function keysPage(): HTMLElement {
 
 function viewsPage(): HTMLElement {
   return el('div', { class: 'stack' },
-    el('p', {}, 'Pick the view when you start a game, or switch at any time, even mid-match, with Options > View > Visuals. Both show the same part of the map, so classic and modern players can share an online match.'),
+    el('p', {}, 'Modern is the default view. Switch with Style on the main menu or Options > View > Visuals, at any time, even mid-match. Both show the same part of the map; online the host\'s pick is the view for every player.'),
     h('Classic'),
     el('p', {}, 'The original\'s look: a 320 × 240 picture with the tilted 3D camera, scaled to the window with square pixels, with the cockpit panel, bars and radar. Its subtle CRT scanlines and glow are part of the look. Options > View > Picture picks Fill or whole pixels only. The bars beside the picture are camouflage in your colour.'),
     h('Modern'),
@@ -551,7 +551,7 @@ function viewsPage(): HTMLElement {
 
 function onlinePage(): HTMLElement {
   return el('div', { class: 'stack' },
-    el('p', {}, 'Online play needs an account (Online > Create an Account) and a game server: the Docker stack or npm start, not the Vite dev server alone. Training and two-player games need neither.'),
+    el('p', {}, 'Online play needs an account (Online > Create an Account) and a game server: the Docker stack or npm start, not the Vite dev server alone. Local Play needs neither.'),
     ul(
       'Quick Match joins the first open game, Find a Game lists open lobbies, Host a Game makes your own, and Join with a Code takes a private lobby\'s code or invite link.',
       'The host picks the map, the team layout, the difficulty and time of day, who can join, the handicap, and the view for everyone. Empty seats get computer players, so 1 to 4 people can play.',
@@ -566,7 +566,7 @@ function morePage(): HTMLElement {
     h('Replays'),
     el('p', {}, 'Every match is recorded in your browser: the last 20, plus any you star. Title > Replays plays one back from ¼× to 8× with pause, ten-second jumps, a timeline and a choice of player to follow. Save a replay as a file, or to your account when signed in.'),
     h('Level Editor'),
-    el('p', {}, 'Title > Level Editor (on a computer) paints land and water with automatic coastlines, lays bridges, places buildings and up to four bases, mirrors or turns your edits for a fair map, checks it for problems and test plays it against the computer. Maps save in your browser, export as files and play from the Level Selector\'s Add-Ons. Signed in, save them to your library as private, unlisted or public; public maps can be searched, liked and played in lobbies.'),
+    el('p', {}, 'Title > Level Editor (on a computer with a mouse and keyboard; greyed out on phones and tablets) paints land and water with automatic coastlines, lays bridges, places buildings and up to four bases, mirrors or turns your edits for a fair map, checks it for problems, previews it as Classic, Modern or Modern at night, and test plays it against the computer in the previewed view. Maps save in your browser, export as files and play from the Level Selector\'s Add-Ons. Signed in, save them to your library as private, unlisted or public; public maps can be searched, liked and played in lobbies.'),
     h('Sound and music'),
     el('p', {}, 'The music follows the action as the original\'s did: a piece for each vehicle, the bunker, the flag, deaths and the win. The classic view plays a military band of public-domain marches on the built-in synthesiser, or sampled from the GeneralUser GS SoundFont with Options > Sound and Music > Instruments > Sampled (32 MB the first time, then kept by your browser). The modern view has its own hardcore and metalcore soundtrack. Options > Sound and Music sets the master, effects and music volume and switches the music off, and the mute key silences everything.'),
     h('Your settings'),
@@ -589,7 +589,7 @@ export async function systemInfo(server: ServerInfo, s: Settings): Promise<void>
   const rows: [string, string][] = [
     ['Version', `Return Fire: Redux ${VERSION}`],
     ['Game data', `The game's own, built in${artSprites ? ` (${artSprites} sprites)` : ''}: no import needed`],
-    ['Online', server.online ? `Game server found${server.account ? `, signed in as ${server.account}` : ', not signed in'}` : 'No game server (solo and two-player only)'],
+    ['Online', server.online ? `Game server found${server.account ? `, signed in as ${server.account}` : ', not signed in'}` : 'No game server (Local Play only)'],
     ['View', `${s.visuals === 'modern' && webgl ? 'Modern' : 'Classic'}${s.visuals === 'modern' && webgl ? ' (drone feed)' : ' (CRT pixels)'}`],
     ['Modern view', webgl ? 'Available (WebGL)' : 'Not available: this browser has no WebGL'],
     ['Instruments', server.soundfont ? (s.instruments === 'sampled' ? 'Sampled (GeneralUser GS)' : 'Built-in synthesiser (sampled available)') : 'Built-in synthesiser (no SoundFont on this server)'],
