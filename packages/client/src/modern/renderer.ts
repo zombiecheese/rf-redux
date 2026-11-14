@@ -37,6 +37,16 @@ const TURRET_BUILDINGS = new Set([TOWER, LARGE_TOWER]);
 const SUN = new THREE.Vector3(-0.42, 1, 0.55).normalize();
 const SHADOW_SPAN = 340;
 const HEADLIGHTS = 6;
+/**
+ * Each vehicle's lights at night: the jeep's warm headlamps, the tank's wide dim work lights, the ASV's narrow
+ * blue-white beam reaching far, and the helicopter's searchlight on the ground just ahead.
+ */
+const BEAMS: Record<VehicleKind, { power: number; colour: number; angle: number; soft: number; reach: number; height: number }> = {
+  jeep: { power: 480, colour: 0xffd9a0, angle: 0.4, soft: 0.55, reach: 60, height: 6 },
+  tank: { power: 560, colour: 0xf2ecd8, angle: 0.62, soft: 0.75, reach: 45, height: 9 },
+  asv: { power: 700, colour: 0xd6e4ff, angle: 0.28, soft: 0.4, reach: 110, height: 8 },
+  heli: { power: 800, colour: 0xffffff, angle: 0.2, soft: 0.3, reach: 35, height: 40 },
+};
 /** Building lights lit at night: the ones nearest what the views look at. */
 const LAMPS = 8;
 
@@ -460,9 +470,14 @@ export class ModernRenderer {
         const y = v.y / 65536;
         const z = Math.max(0, v.z / 65536);
         const l = this.heads[i++]!;
-        l.intensity = v.kind === 'heli' ? 4500 : 2600;
-        l.position.set(x + fx * 10, z + 10, y + fz * 10);
-        l.target.position.set(x + fx * 90, 0, y + fz * 90);
+        const b = BEAMS[v.kind];
+        l.intensity = b.power;
+        l.color.setHex(b.colour);
+        l.angle = b.angle;
+        l.penumbra = b.soft;
+        l.distance = b.reach + 120;
+        l.position.set(x + fx * 10, z + b.height, y + fz * 10);
+        l.target.position.set(x + fx * b.reach, 0, y + fz * b.reach);
         l.target.updateMatrixWorld();
       }
     }

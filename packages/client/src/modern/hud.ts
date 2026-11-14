@@ -453,7 +453,7 @@ export interface Feed {
 const FEED_FONT = '600 13px ui-monospace, "SFMono-Regular", Menlo, Consolas, "Liberation Mono", monospace';
 const FEED_INK = 'rgba(236, 242, 232, 0.86)';
 
-/** The drone feed's overlay: corner brackets, a reticle in the middle, the clock and REC, and its read-outs. */
+/** The drone feed's overlay: corner brackets, the clock and REC, and its read-outs. */
 export function drawFeed(g: CanvasRenderingContext2D, rect: ModernRect, f: Feed): void {
   const scale = Math.min(1, rect.w / 900);
   g.save();
@@ -475,32 +475,6 @@ export function drawFeed(g: CanvasRenderingContext2D, rect: ModernRect, f: Feed)
     g.lineTo(x, y);
     g.lineTo(x + dx * l, y);
   }
-  // The reticle: a cross with its middle open, and ticks along it.
-  const cx = w / 2;
-  const cy = h / 2;
-  for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
-    g.moveTo(cx + dx * 14, cy + dy * 14);
-    g.lineTo(cx + dx * 46, cy + dy * 46);
-    for (const t of [24, 34]) {
-      g.moveTo(cx + dx * t - dy * 4, cy + dy * t - dx * 4);
-      g.lineTo(cx + dx * t + dy * 4, cy + dy * t + dx * 4);
-    }
-  }
-  g.stroke();
-  g.lineWidth = 1;
-  g.beginPath();
-  g.arc(cx, cy, 2, 0, Math.PI * 2);
-  g.fill();
-  // Range marks above and below the reticle.
-  g.beginPath();
-  g.moveTo(cx - 70, cy - 70);
-  g.lineTo(cx - 60, cy - 70);
-  g.moveTo(cx + 60, cy - 70);
-  g.lineTo(cx + 70, cy - 70);
-  g.moveTo(cx - 70, cy + 70);
-  g.lineTo(cx - 60, cy + 70);
-  g.moveTo(cx + 60, cy + 70);
-  g.lineTo(cx + 70, cy + 70);
   g.stroke();
 
   g.font = FEED_FONT;
