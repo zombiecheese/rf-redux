@@ -4,6 +4,12 @@ Each release's section below becomes its GitHub release notes (`.github/workflow
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-11-14
+
+The modern look everywhere: Modern by default with a new title, day or night as a match option, a lobby that fits the screen, a modern level editor, flag guide arrows, a modern end of match, spectating when out, and a rewritten Help and About.
+
+0.4.0 was never released on its own, so this is also the first release with its changes: the modern view as a drone feed, the thermal camera and vehicle lights (see [0.4.0](CHANGELOG.md#040---2026-11-14) below; some of its options have since moved, as listed here).
+
 ### Added
 
 - Guide arrows at the edges of the modern view, in each rival base's colour, point to where its flag may be: every standing flag building of a rival (without giving away which one hides it), a flag lying in the open, and the way home while your jeep carries one, each with its distance.
@@ -29,23 +35,22 @@ Each release's section below becomes its GitHub release notes (`.github/workflow
 - The thermal camera is a control: G (left hand) or I (right hand), listed and rebindable in Options > Controls and in Help. An always-visible THERMAL toggle beside the menu button shows whether it is on and its key.
 - Over a modern match the menu and thermal buttons take the computer vision's look, and the drone overlay's corner bracket and the note chip move out of their way.
 - Every message to the player over a modern match shows as a computer-vision read-out (monospace, framed, tagged STATUS, EVENT, COMMS, SCORES, ANALYSIS or SYS): the view's note, the match log, chat, the scoreboard, banners and pop-up messages such as the thermal camera's on and off, which now sit under the clock, clear of the plot.
+- Help Topics (H) is rewritten for the game as it is now, in pages: How to Play (the goal, each vehicle's buttons, game types, computer skill), Keys (every key, and the touch controls), Views (classic and modern, the drone feed, the computer-vision HUD, flag arrows, day and night, the thermal camera, and the host's choice online), Online, and More (replays, the level editor, sound and music, settings).
+- About says what the game is today: its version, that it needs no copy of the original and imports nothing, what comes from the original (its measurements and the 104 two-player map layouts), the music and the SoundFont's credit, and a link to the source.
+- System Info shows the version, whether a game server and an account are there, the view in use and whether this browser can show the modern view, and whether sampled instruments are on offer.
 
 ### Fixed
 
 - Replays play back as their match was seen (classic or modern, day or night), whatever the viewer's own Options say; the replay records it. Older replays play the viewer's way.
 - Turning the thermal camera on or off (or changing any other option) during an online match whose host set the visuals no longer swaps the soundtrack to the player's own.
 
-### Changed
-
-- Help Topics (H) is rewritten for the game as it is now, in pages: How to Play (the goal, each vehicle's buttons, game types, computer skill), Keys (every key, and the touch controls), Views (classic and modern, the drone feed, the computer-vision HUD, flag arrows, day and night, the thermal camera, and the host's choice online), Online, and More (replays, the level editor, sound and music, settings).
-- About says what the game is today: its version, that it needs no copy of the original and imports nothing, what comes from the original (its measurements and the 104 two-player map layouts), the music and the SoundFont's credit, and a link to the source.
-- System Info shows the version, whether a game server and an account are there, the view in use and whether this browser can show the modern view, and whether sampled instruments are on offer.
-
 ### Removed
 
 - The jukebox, with its player for single pieces and its loader for a SoundFont file of your own. Sampled instruments still play the site's SoundFont.
 
 ## [0.4.0] - 2026-11-14
+
+Not released on its own: these changes first shipped in 0.5.1.
 
 The modern view as a drone feed, with a thermal camera and vehicle lights.
 
@@ -110,7 +115,8 @@ The first release: a browser remake of Return Fire (1995) that plays like the or
 
 - A Docker Compose stack with one image, `ghcr.io/zombiecheese/rf-redux`, published for every version tag together with a compose file, an `.env` template and a Caddyfile for HTTPS ([docs/deploy.md](docs/deploy.md)).
 
-[Unreleased]: https://github.com/zombiecheese/rf-redux/compare/v0.4.0...HEAD
-[0.4.0]: https://github.com/zombiecheese/rf-redux/releases/tag/v0.4.0
+[Unreleased]: https://github.com/zombiecheese/rf-redux/compare/v0.5.1...HEAD
+[0.5.1]: https://github.com/zombiecheese/rf-redux/releases/tag/v0.5.1
+[0.4.0]: https://github.com/zombiecheese/rf-redux/releases/tag/v0.5.1
 [0.3.0]: https://github.com/zombiecheese/rf-redux/releases/tag/v0.3.0
 [0.2.0]: https://github.com/zombiecheese/rf-redux/releases/tag/v0.2.0
