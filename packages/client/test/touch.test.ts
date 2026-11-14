@@ -33,6 +33,8 @@ describe('touch controls', () => {
   it('launches from the lift screen and follows players while watching', () => {
     expect([...presses('bunker')].filter((a) => a.startsWith('launch')).sort()).toEqual(['launchAsv', 'launchHeli', 'launchJeep', 'launchTank']);
     expect(presses('bunker').has('fire')).toBe(true);
+    // The bays are tapped on the lift screen, so the stick's zone stays off them.
+    expect(STICK_MODES.includes('bunker')).toBe(false);
     expect([...presses('watch')].filter((a) => a.startsWith('follow'))).toHaveLength(4);
     expect(presses('watch').has('fire') || STICK_MODES.includes('watch')).toBe(false);
   });

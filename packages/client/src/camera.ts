@@ -178,6 +178,14 @@ export class Camera {
     return { x: ((sx - this.cx) * depth) / FOCAL + this.x + this.leadX.value, y: y + this.y + this.leadY.value };
   }
 
+  /**
+   * For the modern view (modern/renderer.ts): the ground point the view centres on, the camera's distance Z beyond
+   * the focal length and its pitch in radians, so a 3D camera can stand where this one projects from.
+   */
+  pose(): { x: number; y: number; z: number; pitch: number } {
+    return { x: this.x + this.leadX.value, y: this.y + this.leadY.value, z: this.z.value, pitch: (this.pitch.value / 256) * Math.PI * 2 };
+  }
+
   get centreX(): number {
     return this.x + this.leadX.value;
   }

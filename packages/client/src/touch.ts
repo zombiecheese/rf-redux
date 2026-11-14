@@ -58,8 +58,8 @@ export const TOUCH_BUTTONS: TouchButton[] = [
   { label: '▶', press: ['turretRight'], cls: 'turn right', modes: ['tank', 'heli'] },
 ];
 
-/** The modes the stick is out for: steering a vehicle, or picking a bay on the lift screen. */
-export const STICK_MODES: TouchMode[] = ['bunker', ...DRIVING];
+/** The modes the stick is out for: steering a vehicle. On the lift screen the bays are tapped instead (game.ts). */
+export const STICK_MODES: TouchMode[] = [...DRIVING];
 
 /** The controls for the player this browser steers: none while watching, launching, docking or under the skull. */
 export function touchModeFor(state: string | null, kind: string | null): TouchMode {

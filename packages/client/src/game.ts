@@ -8,6 +8,9 @@
 //
 // Every match is recorded as a replay (packages/net/src/replay.ts), and a replay plays through the same loop: its
 // frames advance the match at the speed picked (REPLAY_SPEEDS), with nobody's keys driving.
+//
+// Options > Picture > Visuals picks how the match is drawn, and can change during it: Retro (the 320 x 240 frame) or
+// Modern (modern/renderer.ts: the playfield in 3D at 1280 x 720 with its own HUD). Both draw the same match.
 
 import {
   HASH_EVERY, ONE, TICK_MS, botThink, buildWorld, createBot, createMatch, dock, hashMatch, launch, liftOf, restoreMatch, rivalOf, skullLook, startingLives,
@@ -28,12 +31,19 @@ import { LINE, drawText, textWidth } from './font.js';
 import { drawHud } from './hud.js';
 import { ONLINE_KEYS, REPLAY_KEYS, activeControls, bindingsVersion, keyName, playKeys, typingIn } from './keys.js';
 import type { Net } from './online/net.js';
-import { ChatInput, drawChat, drawNames, drawScoreboard } from './online/overlay.js';
+import { ChatInput, chatRuns, drawChat, drawNames, drawScoreboard, scoreRows } from './online/overlay.js';
 import { Frame, SCREEN_H, SCREEN_W } from './raster.js';
 import type { Music } from './music/music.js';
 import type { Sound } from './sound.js';
 import { drawSkull } from './skull.js';
 import { drawView } from './view.js';
+import { MODERN_H, MODERN_W, modernAvailable, modernLayout, type ModernRect } from './modern/layout.js';
+import type { ModernRenderer, ModernScreen } from './modern/renderer.js';
+import { bunkerBayAt, dimView, drawBanner, drawBunkerPanel, drawChatLines, drawLog, drawModernHud, drawName, drawNote, drawScoreTable } from './modern/hud.js';
+import { TEAMS } from './paint.js';
+
+/** The modern renderer's module, fetched (with three.js) the first time the modern view is picked. */
+let modernModule: Promise<typeof import('./modern/renderer.js')> | null = null;
 
 // Launch keys pick, in order: jeep, tank, ASV, helicopter.
 const LAUNCH_ORDER: VehicleKind[] = ['jeep', 'tank', 'asv', 'heli'];
@@ -86,6 +96,10 @@ export interface GameOptions {
   onReplay?: (r: Replay) => void;
   /** Plays a replay instead of a match. */
   replay?: Replay;
+  /** How to draw the match, read every frame (Options > Picture > Visuals); retro when left out. */
+  visuals?: () => 'retro' | 'modern';
+  /** The modern view's lighting. */
+  lighting?: () => 'day' | 'night';
 }
 
 /** What a replay's controls (main.ts) show and change. */
@@ -253,6 +267,11 @@ export class Game {
     const frame = new Frame();
     const image = new ImageData(new Uint8ClampedArray(frame.px.buffer), SCREEN_W, SCREEN_H);
     const cameras = layout(players).map((v) => new Camera(v));
+    /** The modern view, made the first time it is picked; the text over it is drawn into its own frame. */
+    let modern: ModernRenderer | null = null;
+    /** Modern: where each view went on the last picture, for taps on the bunker. */
+    let modernRects: ModernRect[] | null = null;
+    signal.addEventListener('abort', () => modern?.dispose());
 
     const chat = online ? new ChatInput(net!, start!, signal) : null;
     let scoreboard = false;
@@ -320,6 +339,28 @@ export class Game {
       return true;
     };
 
+    // Tapping or clicking a bay on the bunker screen picks it, and tapping the picked bay again launches it.
+    const taps: { p: number; kind: VehicleKind }[] = [];
+    display.canvas.addEventListener('pointerdown', (e) => {
+      if (this.held || chat?.typing || document.body.classList.contains('menu-open') || e.button > 0) return;
+      const r = display.rect;
+      const fx = (e.clientX - r.x) / r.w;
+      const fy = (e.clientY - r.y) / r.h;
+      if (fx < 0 || fx > 1 || fy < 0 || fy > 1) return;
+      const vs = viewers();
+      cameras.forEach((cam, i) => {
+        const p = online ? (i === 0 ? me : null) : i < players ? i : null;
+        if (p === null || vs[i] !== p || match.players[p]!.state !== 'bunker') return;
+        const rect = modernRects?.[i];
+        const kind = modernRects && rect && modern
+          ? bunkerBayAt(rect, (rr, x, y, z) => modern!.bunkerPoint(rr, x, y, z), fx * MODERN_W, fy * MODERN_H)
+          : bayAt(cam.view, fx * SCREEN_W, fy * SCREEN_H);
+        if (!kind) return;
+        e.preventDefault();
+        taps.push({ p, kind });
+      });
+    }, { signal });
+
     // Offline the bases with no player are the computer's, which waits until a player launches.
     const bots = new Map<number, ReturnType<typeof createBot>>();
     if (!online && !replay && this.o.bots) for (let p = players; p < match.players.length; p++) bots.set(p, createBot(null, Array.from({ length: players }, (_, h) => h)));
@@ -352,6 +393,7 @@ export class Game {
     /** Effects, sounds, messages and cameras after a tick, local or online. */
     const afterTick = () => {
       effects.add(match.events, match);
+      if (modern && !quiet) modern.events(match.events, match);
       const scripted = effects.takeSounds();
       if (!quiet) {
         sound.events(match, match.events, !!assets.effects, viewers());
@@ -409,6 +451,16 @@ export class Game {
             sound.ui(doLaunch(p, selected[p]!) ? 'raise' : 'click');
           } else if (moveSelection(p, code)) sound.ui('click');
         }
+      }
+      for (const { p, kind } of taps.splice(0)) {
+        if (match.players[p]!.state !== 'bunker') continue;
+        if (selected[p] !== kind) {
+          selected[p] = kind;
+          sound.ui('click');
+          continue;
+        }
+        if (p === 0) recorder?.command(commandCode({ launch: kind }));
+        sound.ui(doLaunch(p, kind) ? 'raise' : 'click');
       }
       const inputs = match.players.map((_, p) => input(p));
       recorder?.input(packInput(inputs[0]));
@@ -512,6 +564,13 @@ export class Game {
 
     /** Online keys: launch and dock go to the server as commands; arrows and fire still pick a bay locally. */
     const onlineKeys = () => {
+      for (const { kind } of taps.splice(0)) {
+        if (me === null || match.players[me]!.state !== 'bunker') continue;
+        if (selected[0] !== kind) {
+          selected[0] = kind;
+          sound.ui('click');
+        } else net!.command({ launch: kind });
+      }
       for (const code of pressed.splice(0)) {
         if (me === null) {
           const n = (ONLINE_KEYS.follow as readonly string[]).indexOf(code);
@@ -630,44 +689,126 @@ export class Game {
           acc -= TICK_MS;
         }
       }
+      // The modern view draws once its code has loaded (and only where there is WebGL); until then, retro.
+      if (this.o.visuals?.() === 'modern' && !modern && modernAvailable()) {
+        modernModule ??= import('./modern/renderer.js');
+        void modernModule.then((mod) => {
+          if (!modern && !signal.aborted) modern = new mod.ModernRenderer(assets);
+        });
+      }
+      const useModern = this.o.visuals?.() === 'modern' && !!modern;
       frame.setClip(0, 0, SCREEN_W, SCREEN_H);
       frame.fill(0xff000000);
       const extras = effects.current(match.tick);
       const v = viewers();
+      /** Modern: which views show the playfield in 3D (the rest show the bunker or skull from the retro frame). */
+      const field: boolean[] = [];
+      /** Modern: the bunker or skull screen each view shows, if any. */
+      const screens: (ModernScreen | undefined)[] = [];
       cameras.forEach((cam, i) => {
         const pl = match.players[v[i]!]!;
+        field[i] = false;
+        screens[i] = undefined;
         // The bunker until the elevator has gone up and the screen faded out, then the map fading in round the lift.
         if (pl.state === 'bunker' || (pl.state === 'launching' && pl.elevator)) {
-          drawBunker(frame, cam.view, assets, pl.base, pl.lives, selected[i] ?? 'tank', pl.elevator, match.tick, pl.fade);
+          if (useModern) screens[i] = { kind: 'bunker', base: pl.base, lives: pl.lives, selected: selected[i] ?? 'tank', elevator: pl.elevator, tick: match.tick };
+          else drawBunker(frame, cam.view, assets, pl.base, pl.lives, selected[i] ?? 'tank', pl.elevator, match.tick, pl.fade);
         } else if (pl.state === 'skull' && pl.death) {
           // The skull over the map while it fades out, then on black.
           const look = skullLook(match.tick - pl.death.start);
-          if (look.map !== null) {
+          if (useModern) {
+            const kind = pl.death.kind;
+            field[i] = look.map !== null;
+            screens[i] = { kind: 'skull', look, rival: rivalOf(match, pl.base), base: pl.base, lost: kind, left: pl.lives[kind], start: startLives[v[i]!]![kind] };
+          } else if (look.map !== null) {
             drawView(frame, cam, match, assets, v[i]!, extras);
             frame.dim(look.map / ONE);
           }
-          drawSkull(frame, cam.view, assets, pl, look, startLives[v[i]!]!, rivalOf(match, pl.base));
+          if (!useModern) drawSkull(frame, cam.view, assets, pl, look, startLives[v[i]!]!, rivalOf(match, pl.base));
+        } else if (useModern) {
+          field[i] = true;
         } else {
           drawView(frame, cam, match, assets, v[i]!, extras);
           if (pl.fade < ONE) frame.dim(pl.fade / ONE);
         }
-        if (shown) drawNames(frame, cam, match, shown, v[i]!);
+        if (shown && !useModern) drawNames(frame, cam, match, shown, v[i]!);
       });
-      drawHud(frame, match, assets, v, selected);
+      if (!useModern) drawHud(frame, match, assets, v, selected);
       if (this.o.handheld) {
         const pl = me === null ? null : match.players[me]!;
         setTouchMode(touchModeFor(pl?.state ?? null, pl?.vehicle?.kind ?? null));
       }
       const outcome = ended();
-      drawMessages(frame, match, v, cameras.map((c) => c.view), log, outcome, names, shown, me === null ? null : seats(), playerName);
-      if (online) {
-        drawChat(frame, net!.chat, chat!, cameras[0]!.view);
-        if (serverPause && !outcome) drawText(frame, serverPause, (SCREEN_W - textWidth(serverPause)) >> 1, 40, 0xffffff60, 1);
-        if (scoreboard || outcome) drawScoreboard(frame, match, start!, net!.seats, captures, outcome?.result ?? null);
+      const lines = liveLog(log);
+      const notes = v.map((p, i) => viewNote(match, p, i, me === null ? null : seats(), playerName));
+      const result = outcome ? resultText(match, outcome, names, shown) : null;
+      if (!useModern) {
+        drawMessages(frame, cameras.map((c) => c.view), lines, notes, result);
+        if (online) {
+          drawChat(frame, net!.chat, chat!, cameras[0]!.view);
+          if (serverPause && !outcome) drawText(frame, serverPause, (SCREEN_W - textWidth(serverPause)) >> 1, 40, 0xffffff60, 1);
+          if (scoreboard || outcome) drawScoreboard(frame, match, start!, net!.seats, captures, outcome?.result ?? null);
+        }
       }
       lowCtx.putImageData(image, 0, 0);
       display.sides = v.map((p) => match.players[p]!.base);
-      display.present(this.picture);
+      if (useModern && modern) {
+        const rects = modernLayout(cameras.length);
+        modern.setNight(this.o.lighting?.() === 'night');
+        modern.draw(match, cameras.map((cam, i) => ({ cam, rect: rects[i]!, viewer: v[i]!, skip: !field[i], screen: screens[i] })), extras);
+        modernRects = rects;
+        const g = modern.canvas.getContext('2d')!;
+        g.imageSmoothingEnabled = false;
+        if (cameras.length > 1) {
+          g.fillStyle = '#10130f';
+          g.fillRect(rects[0]!.w, 0, rects[1]!.x - rects[0]!.w, MODERN_H);
+        }
+        cameras.forEach((cam, i) => {
+          const r = rects[i]!;
+          const pl = match.players[v[i]!]!;
+          const sc = screens[i];
+          if (sc?.kind === 'bunker') {
+            drawBunkerPanel(g, r, (rect, x, y, z) => modern!.bunkerPoint(rect, x, y, z), sc.lives, sc.selected, sc.elevator, sc.base, !!this.o.handheld);
+            dimView(g, r, pl.fade);
+          } else if (sc?.kind === 'skull') {
+            dimView(g, r, sc.look.light);
+          } else {
+            dimView(g, r, pl.fade);
+            drawModernHud(g, match, r, v[i]!);
+          }
+          if (notes[i]) drawNote(g, r, notes[i]!);
+          if (!field[i] || sc) return;
+          if (shown) {
+            for (const p of match.players) {
+              const o = p.vehicle;
+              if (!o || p.id === v[i]) continue;
+              const at = modern!.project(cam, r, o.x / 65536, o.y / 65536, Math.max(0, o.z / 65536) + 18);
+              if (!at || at.x < r.x || at.x > r.x + r.w || at.y < r.y + 20 || at.y > r.y + r.h) continue;
+              drawName(g, shown.seats[p.id]?.name ?? '', at.x, at.y, TEAMS[p.base]?.css ?? '#fff');
+            }
+          }
+        });
+        drawLog(g, lines, MODERN_W);
+        if (online) {
+          drawChatLines(g, rects[0]!, chatRuns(net!.chat, chat!));
+          if (serverPause && !outcome) drawBanner(g, serverPause, MODERN_W, 150, 24);
+          if (scoreboard || outcome) {
+            const t = scoreRows(match, start!, net!.seats, captures, outcome?.result ?? null);
+            drawScoreTable(g, MODERN_W, t.head, t.rows);
+          }
+        }
+        if (result) drawBanner(g, result, MODERN_W, online ? 60 : 200);
+        display.present(modern.canvas, 1, true);
+        if (outcome) {
+          // The win sequence fades out from this picture.
+          const pc = this.picture.getContext('2d')!;
+          pc.fillStyle = '#000';
+          pc.fillRect(0, 0, SCREEN_W, SCREEN_H);
+          pc.drawImage(modern.canvas, 0, (SCREEN_H - (SCREEN_W * MODERN_H) / MODERN_W) / 2, SCREEN_W, (SCREEN_W * MODERN_H) / MODERN_W);
+        }
+      } else {
+        display.present(this.picture);
+      }
       if (outcome && endedAt === null) {
         music.win();
         recording?.close();
@@ -719,35 +860,52 @@ export class Game {
 }
 
 /** Draws the notes, the message log and the result into the frame in the pixel font, so they scale with it. */
-function drawMessages(
-  frame: Frame, m: Match, viewers: number[], views: { x: number; y: number; w: number; h: number }[], log: { text: string; until: number }[],
-  result: Outcome | null, names: readonly string[], start: MatchStart | undefined, seats: number[] | null, playerName: (id: number) => string,
-): void {
-  frame.setClip(0, 0, SCREEN_W, SCREEN_H);
-  views.forEach((v, i) => {
-    const p = viewers[i]!;
-    const pl = m.players[p]!;
-    const note = seats === null || seats[i] !== p ? `Watching ${playerName(p)}` : pl.state === 'out' ? 'Out' : m.flags.some((f) => f.carrier === p) ? 'Get the flag home!' : null;
-    if (note) drawText(frame, note, v.x + 4, v.y + 4, 0xffffffff, 1, v.w - 8);
-  });
+/** The note at the top of a view: who it is watching, out, or carrying a flag. */
+function viewNote(m: Match, p: number, i: number, seats: number[] | null, playerName: (id: number) => string): string | null {
+  const pl = m.players[p]!;
+  return seats === null || seats[i] !== p ? `Watching ${playerName(p)}` : pl.state === 'out' ? 'Out' : m.flags.some((f) => f.carrier === p) ? 'Get the flag home!' : null;
+}
+
+/** The match messages still showing, the last three; the ones that have run out are dropped from the log. */
+function liveLog(log: { text: string; until: number }[]): string[] {
   const now = performance.now();
   const live = log.filter((l) => l.until > now);
   log.splice(0, log.length, ...live);
-  const shown = live.slice(-3);
-  shown.forEach((l, i) => drawText(frame, l.text, 4, views[0]!.h - 6 - (shown.length - i) * LINE, 0xffffffff, 1, SCREEN_W - 8));
-  if (result) {
-    let text: string;
-    if (start) {
-      const team = result.team ?? null;
-      const winners = start.seats.filter((s) => s.team === team).map((s) => s.name);
-      text = result.result?.aborted ? 'Game over' : team === null ? 'Draw' : winners.length === 1 ? `${winners[0]} wins` : `Team ${'ABCD'[team]} wins`;
-    } else if (result.winnerBase === null) text = 'Draw';
-    else {
-      // Offline: the winning side by name, one base or a team of them.
-      const side = m.players.filter((p) => p.team === result.team);
-      const bases = side.length ? side.map((p) => p.base) : [result.winnerBase];
-      text = `${bases.map((b) => names[b] ?? `Base ${b + 1}`).join(' and ')} ${bases.length > 1 ? 'win' : 'wins'}`;
-    }
-    drawText(frame, text, (SCREEN_W - textWidth(text, 2)) >> 1, 60, 0xffffffff, 2);
+  return live.slice(-3).map((l) => l.text);
+}
+
+/** Who won, for the end of the match. */
+function resultText(m: Match, result: Outcome, names: readonly string[], start: MatchStart | undefined): string {
+  if (start) {
+    const team = result.team ?? null;
+    const winners = start.seats.filter((s) => s.team === team).map((s) => s.name);
+    return result.result?.aborted ? 'Game over' : team === null ? 'Draw' : winners.length === 1 ? `${winners[0]} wins` : `Team ${'ABCD'[team]} wins`;
   }
+  if (result.winnerBase === null) return 'Draw';
+  // Offline: the winning side by name, one base or a team of them.
+  const side = m.players.filter((p) => p.team === result.team);
+  const bases = side.length ? side.map((p) => p.base) : [result.winnerBase];
+  return `${bases.map((b) => names[b] ?? `Base ${b + 1}`).join(' and ')} ${bases.length > 1 ? 'win' : 'wins'}`;
+}
+
+/** The retro view's notes, messages and result, in the pixel font. */
+function drawMessages(frame: Frame, views: readonly { x: number; y: number; w: number; h: number }[], lines: readonly string[], notes: readonly (string | null)[], result: string | null): void {
+  frame.setClip(0, 0, SCREEN_W, SCREEN_H);
+  views.forEach((v, i) => {
+    const note = notes[i];
+    if (note) drawText(frame, note, v.x + 4, v.y + 4, 0xffffffff, 1, v.w - 8);
+  });
+  lines.forEach((text, i) => drawText(frame, text, 4, views[0]!.h - 6 - (lines.length - i) * LINE, 0xffffffff, 1, SCREEN_W - 8));
+  if (result) drawText(frame, result, (SCREEN_W - textWidth(result, 2)) >> 1, 60, 0xffffffff, 2);
+}
+
+/** Which bay of the retro bunker screen a point is over: the quarter of the view round the shaft it falls in. */
+function bayAt(view: { x: number; y: number; w: number; h: number }, x: number, y: number): VehicleKind | null {
+  if (x < view.x || x >= view.x + view.w || y < view.y || y >= view.y + view.h) return null;
+  const cx = view.x + view.w / 2;
+  // The bays run from 40 to 136 px down the view, upper and lower rows split at 98, the shaft 13 px each side.
+  const dy = y - view.y;
+  if (dy < 40 || dy > 140 || Math.abs(x - cx) < 13 || Math.abs(x - cx) > 70) return null;
+  const top = dy < 98;
+  return x < cx ? (top ? 'heli' : 'asv') : top ? 'tank' : 'jeep';
 }

@@ -18,6 +18,8 @@ export default defineConfig(({ command }) => ({
     },
   },
   build: {
+    // The modern view's code with three.js is one lazily loaded chunk of about 600 kB (160 kB gzipped).
+    chunkSizeWarningLimit: 700,
     rollupOptions: {
       input: {
         main: resolve(import.meta.dirname, 'index.html'),

@@ -120,9 +120,10 @@ export class Display {
   /**
    * Draws a 4:3 picture centred in the window: the 320 x 240 frame, or one of the original's 640 x 480 screens.
    * `brightness` (0-1) is the palette fade (palette-fx, sub_42fdd0): the original scaled every palette entry
-   * towards black, which is the same as darkening the finished picture.
+   * towards black, which is the same as darkening the finished picture. smooth draws a picture that is not pixel art
+   * (the modern view) with plain smoothing, at any scale.
    */
-  present(low: Picture, brightness = 1): void {
+  present(low: Picture, brightness = 1, smooth = false): void {
     const dpr = devicePixelRatio || 1;
     const cw = Math.round(innerWidth * dpr);
     const ch = Math.round(innerHeight * dpr);
@@ -144,7 +145,11 @@ export class Display {
     Object.assign(this.rect, { x: x / dpr, y: y / dpr, w: w / dpr, h: h / dpr });
     this.drawBars(cw, ch, x, y, w, h);
     const whole = Math.ceil(scale - 1e-6);
-    if (Math.abs(scale - whole) < 1e-6 || scale < 1) {
+    if (smooth) {
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+      ctx.drawImage(low, x, y, w, h);
+    } else if (Math.abs(scale - whole) < 1e-6 || scale < 1) {
       ctx.imageSmoothingEnabled = false;
       ctx.drawImage(low, x, y, w, h);
     } else {
@@ -159,7 +164,7 @@ export class Display {
       ctx.imageSmoothingQuality = 'low';
       ctx.drawImage(big, x, y, w, h);
     }
-    if (this.crt && h / sh >= 2) this.drawCrt(low, x, y, w, h, sh);
+    if (this.crt && !smooth && h / sh >= 2) this.drawCrt(low, x, y, w, h, sh);
     if (brightness < 1) {
       // The bars fade with the picture, so a logo still fades in from black.
       ctx.fillStyle = `rgba(0,0,0,${1 - Math.max(0, brightness)})`;
