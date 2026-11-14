@@ -4,6 +4,14 @@ Each release's section below becomes its GitHub release notes (`.github/workflow
 
 ## [Unreleased]
 
+## [0.5.2] - 2026-11-15
+
+Nights in the modern view: every lamp lit, lamps and headlights casting shadows, and lights that stay put as you move. Modern matches also open in the modern view from the first frame, and the modern bunker's vehicle select is now a CCTV feed.
+
+### Added
+
+- The modern bunker's vehicle select is a security camera's feed: washed-out colour by day and black-and-white infrared by night, with scanlines, a rolling bar, its clock and REC. Each bay's vehicle gets a detection box with its class and confidence, and an analysis card with its role, armour, speed, firepower, fuel, arms, terrain, weak spots, units left and status, beside live link and lift read-outs. On a phone or tablet only the chosen vehicle's card shows, larger. The classic bunker is unchanged.
+
 ### Changed
 
 - At night in the modern view every building lamp is lit, not just the few nearest the camera, and lamps and vehicle headlights cast shadows: buildings and trees block lamp light, and buildings, trees and vehicles block headlights, instead of the light shining through them. Lamps hang just clear of their own walls (over the door, or under a watchtower's floor) rather than inside the next building, and about one house in four has its lamp on.
@@ -125,7 +133,8 @@ The first release: a browser remake of Return Fire (1995) that plays like the or
 
 - A Docker Compose stack with one image, `ghcr.io/zombiecheese/rf-redux`, published for every version tag together with a compose file, an `.env` template and a Caddyfile for HTTPS ([docs/deploy.md](docs/deploy.md)).
 
-[Unreleased]: https://github.com/zombiecheese/rf-redux/compare/v0.5.1...HEAD
+[Unreleased]: https://github.com/zombiecheese/rf-redux/compare/v0.5.2...HEAD
+[0.5.2]: https://github.com/zombiecheese/rf-redux/releases/tag/v0.5.2
 [0.5.1]: https://github.com/zombiecheese/rf-redux/releases/tag/v0.5.1
 [0.4.0]: https://github.com/zombiecheese/rf-redux/releases/tag/v0.5.1
 [0.3.0]: https://github.com/zombiecheese/rf-redux/releases/tag/v0.3.0
