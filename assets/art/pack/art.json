@@ -1,7 +1,7 @@
 {
   "format": "rfw-art",
   "version": 1,
-  "sprites": 1444,
+  "sprites": 1520,
   "atlases": 1,
   "sources": {
     "aircraft.mjs": 62,
@@ -22,6 +22,7 @@
     "submarine.mjs": 25,
     "tank.mjs": 36,
     "town.mjs": 46,
+    "wakes.mjs": 76,
     "works.mjs": 58
   },
   "tables": [

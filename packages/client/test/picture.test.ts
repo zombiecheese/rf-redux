@@ -9,7 +9,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { beforeAll, describe, expect, it } from 'vitest';
-import { buildWorld, createMatch, launchNow, stepMatch, type Match, type RfwMap, type ShoreTable, type VehicleKind } from '@rfw/sim';
+import { DEEP, ONE, busy, buildWorld, createMatch, groundAt, launchNow, stepMatch, type Match, type RfwMap, type ShoreTable, type VehicleKind } from '@rfw/sim';
 import { assemble, SCREENS, type BuildingTable, type Cel, type EffectsData, type GameAssets, type ScreenName, type VehicleModels } from '../src/assets.js';
 import { drawBunker } from '../src/bunker.js';
 import { Camera, layout } from '../src/camera.js';
@@ -128,6 +128,59 @@ describe.skipIf(!here)('the picture', () => {
     cams.forEach((cam, i) => drawView(frame, cam, m, assets, i));
     drawHud(frame, m, assets, [0, 1], ['tank', 'asv']);
     check('split', frame);
+  });
+
+  it('of a jeep afloat on its blown-up tyres, leaving a wake, is as kept', () => {
+    const m = match();
+    const cam = new Camera(layout(1)[0]!);
+    launchNow(m, 0, 'jeep');
+    const jeep = m.players[0]!.vehicle!;
+    // The nearest open water to the base with room to go north.
+    const home = m.world.bases[0]!.start;
+    const deep = (tx: number, ty: number) => groundAt(m.world, (tx << 21) + (1 << 20), (ty << 21) + (1 << 20)) === DEEP;
+    let at: [number, number] = [0, 0];
+    let near = Infinity;
+    for (let ty = 8; ty < 120; ty++) {
+      for (let tx = 4; tx < 124; tx++) {
+        const d = Math.hypot(tx - home.tx, ty - home.ty);
+        if (d >= near) continue;
+        let open = true;
+        for (let dy = -6; dy <= 1 && open; dy++) for (let dx = -1; dx <= 1 && open; dx++) open = deep(tx + dx, ty + dy);
+        if (open) [at, near] = [[tx, ty], d];
+      }
+    }
+    jeep.x = (at[0] << 21) + (1 << 20);
+    jeep.y = (at[1] << 21) + (1 << 20);
+    jeep.heading = 0;
+    stepMatch(m, [{ throttle: 0, turn: 0, fire2: true }]);
+    for (let t = 0; t < 64; t++) stepMatch(m, [{ throttle: 0, turn: 0 }]);
+    expect(jeep.inflate).toBe(ONE);
+    for (let t = 0; t < 45; t++) {
+      stepMatch(m, [{ throttle: 1, turn: 0 }]);
+      cam.update(jeep, 0, 0);
+    }
+    expect(jeep.wake).toBeGreaterThanOrEqual(0);
+    const frame = new Frame();
+    drawView(frame, cam, m, assets, 0);
+    check('jeep-afloat', frame);
+  });
+
+  it('of the submarine surfaced beside a helicopter off the map is as kept', () => {
+    const m = match();
+    const cam = new Camera(layout(1)[0]!);
+    launchNow(m, 0, 'heli');
+    const h = m.players[0]!.vehicle!;
+    for (let i = 0; i < 1000 && busy(h); i++) stepMatch(m, []);
+    h.x = -40 * ONE;
+    h.y = 64 << 21;
+    for (let t = 0; t < 400; t++) {
+      stepMatch(m, []);
+      cam.update(h, 0, 0);
+    }
+    expect(m.sub?.state).toBe('aim');
+    const frame = new Frame();
+    drawView(frame, cam, m, assets, 0);
+    check('submarine', frame);
   });
 
   it('draws no shadow or rotor as a solid white shape', () => {

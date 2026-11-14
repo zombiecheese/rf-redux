@@ -412,6 +412,8 @@ function queueVehicle(items: Item[], frame: Frame, cam: Camera, assets: GameAsse
   const origin = cam.project(x, y, z);
   if (shadow && z > 0) queueShadow(items, frame, cam, assets, shadow, v.x, v.y, v.z, origin, v.heading, variant, paint);
   if (!origin) return;
+  const wake = v.wake >= 0 ? wakeModel(parts, v) : null;
+  if (wake) queueModel(items, frame, cam, assets, wake.model, x, y, z, v.heading, wake.frame);
   items.push({
     key: parts.body ? modelKey(cam, parts.body, origin, x, y, z) : farness(origin, origin.x, cam),
     draw: () => drawVehicle(frame, cam, assets, v, z, shadow && z === 0 && v.ground === 0 ? shadow : undefined),
@@ -426,10 +428,80 @@ function drawVehicle(frame: Frame, cam: Camera, assets: GameAssets, v: Vehicle, 
   const variant = artSide(v.base);
   const paint = paintOf(v.base);
   if (shadow) drawModel(frame, cam, assets, shadow, x, y, z, v.heading, variant, paint, ground);
-  if (parts.body) drawModel(frame, cam, assets, parts.body, x, y, z, v.heading, variant, paint, ground);
+  const level = v.kind === 'jeep' ? tyreLevel(v.inflate) : 0;
+  if (level > TYRES_SHOWN && parts.tyres) drawModel(frame, cam, assets, parts.tyres, x, y, z, v.heading, 0, 0, ground);
+  const body = level && parts.body ? inflated(parts.body, level) : parts.body;
+  if (body) drawModel(frame, cam, assets, body, x, y, z, v.heading, variant, paint, ground);
   if (parts.turret) drawModel(frame, cam, assets, parts.turret, x, y, z, (v.heading + v.turret) & 0x3fffff, variant, paint, ground);
   // The rotor turns by the helicopter's rotor angle (player record +0x80), which spins up before take-off.
   if (parts.rotor) drawModel(frame, cam, assets, parts.rotor, x, y, z, ((v.heli?.rotor ?? 0) + v.heading) & 0x3fffff, variant, paint, ground);
+}
+
+// The jeep's tyres (its draw function sub_402fc0). Their inflation (sim vehicle.ts) in eighths picks a row of
+// TYRE_SHAPES, which moves the two wheel faces: [x, z] of their top edge and of their bottom edge, so the wheels
+// lean out and flatten as they fill. Past three eighths the tyres seen from above (model `tyres`) show under the body.
+const TYRE_SHAPES: readonly (readonly [number, number, number, number])[] = [
+  [4.5, 8, 4.5, 0], [3.75, 7, 6, 0], [3, 5, 7.5, 0], [3, 3, 8.25, 0.5], [2.25, 2, 8.25, 1], [2.25, 1, 8.25, 1],
+  [1.5, 1, 7.5, 1], [1.125, 1, 7.125, 1], [0.75, 1, 6.75, 1],
+];
+const TYRES_SHOWN = 3;
+/** The jeep body's two wheel faces (the last two, cel 457): left side first. */
+const WHEEL_FACES = [9, 10] as const;
+const inflatedBodies = new Map<string, Model>();
+
+function tyreLevel(inflate: number): number {
+  return Math.min(8, inflate >> 13);
+}
+
+/** The jeep's body with its wheel faces moved for the tyres' inflation, cached per body and level. */
+function inflated(body: Model, level: number): Model {
+  const key = `${level}`;
+  const cached = inflatedBodies.get(key);
+  if (cached && cached.faces === body.faces) return cached;
+  const [topX, topZ, bottomX, bottomZ] = TYRE_SHAPES[level]!;
+  const verts = body.verts.map((p) => [...p] as [number, number, number]);
+  for (const i of WHEEL_FACES) {
+    const f = body.faces[i];
+    if (!f) continue;
+    for (const k of f.v) {
+      const p = verts[k]!;
+      const side = Math.sign(p[0]);
+      const top = p[2] > 4;
+      p[0] = side * (top ? topX : bottomX);
+      p[2] = top ? topZ : bottomZ;
+    }
+  }
+  const out = { ...body, verts };
+  inflatedBodies.set(key, out);
+  return out;
+}
+
+/**
+ * A ground vehicle's wake in water (sub_402b40, and the jeep's sub_403180 and sub_403220): its wake model on the
+ * wake's frame; for a jeep with its tyres up at all, the floating wake instead, sized in x and y by the inflation
+ * (at least a quarter) and on frames 0-17 stretched from the wake's 0-12.
+ */
+const floatWakes = new Map<number, Model>();
+function wakeModel(parts: { wake?: Model; float?: Model }, v: Vehicle): { model: Model; frame: number } | null {
+  if (v.kind === 'jeep' && v.inflate > 0 && parts.float) {
+    const scale = Math.max(v.inflate, 0x4000);
+    let model = floatWakes.get(scale);
+    if (!model || model.faces !== parts.float.faces) {
+      const s = scale / 65536;
+      model = { ...parts.float, verts: parts.float.verts.map(([x, y, z]): [number, number, number] => [x * s, y * s, z]) };
+      floatWakes.set(scale, model);
+    }
+    return { model, frame: floatFrame(v.wake) >> 16 };
+  }
+  return parts.wake ? { model: parts.wake, frame: v.wake >> 16 } : null;
+}
+
+/** The floating wake's frame for the wake's count (sub_403180): one for one to 4, then 1.5 a frame to 8, then 1.6. */
+export function floatFrame(wake: number): number {
+  if (wake <= 0x40000) return wake;
+  if (wake < 0x80000) return mul(wake - 0x40000, 0x18000) + 0x40000;
+  const f = mul(wake - 0x80000, 0x19999) + 0xa0000;
+  return f >= 0x120000 ? 0x110000 : f;
 }
 
 // The bunker lift on the map (sim lift.ts), drawn by the lift objects' draw functions: the shaft under the open

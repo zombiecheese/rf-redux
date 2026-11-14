@@ -22,6 +22,12 @@ const heliBody = model({ lift: 16, scale: 0.85, sectors: '0319652a8b47 015639a27
   q(559, 776, [-8, 10, 7], [-8, -13.5, 7], [8, -13.5, 7], [8, 10, 7]),
 ]);
 
+// The wake a ground vehicle leaves in water: one flat face trailing behind it, the cel plus the wake's frame
+// (0-12). Its sort point is dropped 15 px so it draws under the vehicle.
+const wake = (cel, front) => model({ lift: -15 }, [
+  q(cel, 8, [-7.5, front, 0], [7.5, front, 0], [7.5, front + 15, 0], [-7.5, front + 15, 0]),
+]);
+
 export const vehicles = {
   tank: {
     // The hull: belly, deck, the two track sides, and the plates at the front and back.
@@ -44,6 +50,7 @@ export const vehicles = {
       q(202, 8, [-3, -5.25, 7], [-3, -12, 7], [0, -12, 11], [0, -5.25, 9]),
       q(212, 8, [-3.75, -12, 11], [3.75, -12, 11], [3.75, -12, 3], [-3.75, -12, 3]),
     ]),
+    wake: wake(2012, 11.25),
     shadow: model({ lift: 5 }, [
       q(217, 16, [-12, -12, 0], [12, -12, 0], [12, 12, 0], [-12, 12, 0]),
     ]),
@@ -72,6 +79,7 @@ export const vehicles = {
       q(319, 8, [-7.5, 12, 5], [7.5, 12, 5], [7.5, 12, 0], [-7.5, 12, 0]),
       q(324, 0, [3.75, 6.75, 11], [-3.75, 6.75, 11], [-3.75, 0, 11], [3.75, 0, 11]),
     ]),
+    wake: wake(2025, 11.25),
     shadow: model({ lift: 5 }, [
       q(327, 16, [-12, -12, 0], [12, -12, 0], [12, 12, 0], [-12, 12, 0]),
     ]),
@@ -95,6 +103,17 @@ export const vehicles = {
       q(452, 8, [-4.5, -0.75, 8], [4.5, -0.75, 8], [4.5, -2.25, 6], [-4.5, -2.25, 6]),
       q(457, 0, [-4.5, -12, 8], [-4.5, 12, 8], [-4.5, 12, 0], [-4.5, -12, 0]),
       q(457, 0, [4.5, 12, 8], [4.5, -12, 8], [4.5, -12, 0], [4.5, 12, 0]),
+    ]),
+    wake: wake(1999, 8.25),
+    // Floating, the wake becomes the tyres from above in the ripples they make and a trail behind (the wake's
+    // frame picks the cels' frame, 0-17). The view sizes it in x and y with the tyres' inflation.
+    float: model({ lift: -15 }, [
+      q(2038, 8, [-12, -12, 0], [12, -12, 0], [12, 12, 0], [-12, 12, 0]),
+      q(2056, 8, [12, 12, 0], [12, 36, 0], [-12, 36, 0], [-12, 12, 0]),
+    ]),
+    // The tyres from above, blown up, under the body once they are more than three eighths full.
+    tyres: model({ lift: 7 }, [
+      q(2074, 0, [12, -12, 0], [12, 12, 0], [-12, 12, 0], [-12, -12, 0]),
     ]),
     shadow: model({ lift: 5 }, [
       q(462, 16, [6, -12, 2], [6, 12, 2], [-6, 12, 2], [-6, -12, 2]),

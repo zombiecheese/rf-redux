@@ -39,7 +39,8 @@ Still to come: two-player maps of the project's own.
 - Gun towers that wake, wait, track one target and hold fire while their own side is in the way, and attack drones that come for a vehicle sitting still for six seconds (from difficulty 4 up).
 - Soldiers: buildings let their men out when nearly destroyed and prisons let out the other side's. Men run from vehicles, swim, throw grenades, and are run over or shot.
 - Collision against the original's shapes: tanks drive over rocks and crush bushes and tents, jeeps go round them, gates slide open for their own side, and vehicles refuel and rearm on any depot's pad.
-- Water: vehicles wade through shallows, sink in deep water, and the jeep can blow up its tyres to float.
+- Water: vehicles wade through shallows leaving a wake, sink in deep water, and the jeep can blow up its tyres
+  to float (they take about two seconds to fill, and it floats at full speed once they are up).
 - Wrecks run on, burn out and lie as marks. A vehicle out of fuel stops where it is and its driver runs. Losing a vehicle plays its death on the map, then the enemy's laughing skull over a row of that vehicle's lives.
 - The original's HUD (fuel, ammunition and damage bars, radar), effects and sound mixing.
 
