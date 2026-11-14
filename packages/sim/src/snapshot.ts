@@ -14,7 +14,7 @@ import { MsvcRand, Rng } from './rng.js';
 import type { ShoreTable } from './shore.js';
 
 /** Bump when the snapshot encoding changes, so an old client is not handed one it cannot read. */
-export const SNAPSHOT_VERSION = 3;
+export const SNAPSHOT_VERSION = 4;
 
 /** The data a match shares with the loaded assets, left out of snapshots and hashes. */
 export interface Statics {

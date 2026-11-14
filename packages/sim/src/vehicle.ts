@@ -3,7 +3,7 @@ import { ANGLE_MASK, ONE, TILE_SHIFT, approach, cos, mul, sin, turnToward } from
 import { GRID, buildingBody, terrainAt, type World } from './map.js';
 import { HELI_LOW, heliFlying, makeHeli, stepHeli, type HeliState } from './heli.js';
 import { Rng } from './rng.js';
-import { DEEP, LAND, groundAt, type Ground } from './shore.js';
+import { DEEP, LAND, SHALLOW, groundAt, type Ground } from './shore.js';
 
 export type VehicleKind = 'tank' | 'jeep' | 'asv' | 'heli';
 export const VEHICLE_KINDS: readonly VehicleKind[] = ['tank', 'jeep', 'asv', 'heli'];
@@ -121,6 +121,16 @@ export interface Vehicle {
   z: number;
   /** Jeep only: tyres blown up to float (record +0x84, the jeep's second fire button, sub_40dfe0). */
   tyres: boolean;
+  /**
+   * Jeep only: how far its tyres are blown up, 0 to ONE (record +0x80). It follows `tyres` at INFLATE_RATE a tick
+   * (sub_40d990), so the tyres are seen to swell and go down; the jeep floats at full speed only once they are full.
+   */
+  inflate: number;
+  /**
+   * Ground vehicles: the wake it leaves in water, or -1 for none (sub_40cef0 starts it, sub_40d150 runs it, both on
+   * record +0x48). While on, it is a frame count, 16.16, which the wake's model shows (VehicleParts wake and float).
+   */
+  wake: number;
   /** Second fire button held last tick, so the tyres toggle once per press. */
   fire2Held: boolean;
   fire3Held: boolean;
@@ -158,7 +168,7 @@ export function makeVehicle(kind: VehicleKind, player: number, team: number, bas
   return {
     kind, player, team, base, x, y, heading: 0, speed: 0, health: d.health, fuel: d.fuel,
     ammo: d.weapons.map((w) => w.ammo), readyAt: d.weapons.map(() => 0), turret: 0, turretTarget: 0,
-    ground: LAND, z: 0, tyres: false, fire2Held: false, fire3Held: false, weapon: 0, bumped: -1, pad: null, crushed: [], ranOver: [], flagTouched: -1,
+    ground: LAND, z: 0, tyres: false, inflate: 0, wake: -1, fire2Held: false, fire3Held: false, weapon: 0, bumped: -1, pad: null, crushed: [], ranOver: [], flagTouched: -1,
     resupplyAt: 0, heli: kind === 'heli' ? makeHeli() : null, barrel: 0, barrelTarget: 0, pending: false, tube: 0, gunSide: 0,
   };
 }
@@ -167,7 +177,10 @@ const ROAD_FIRST = 73;
 const ROAD_END = 90;
 const ROAD_FACTOR = 0x13333;
 
-/** Speed factors in water (sub_40c390): 0.75 wading, 0.25 for a jeep floating, and 0.01 for a floating jeep on land. */
+/**
+ * Speed factors in water (sub_40c390): 0.75 wading, 0.25 for a jeep floating, and 0.01 for a floating jeep on land.
+ * The jeep counts as floating only once its tyres are fully up (record +0x80 at 1.0).
+ */
 export const WATER_FACTOR = 0xc000;
 export const FLOAT_FACTOR = 0x4000;
 export const BEACHED_FACTOR = 0x28f;
@@ -180,8 +193,9 @@ export const SINK_RATE = 0x6666;
  */
 export function groundFactor(world: World, v: Vehicle): number {
   if (VEHICLES[v.kind].flies) return ONE;
-  if (v.ground !== LAND) return v.tyres ? FLOAT_FACTOR : WATER_FACTOR;
-  if (v.tyres) return BEACHED_FACTOR;
+  const floating = v.kind === 'jeep' && v.inflate === ONE;
+  if (v.ground !== LAND) return floating ? FLOAT_FACTOR : WATER_FACTOR;
+  if (floating) return BEACHED_FACTOR;
   const i = (v.y >> TILE_SHIFT) * GRID + (v.x >> TILE_SHIFT);
   const t = world.terrain[i]! & 127;
   if (t >= ROAD_FIRST && t < ROAD_END) return ROAD_FACTOR;
@@ -334,7 +348,11 @@ export function stepVehicle(
     return v.x === x && v.y === y && v.heading === heading;
   }
   if (v.kind === 'tank') stepTurret(v, input);
+  if (v.kind === 'jeep') v.inflate = approach(v.inflate, v.tyres ? ONE : 0, INFLATE_RATE);
   const heading = v.heading;
+  const x0 = v.x;
+  const y0 = v.y;
+  let bounced = false;
   const factor = groundFactor(world, v);
   if (input.throttle > 0) {
     v.speed = Math.min(v.speed + d.accel, mul(d.maxForward, factor));
@@ -368,13 +386,51 @@ export function stepVehicle(
         bounce = false;
       }
     }
-    if (bounce) v.speed = -v.speed >> 2;
+    if (bounce) {
+      v.speed = -v.speed >> 2;
+      bounced = true;
+    }
   } else {
     v.x += dx;
     v.y += dy;
   }
   stepWater(v, world);
+  stepWake(v, world, !bounced && (v.x !== x0 || v.y !== y0));
   return v.speed === 0 && v.heading === heading;
+}
+
+/** How fast the jeep's tyres blow up or go down: 0x444 a tick, so 61 ticks (about two seconds) from flat to full (sub_40d990). */
+export const INFLATE_RATE = 0x444;
+/** The wake's frames: it starts at frame 4, steps a fifth of a frame a tick, and has 13 frames (sub_40d150). */
+const WAKE_START = 0x40000;
+const WAKE_RATE = 0x3333;
+const WAKE_END = 0xd0000;
+/** While still going, frames 8-12 repeat; else it runs on round to frames 0-3 and stops after frame 3. */
+const WAKE_LOOP = 0x50000;
+const WAKE_TAIL = 3;
+
+/**
+ * The wake (the water states sub_40cef0 and sub_40d150). A vehicle in water going at least half its top speed
+ * there starts one; it plays on, repeating its middle frames while the vehicle keeps moving in shallow water, and
+ * otherwise winds down through its last frames. Going under in deep water ends it (a floating jeep does not).
+ * `moved` is whether the vehicle went anywhere this tick without hitting anything (sub_40b980's move result).
+ */
+function stepWake(v: Vehicle, world: World, moved: boolean): void {
+  const sinking = v.ground === DEEP && !v.tyres;
+  if (v.wake < 0) {
+    if (v.ground === LAND || sinking || !moved) return;
+    if (mul(VEHICLES[v.kind].maxForward, groundFactor(world, v)) >> 1 <= v.speed) v.wake = WAKE_START;
+    return;
+  }
+  const was = v.wake;
+  v.wake += WAKE_RATE;
+  if (sinking) {
+    v.wake = -1;
+    return;
+  }
+  const going = v.ground === SHALLOW && moved && v.speed > 0;
+  if (v.wake >= WAKE_END) v.wake -= going ? WAKE_LOOP : WAKE_END;
+  else if (!going && was >> 16 <= WAKE_TAIL && v.wake >> 16 > WAKE_TAIL) v.wake = -1;
 }
 
 /**

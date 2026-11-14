@@ -37,7 +37,7 @@ export interface BuildingPart {
  * attack drone's body and shadow, and the shots' bodies and shadows (each missing from assets converted before it
  * was added).
  */
-type Parts = Partial<Record<'body' | 'turret' | 'rotor' | 'blade' | 'shadow' | 'wreck' | 'falling', Model>>;
+type Parts = Partial<Record<'body' | 'turret' | 'rotor' | 'blade' | 'shadow' | 'wreck' | 'falling' | 'wake' | 'float' | 'tyres', Model>>;
 export type ShotModel = 'tracer' | 'shell' | 'missile' | 'big';
 export type VehicleModels = Record<VehicleKind, Parts> & { drone?: Parts; shots?: Partial<Record<ShotModel, Parts>> };
 

@@ -61,6 +61,8 @@ The sets:
   with its driver and five frames of turning wheels).
 - `aircraft.mjs` and `submarine.mjs`: the helicopter and attack drone (faces, rotors still and spinning,
   shadows, the helicopter's wreck) and the submarine's 25 surfacing frames.
+- `wakes.mjs`: what vehicles leave in water: the tank's, jeep's and ASV's wakes (13 frames each), and the
+  floating jeep's blown-up tyres from above, their ripples and the trail behind them (18 frames each).
 - The buildings, wall by wall as their models wear them, each with its damaged and destroyed looks:
   `fort.mjs` (gun towers and turrets, walls, gates), `camp.mjs` (prison block, watchtower, tents), `town.mjs`
   (houses and the hospital), `works.mjs` (factories and the outpost, the fuel tank, the ammunition shed) and

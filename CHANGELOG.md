@@ -8,8 +8,12 @@ Each release's section below becomes its GitHub release notes (`.github/workflow
 
 - A [wiki](https://github.com/zombiecheese/rf-redux/wiki) for players and hosts: installing, deploying, running a site, how to play, the rules, online play, the level editor and troubleshooting, with screenshots.
 
+- The jeep's tyres are seen to blow up and go down: over about two seconds the wheels lean out and flatten, the fat tyres show under the body, and a floating jeep sits in rings of ripples and leaves a trail behind it.
+- The tank, jeep and ASV leave a wake of spray in water once going at half their top speed there.
+
 ### Fixed
 
+- A jeep floats at its slow floating speed only once its tyres are full, as in the original; while they fill it still wades.
 - Links to files in the repository now work in a release's notes.
 - Level editor: a map opened straight after the editor starts is now drawn. The view kept showing the empty map until the first edit.
 

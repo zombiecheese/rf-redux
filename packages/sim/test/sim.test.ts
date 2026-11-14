@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   ANGLE_MASK, BUILDING, GRID, ONE, TURRET_SWING, Rng, TILE_SIZE, VEHICLES, buildWorld, buildingDefs, cos, createMatch, damageBuilding, decodeTerrain,
   dock, encodeTerrain, headingTo, launch as launchUp, launchNow, makeVehicle, mul, sin, stepMatch, stepVehicle, tileCentre, validateMap,
-  MINE_ARMED, SHALLOW as SHALLOW_GROUND, DEEP, LAND as LAND_GROUND, WATER_FACTOR, groundAt, sunk, type ShoreTable, botSkill, clampDifficulty, distance, div, layMine, mineArmed, mineBlastReach, sqrt, stepGrenade, throwGrenade,
+  MINE_ARMED, SHALLOW as SHALLOW_GROUND, DEEP, LAND as LAND_GROUND, WATER_FACTOR, FLOAT_FACTOR, INFLATE_RATE, groundFactor, groundAt, sunk, type ShoreTable, botSkill, clampDifficulty, distance, div, layMine, mineArmed, mineBlastReach, sqrt, stepGrenade, throwGrenade,
   HELI_HEIGHT, busy, WRECK_TICKS, WRECK_TOUGHNESS, fireProjectile, GATE_OPEN, GATE_SETTLE, MsvcRand, sceneryOffsets, sceneryVariety, sceneryEntry, touch, hitBuilding, makeSoldier, soldiersFrom, SOLDIER_UNSEEN,
   CAMP_TICKS, DRONE_HEIGHT, DRONE_SPAWN, DRONE_UNSEEN, dronePool,
   BARREL_UP, FINE_TURN, PROJECTILES, fineAtan2, fineCos, fineSin, stepProjectile, DEATH_MISSILE,
@@ -273,6 +273,56 @@ describe('stepVehicle', () => {
     expect(jeep.tyres).toBe(true);
     expect(match.players[0]!.state).toBe('driving');
     expect(jeep.z).toBe(0);
+  });
+
+  it('blows the tyres up over 61 ticks, and floats at the slow speed only once they are full', () => {
+    const w = buildWorld(map((x) => (x < 64 ? WATER : LAND)), DEFS);
+    const jeep = vehicleAt(60, 64);
+    jeep.tyres = true;
+    const go: VehicleInput = { throttle: 1, turn: 0 };
+    const levels: number[] = [];
+    for (let i = 0; i < 61; i++) {
+      stepVehicle(jeep, go, w);
+      levels.push(jeep.inflate);
+    }
+    expect(levels[0]).toBe(INFLATE_RATE);
+    expect(levels[59]).toBeLessThan(ONE);
+    expect(levels[60]).toBe(ONE);
+    // Still filling, it was not held to the floating speed; full, it is.
+    expect(groundFactor(w, jeep)).toBe(FLOAT_FACTOR);
+    jeep.tyres = false;
+    stepVehicle(jeep, go, w);
+    expect(jeep.inflate).toBe(ONE - INFLATE_RATE);
+    expect(groundFactor(w, jeep)).toBe(WATER_FACTOR);
+  });
+
+  it('leaves a wake in water at half its top speed there, and lets it die away after stopping', () => {
+    const w = buildWorld(map(() => SHALLOW), DEFS);
+    const tank = vehicleAt(64, 80, 'tank');
+    const go: VehicleInput = { throttle: 1, turn: 0 };
+    let started = -1;
+    for (let i = 0; i < 100 && started < 0; i++) {
+      stepVehicle(tank, go, w);
+      if (tank.wake >= 0) started = i;
+    }
+    expect(started).toBeGreaterThan(0);
+    expect(tank.speed).toBeGreaterThanOrEqual(mul(VEHICLES.tank.maxForward, WATER_FACTOR) >> 1);
+    expect(tank.wake).toBe(0x40000);
+    // Going on, it keeps to frames 8-12.
+    const frames = new Set<number>();
+    for (let i = 0; i < 200; i++) {
+      stepVehicle(tank, go, w);
+      if (i > 60) frames.add(tank.wake >> 16);
+    }
+    expect([...frames].sort((a, b) => a - b)).toEqual([8, 9, 10, 11, 12]);
+    // Stopped, it runs round to its last frames and goes.
+    let ticks = 0;
+    while (tank.wake >= 0 && ticks < 200) {
+      stepVehicle(tank, { throttle: 0, turn: 0 }, w);
+      ticks++;
+    }
+    expect(tank.wake).toBe(-1);
+    expect(ticks).toBeLessThan(200);
   });
 
   it('is deterministic for the same inputs', () => {
