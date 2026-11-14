@@ -8,13 +8,17 @@ import { loadPicture } from './assets.js';
 import type { Display, Picture } from './display.js';
 import { SCREEN_H, SCREEN_W } from './raster.js';
 
-const TITLE_ART = new URL('./title/title-art.png', import.meta.url).href;
+const TITLE_ART = {
+  retro: new URL('./title/title-art.png', import.meta.url).href,
+  // A frame of the modern view: a four-base bot battle as the drone sees it (tools/title-art/modern.mjs).
+  modern: new URL('./title/title-modern.jpg', import.meta.url).href,
+};
 
 export class Stage {
   private readonly low = new OffscreenCanvas(SCREEN_W, SCREEN_H);
   private readonly lowCtx = this.low.getContext('2d')!;
   private readonly pictures = new Map<string, Promise<HTMLImageElement | null>>();
-  private title: Promise<HTMLImageElement | null> | null = null;
+  private readonly titles = new Map<'retro' | 'modern', Promise<HTMLImageElement | null>>();
   private still: { draw: () => void } | null = null;
   /**
    * Bumped by everything that takes the screen, so a fade or movie that was skipped or overtaken stops drawing
@@ -49,10 +53,10 @@ export class Stage {
   }
 
   /** Shows a picture and leaves it up (title, pause), until something else is drawn. */
-  show(img: Picture | null): void {
+  show(img: Picture | null, smooth = false): void {
     this.owner++;
     const draw = () => {
-      if (img) this.display.present(img);
+      if (img) this.display.present(img, 1, smooth);
       else this.blank();
     };
     this.still = { draw };
@@ -60,21 +64,26 @@ export class Stage {
   }
 
   /**
-   * The title screen's art: the remake's own widescreen picture of all four sides (drawn by tools/title-art), so it
-   * is there with or without the imported assets.
+   * The title screen's art for the view in use: the remake's own widescreen picture of all four sides (drawn by
+   * tools/title-art) for classic, or a frame of the modern view for modern, so it is there with or without the
+   * imported assets.
    */
-  titleArt(): Promise<HTMLImageElement | null> {
-    this.title ??= (async () => {
-      const img = new Image();
-      img.src = TITLE_ART;
-      try {
-        await img.decode();
-        return img;
-      } catch {
-        return null;
-      }
-    })();
-    return this.title;
+  titleArt(style: 'retro' | 'modern' = 'retro'): Promise<HTMLImageElement | null> {
+    let p = this.titles.get(style);
+    if (!p) {
+      p = (async () => {
+        const img = new Image();
+        img.src = TITLE_ART[style];
+        try {
+          await img.decode();
+          return img;
+        } catch {
+          return null;
+        }
+      })();
+      this.titles.set(style, p);
+    }
+    return p;
   }
 
   blank(): void {

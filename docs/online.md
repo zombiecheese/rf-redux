@@ -40,7 +40,7 @@ in 30 with the handicap and none without, so the single base is still the underd
 player has launched a vehicle, so nobody is overrun while still picking one on the lift screen; once the first has
 launched, the others get 45 seconds before the bots set off anyway. The owner also
 picks the time of day, day (the default) or night, and how everyone sees the match, in the lobby's Multiplayer view
-section: classic (the default) or modern. Players' own Visuals option does not apply online. A browser without WebGL stays classic. When every player is ready the owner starts the match.
+section: modern (the default) or classic. Players' own Visuals option does not apply online. A browser without WebGL stays classic. When every player is ready the owner starts the match.
 Others can watch as spectators. When the match ends, the results show and the lobby is ready for a rematch.
 
 **Base colours.** Each base has its own colours, shown beside its seat in the lobby and used for its vehicles,

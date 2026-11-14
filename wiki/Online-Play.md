@@ -40,7 +40,7 @@ The lobby's owner picks:
 - **Open or private.** An open lobby is listed. A private one needs its code or invite link.
 - **Handicap for the smaller side**, off by default.
 - **Time of day:** Day (the default) or Night.
-- **Multiplayer view:** Classic (the default) or Modern for every player, each with a preview. Only the host picks it; during the match a player's own Options > View > Visuals shows the host's pick and cannot be changed.
+- **Multiplayer view:** Modern (the default) or Classic for every player, each with a preview. Only the host picks it; during the match a player's own Options > View > Visuals shows the host's pick and cannot be changed.
 
 ![The Host a Game dialog with the map picker](images/host-a-game.png)
 

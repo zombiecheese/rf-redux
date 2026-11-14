@@ -62,7 +62,7 @@ const KEY = 'rfw.settings';
 const DEFAULTS: Settings = {
   names: ['Brown', 'Green'], difficulty: DIFFICULTY.default, players: 1, level: 1, mapId: 'rfmap101',
   swapSides: false, scale: 'sharp', music: true,
-  volume: { master: 80, effects: 100, music: 70, muted: false }, keys: {}, visuals: 'retro', lighting: 'day', instruments: 'builtin',
+  volume: { master: 80, effects: 100, music: 70, muted: false }, keys: {}, visuals: 'modern', lighting: 'day', instruments: 'builtin',
   teams: { layout: '', handicap: false, together: false, bots: true },
 };
 

@@ -294,7 +294,7 @@ describe('online play', () => {
     g.send({ t: 'quick' });
     const l = await g.wait('lobby', (m) => !!m.lobby);
     expect(l.lobby!.slots.filter((s) => s.kind === 'bot')).toHaveLength(1);
-    expect(l.lobby).toMatchObject({ visuals: 'retro', lighting: 'day' });
+    expect(l.lobby).toMatchObject({ visuals: 'modern', lighting: 'day' });
     // The host has everyone play in the modern view at night; nonsense falls back to day.
     g.send({ t: 'settings', visuals: 'modern', lighting: 'night' });
     await g.wait('lobby', (m) => m.lobby?.visuals === 'modern' && m.lobby.lighting === 'night');

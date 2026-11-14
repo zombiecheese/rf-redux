@@ -216,8 +216,14 @@ async function title(): Promise<void> {
   setScreen('title');
   music.menus();
   if (menuShown && !lobbyWin?.visible) openMenu();
-  const img = await stage.titleArt();
-  if (screen === 'title') stage.show(img);
+  await showTitleArt();
+}
+
+/** The title screen's picture, in the player's view: modern (the default) or classic. */
+async function showTitleArt(): Promise<void> {
+  const style = settings.visuals === 'modern' && modernAvailable() ? 'modern' : 'retro';
+  const img = await stage.titleArt(style);
+  if (screen === 'title') stage.show(img, style === 'modern');
 }
 
 // ---- Starting and ending a match ---------------------------------------------------------------------------------
@@ -735,6 +741,15 @@ function titleItems(): MenuEntry[] {
   return [
     { label: 'Local Play', hint: 'Training, or split screen on one keyboard', primary: true, items: playItems },
     { label: 'Online', items: onlineItems },
+    {
+      label: 'Style', hint: modernAvailable() ? 'Modern 3D, or the classic pixel look' : 'This browser shows classic only (no WebGL)',
+      value: () => (settings.visuals === 'modern' && modernAvailable() ? 'Modern' : 'Classic'),
+      enabled: () => modernAvailable(),
+      action: () => {
+        save({ ...settings, visuals: settings.visuals === 'modern' ? 'retro' : 'modern' });
+        void showTitleArt();
+      },
+    },
     { label: 'Hall of Fame', key: shortcutName('hallOfFame'), action: () => void showHallOfFame() },
     { label: 'Replays', hint: 'Watch your last matches again', action: () => void showReplays() },
     ...(handheld ? [] : [{ label: 'Level Editor', hint: 'Make your own maps', action: () => location.assign('editor.html') }]),
@@ -813,8 +828,8 @@ function viewItems(): MenuEntry[] {
   return [
     ...hostNote,
     {
-      label: 'Visuals', hint: host ? 'Set by the host' : 'Retro pixels, or modern 3D at 720p',
-      value: () => ((host ?? settings.visuals) === 'modern' ? 'Modern' : 'Retro'),
+      label: 'Visuals', hint: host ? 'Set by the host' : 'Modern 3D at 720p, or classic pixels',
+      value: () => ((host ?? settings.visuals) === 'modern' ? 'Modern' : 'Classic'),
       enabled: () => !host,
       action: () => save({ ...settings, visuals: settings.visuals === 'modern' ? 'retro' : 'modern' }),
     },
