@@ -6,13 +6,14 @@ Each release's section below becomes its GitHub release notes (`.github/workflow
 
 ### Added
 
-- The modern view looks like a surveillance drone's feed: a slightly washed, cool picture with film grain, a soft lens rim and colour fringes, a rolling scan line, and an overlay with corner brackets, the clock, REC and altitude and grid read-outs. Options > Camera switches it to a clean picture.
+- The modern view looks like a surveillance drone's feed: a slightly washed, cool picture with film grain, a soft lens rim and colour fringes, a rolling scan line, a burst of stream errors now and then (torn rows, broken and misplaced macroblocks, split colours), and an overlay with corner brackets, the clock, REC and altitude and grid read-outs. Options > Camera switches it to a clean picture.
 - A thermal camera for the modern view (Options > Thermal, the I key, or the IR button beside the menu button): a white-hot picture where vehicles, soldiers and drones run hot, wrecks warm, buildings and ground cool and the sea cold, so it sees through the dark.
 
 - An online lobby's owner can set the visuals (classic or modern) and the lighting (day or night) for every player, or leave both to each player's own Options.
 
 ### Changed
 
+- The modern HUD reads as a machine-vision analysis of the feed instead of panels: tracking boxes with a label, a confidence and their integrity on the player's vehicle (with its fuel and ammunition beside it), friendly vehicles, and the opponents' vehicles, gun towers, flag buildings, revealed flags and drones; the radar is a tactical plot of the coastline with contact marks.
 - Each vehicle has its own lights at night, dimmer than before: the jeep's warm headlamps, the tank's wide work lights, the ASV's long blue-white beam and the helicopter's searchlight.
 - Night in the modern view is much darker: a faint moon, a black sky and dark water, so the headlights, fires and lit buildings are most of the light.
 

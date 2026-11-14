@@ -1,7 +1,8 @@
 // The modern view's camera look: a surveillance drone's feed over the toy-soldier world, and its thermal camera.
 //
 // The drone feed is a pass over the finished picture: a slightly washed, cool grade, a soft lens (colour fringes and
-// a darker rim), film grain and a faint rolling line, as a feed from high up looks. Thermal is drawn by the models
+// a darker rim), film grain, a faint rolling line and now and then the encoder's errors (torn rows, broken
+// macroblocks), as a feed streamed from high up looks. Thermal is drawn by the models
 // themselves: every material shows its heat instead of its lit colour (vehicles, soldiers and drones hot, wrecks
 // warm, buildings and ground cool, the sea cold, lit windows warm at night), so darkness hides nothing; the pass then
 // shows it white-hot, grainy and a touch soft, as an infrared camera does.
@@ -58,27 +59,61 @@ const FRAGMENT = /* glsl */ `
     vec2 d = local - 0.5;
     vec2 texel = 1.0 / res;
     float grain = hash(floor(px) + fract(time * 13.7) * 91.0) - 0.5;
+    vec2 uv = vUv;
+    // The feed's encoder errors: now and then (a few times a minute) a short burst tears rows sideways, smears
+    // and discolours macroblocks and splits the colours; between bursts a stray block glitches now and again.
+    float slot = floor(time * 4.0);
+    float burst = drone * step(0.965, hash(vec2(slot, 7.0)));
+    float stray = drone * step(0.995, hash(vec2(floor(time * 9.0), 3.0)));
+    vec2 block = floor(px / 16.0);
+    float hit = 0.0;
+    if (burst > 0.5) {
+      float band = floor(px.y / (6.0 + 20.0 * hash(vec2(slot, 2.0))));
+      float tear = hash(vec2(band, slot));
+      if (tear > 0.72) uv.x += (hash(vec2(band, slot + 1.0)) - 0.5) * 60.0 * texel.x;
+      // A corrupt slice: from some way along a row of blocks to its end, the blocks come from the wrong place.
+      float slice = hash(vec2(block.y, slot + 0.5));
+      float from = hash(vec2(block.y, slot + 1.5)) * res.x / 16.0;
+      if (slice > 0.88 && block.x >= from) {
+        vec2 shift = (vec2(hash(vec2(block.y, slot + 2.5)), hash(vec2(block.y, slot + 3.5))) - 0.5) * vec2(160.0, 48.0);
+        uv = (floor(px) + floor(shift) + 0.5) * texel;
+        hit = step(0.8, hash(block + slot));
+      } else if (hash(block + slot * 1.31) > 0.997) {
+        hit = 1.0;
+        uv = (block * 16.0 + 8.0) * texel;
+      }
+    } else if (stray > 0.5 && hash(block + floor(time * 9.0)) > 0.985) {
+      hit = 1.0;
+      uv = (floor(uv * res / 16.0) * 16.0 + 8.0) * texel;
+    }
     vec3 col;
     if (thermal > 0.5) {
       // White-hot: heat as brightness, a little soft, with sensor noise and faint banding.
-      float t = lum(texture2D(frame, vUv).rgb) * 0.4;
-      t += lum(texture2D(frame, vUv + vec2(texel.x, 0.0)).rgb) * 0.15;
-      t += lum(texture2D(frame, vUv - vec2(texel.x, 0.0)).rgb) * 0.15;
-      t += lum(texture2D(frame, vUv + vec2(0.0, texel.y)).rgb) * 0.15;
-      t += lum(texture2D(frame, vUv - vec2(0.0, texel.y)).rgb) * 0.15;
+      float t = lum(texture2D(frame, uv).rgb) * 0.4;
+      t += lum(texture2D(frame, uv + vec2(texel.x, 0.0)).rgb) * 0.15;
+      t += lum(texture2D(frame, uv - vec2(texel.x, 0.0)).rgb) * 0.15;
+      t += lum(texture2D(frame, uv + vec2(0.0, texel.y)).rgb) * 0.15;
+      t += lum(texture2D(frame, uv - vec2(0.0, texel.y)).rgb) * 0.15;
       t = smoothstep(0.04, 0.92, t);
       t += grain * 0.07 + 0.012 * sin(px.y * 0.9 + time * 40.0);
       col = vec3(t) * vec3(0.98, 1.0, 1.02);
     } else {
       // A lens: colour fringes growing to the rim.
-      vec2 off = d * 2.6 * texel;
-      col = vec3(texture2D(frame, vUv + off).r, texture2D(frame, vUv).g, texture2D(frame, vUv - off).b);
+      vec2 off = d * 2.6 * texel + vec2(burst * 4.0 * texel.x, 0.0);
+      col = vec3(texture2D(frame, uv + off).r, texture2D(frame, uv).g, texture2D(frame, uv - off).b);
       // A feed's grade: a little washed out and cool, the blacks lifted a touch.
       float g = lum(col);
       col = mix(vec3(g), col, 0.72);
       col = col * vec3(0.94, 1.0, 0.98) * 0.94 + vec3(0.015, 0.02, 0.02);
       col += grain * 0.06;
     }
+    // A broken macroblock: its colours crushed to a few steps and pushed green or magenta.
+    if (hit > 0.5) {
+      col = floor(col * 4.0) / 4.0;
+      col *= hash(block + 0.5) > 0.5 ? vec3(0.7, 1.25, 0.7) : vec3(1.25, 0.7, 1.2);
+    }
+    // A dropped line or two in a burst.
+    if (burst > 0.5 && hash(vec2(floor(px.y), slot)) > 0.992) col *= 0.25;
     // A faint line rolls down the picture, and scanlines every other row.
     float roll = fract(time * 0.11);
     col *= 1.0 + 0.04 * smoothstep(0.03, 0.0, abs(local.y - (1.0 - roll)));
@@ -130,13 +165,14 @@ export class LookPass {
    * Copies what gl has drawn so far and draws it back through the look. rects are the map views, top-left origin,
    * so each gets its own lens.
    */
-  apply(gl: THREE.WebGLRenderer, rects: readonly LookRect[], thermal: boolean, seconds: number): void {
+  apply(gl: THREE.WebGLRenderer, rects: readonly LookRect[], drone: boolean, thermal: boolean, seconds: number): void {
     gl.setViewport(0, 0, this.w, this.h);
     gl.setScissor(0, 0, this.w, this.h);
     gl.copyFramebufferToTexture(this.frame, this.origin);
     const u = this.material.uniforms;
     u.time!.value = seconds;
     u.thermal!.value = thermal ? 1 : 0;
+    u.drone!.value = drone ? 1 : 0;
     const list = u.rects!.value as THREE.Vector4[];
     const n = Math.min(2, rects.length);
     for (let i = 0; i < n; i++) {

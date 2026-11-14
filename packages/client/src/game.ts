@@ -793,7 +793,7 @@ export class Game {
               });
             }
             dimView(g, r, pl.fade);
-            drawModernHud(g, match, r, v[i]!);
+            drawModernHud(g, match, r, v[i]!, (x, y, z) => modern!.project(cam, r, x, y, z));
           }
           if (notes[i]) drawNote(g, r, notes[i]!);
           if (!field[i] || sc) return;
