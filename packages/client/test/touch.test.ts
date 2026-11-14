@@ -14,6 +14,8 @@ describe('touch controls', () => {
     expect(touchModeFor('docking', 'jeep')).toBe('idle');
     expect(touchModeFor('skull', null)).toBe('idle');
     expect(touchModeFor(null, null)).toBe('watch');
+    // A player whose base is out watches too, picking with P1-P4.
+    expect(touchModeFor('out', null)).toBe('watch');
   });
 
   it('gives every vehicle the buttons the sim gives it, and no others', () => {

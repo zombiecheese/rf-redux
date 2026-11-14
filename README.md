@@ -118,7 +118,7 @@ for the menus, or touch on phones and tablets; there is no gamepad support.
 | Esc | Leave the game (any key skips the splash or the win scene) |
 | T | Online: open the chat line (Tab picks everyone, your team or one player; Enter sends; Esc closes) |
 | Tab (hold) | Online: the scoreboard |
-| 1–4 | Online spectator and replays: follow that player |
+| ← / → (or a half's turn keys), 1–4 | Out of the match, or spectating online: watch the next / previous player still in, or that player. Replays: 1–4 follow that player |
 | - / = | Replay: slower / faster (¼× to 8×) |
 | , / . | Replay: ten seconds back / on (P pauses, Alt+R starts it again, Esc leaves) |
 
@@ -147,7 +147,7 @@ during a match, drawn as faded pixel buttons. They play solo only: Two Players a
 | Dock (top, while driving) | Back into the bunker on your base |
 | ❚❚ (top, offline) / ☰ (top left) | Pause / the menu |
 | Chat, Scores (top, online) | Open the chat line (tap its label to pick who it goes to); show the scoreboard while held |
-| P1–P4 (top, watching online) | Follow a player |
+| P1–P4 (top, out of the match or spectating) | Watch that player |
 
 Each control presses the left-hand key for its action, so rebinding in Options > Controls carries over.
 

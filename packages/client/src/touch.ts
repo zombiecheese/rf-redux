@@ -43,7 +43,7 @@ export const TOUCH_BUTTONS: TouchButton[] = [
   { label: 'P4', press: ['follow4'], cls: 'top', modes: ['watch'] },
   { label: 'Chat', press: ['chat'], cls: 'top online', modes: ['bunker', ...DRIVING, 'watch', 'idle'] },
   { label: 'Scores', press: ['scores'], cls: 'top online', modes: ['bunker', ...DRIVING, 'watch', 'idle'] },
-  { label: '❚❚', press: ['pause'], cls: 'top offline', modes: ['bunker', ...DRIVING, 'idle'] },
+  { label: '❚❚', press: ['pause'], cls: 'top offline', modes: ['bunker', ...DRIVING, 'watch', 'idle'] },
 
   { label: 'Launch', press: ['fire'], cls: 'fire', modes: ['bunker'] },
   { label: 'Fire', press: ['fire'], cls: 'fire', modes: DRIVING },
@@ -61,9 +61,12 @@ export const TOUCH_BUTTONS: TouchButton[] = [
 /** The modes the stick is out for: steering a vehicle. On the lift screen the bays are tapped instead (game.ts). */
 export const STICK_MODES: TouchMode[] = [...DRIVING];
 
-/** The controls for the player this browser steers: none while watching, launching, docking or under the skull. */
+/**
+ * The controls for the player this browser steers: P1-P4 while watching (a spectator, or a player whose base is out),
+ * none while launching, docking or under the skull.
+ */
 export function touchModeFor(state: string | null, kind: string | null): TouchMode {
-  if (state === null) return 'watch';
+  if (state === null || state === 'out') return 'watch';
   if (state === 'bunker') return 'bunker';
   if (state === 'driving' && kind && (DRIVING as string[]).includes(kind)) return kind as TouchMode;
   return 'idle';
