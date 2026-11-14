@@ -1,0 +1,1 @@
+These pages are kept in the `wiki/` folder of the [repository](https://github.com/zombiecheese/rf-redux) and published from there. To change one, edit it in the repository: edits made here are overwritten.

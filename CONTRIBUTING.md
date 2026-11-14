@@ -2,7 +2,7 @@
 
 - npm workspaces: `packages/sim` (shared deterministic game logic, TypeScript, Vitest), `packages/net` (lockstep frames and JSON messages shared by server and client), `packages/client` (Vite; a software rasteriser in `raster.ts` reproduces the original cel renderer at 320 × 240; also `editor.html` and `admin.html`).
 - `packages/server`: Node game server (serves the client, the art pack and the optional `/generated/` extras; lockstep matches, accounts, lobbies, chat, map library and the admin API on SQLite via `node:sqlite`).
-- Docs: `docs/` (assets, deploy, online, level-editor, music, map-format). Update them, and the README, with any change they describe, and note user-facing changes under `[Unreleased]` in `CHANGELOG.md`.
+- Docs: `docs/` (assets, deploy, online, level-editor, music, map-format). Update them, the README and the wiki pages in `wiki/` (the players' and hosts' guide, published to the repository's wiki from `main`), with any change they describe, and note user-facing changes under `[Unreleased]` in `CHANGELOG.md`.
 - `npm test`, `npm run typecheck`, `npm run dev`, `npm run build && npm start`.
 - Art, sounds, models and maps are the project's own, built by `npm run art` (`tools/build-art.mjs`, sources in `tools/art/`) into `assets/art/pack/`, which is committed. The game runs from it with no import of the original. `assets/generated/` is an optional, git-ignored extras folder (soundfont, `.mid` overrides).
 - Deploys as a Docker Compose stack (`docker-compose.yml`, `docs/deploy.md`); one image, built from `packages/` and the art pack. It must hold nothing from the original beyond the two things named below.

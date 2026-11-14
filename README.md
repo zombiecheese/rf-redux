@@ -214,3 +214,4 @@ An npm workspaces monorepo in TypeScript. It is complete in itself: nothing is i
 | [docs/map-format.md](docs/map-format.md) | The map file format, playability checks and how the 3- and 4-base maps are made |
 | [docs/music.md](docs/music.md) | The music system, the pieces and why each is in the public domain |
 | [CHANGELOG.md](CHANGELOG.md) | What changed in each release |
+| [Wiki](https://github.com/zombiecheese/rf-redux/wiki) | The players' and hosts' guide: installing, deploying, how to play, the rules, online play and the level editor. Its pages are the files in `wiki/`, published by `.github/workflows/wiki.yml` |
