@@ -862,7 +862,9 @@ export class Game {
           const pl = match.players[v[i]!]!;
           const sc = screens[i];
           if (sc?.kind === 'bunker') {
-            drawBunkerPanel(g, r, (rect, x, y, z) => modern!.bunkerPoint(rect, x, y, z), sc.lives, sc.selected, sc.elevator, sc.base, !!this.o.handheld);
+            drawBunkerPanel(g, r, (rect, x, y, z) => modern!.bunkerPoint(rect, x, y, z), {
+              lives: sc.lives, selected: sc.selected, elevator: sc.elevator, base: sc.base, touch: !!this.o.handheld, night, now: new Date(),
+            });
             dimView(g, r, pl.fade);
           } else if (sc?.kind === 'skull') {
             dimView(g, r, sc.look.light);
