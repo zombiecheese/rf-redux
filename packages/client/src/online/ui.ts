@@ -3,12 +3,12 @@
 // with a card for each of up to four seats and its chat, and the results after a match.
 
 import { DIFFICULTY, MAX_BASES, TICK_MS, parseMap, type RfwMap } from '@rfw/sim';
-import {
+import { type LobbyLighting, type LobbyVisuals,
   layoutsFor,
   type ChatChannel, type ChatMessage, type Identity, type LobbyInfo, type LobbySlot, type LobbySummary, type MatchResult, type MatchStart,
 } from '@rfw/net';
 import { loadCommon, loadMap } from '../assets.js';
-import { dialog, el, field, finish, notice, radio, skinClass } from '../dialogs.js';
+import { dialog, el, field, finish, notice, radio, skinClass, viewPicker, type ViewChoice } from '../dialogs.js';
 import { MapPreview } from '../mappreview.js';
 import { TEAMS as COLOURS } from '../paint.js';
 import { formatTime } from '../scores.js';
@@ -40,6 +40,14 @@ export async function lobbyMaps(): Promise<LobbyMap[]> {
   const all = [...builtIn, ...custom.filter((m) => !own.has(m.id))];
   return [...all.filter((m) => m.featured), ...all.filter((m) => !m.featured), ...mine.map((m) => ({ ...m, featured: false }))];
 }
+
+/** The host's picks of how everyone sees the match. */
+const LOBBY_VIEWS: ViewChoice[] = [
+  { value: 'any', label: 'Each player\'s choice', hint: 'Whatever each has in Options' },
+  { value: 'retro', label: 'Classic for all', hint: 'The original pixel look', image: 'retro' },
+  { value: 'modern', label: 'Modern for all', hint: '3D drone feed at 720p', image: 'modern' },
+];
+const LIGHTING: [LobbyLighting, string][] = [['any', 'Each player\'s choice'], ['day', 'Day for all'], ['night', 'Night for all']];
 
 function skillSelect(value: number): HTMLSelectElement {
   const s = el('select', {});
@@ -482,11 +490,28 @@ export class LobbyWindow {
       handicap.addEventListener('change', () => this.net.send({ t: 'settings', handicap: handicap.checked }));
       const handicapRow = el('label', { class: 'check' }, handicap, 'Handicap for the smaller side');
       handicapRow.title = 'In an uneven match (2v1, say) the smaller team starts with more vehicles, in proportion, and its flag must be captured three times';
+      const look = viewPicker(l.visuals, LOBBY_VIEWS, false);
+      look.title = 'Have every player see the match the same way, or let each pick in Options';
+      look.addEventListener('change', () => this.net.send({ t: 'settings', visuals: look.value as LobbyVisuals }));
+      const light = el('select', {});
+      for (const [v, name] of LIGHTING) light.add(new Option(name, v));
+      light.value = l.lighting;
+      light.title = 'Day or night in the modern view for every player, or let each pick in Options';
+      light.addEventListener('change', () => this.net.send({ t: 'settings', lighting: light.value as LobbyLighting }));
       this.settings.append(
-        field('Teams:', layout), field('Difficulty:', skill), field('Who can join:', vis), handicapRow);
+        field('Teams:', layout), field('Difficulty:', skill), field('Who can join:', vis), field('Lighting:', light), handicapRow,
+        el('fieldset', { class: 'view-set' }, el('legend', {}, 'Visuals'), look));
     } else {
       this.preview.actions.replaceChildren();
       this.settings.append(field('Difficulty:', el('span', {}, String(l.difficulty))));
+      if (l.visuals !== 'any') {
+        // The host's pick, with its preview.
+        const shown = viewPicker(l.visuals, LOBBY_VIEWS.filter((c) => c.value === l.visuals), false);
+        for (const b of shown.querySelectorAll('button')) b.tabIndex = -1;
+        shown.classList.add('view-shown');
+        this.settings.append(el('fieldset', { class: 'view-set' }, el('legend', {}, 'Visuals'), shown));
+      }
+      if (l.lighting !== 'any') this.settings.append(field('Lighting:', el('span', {}, LIGHTING.find(([v]) => v === l.lighting)![1])));
       if (l.handicap) this.settings.append(el('p', { class: 'hint' }, 'Handicap on: the smaller side gets extra vehicles, and its flag must be captured more than once.'));
     }
     const known = this.maps.find((m) => m.id === l.mapId);

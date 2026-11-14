@@ -5,7 +5,7 @@
 // back to waiting, ready for a rematch. Chat goes to everyone in the lobby and its game, to a team, or to one player.
 
 import { randomBytes } from 'node:crypto';
-import {
+import { lobbyLighting, lobbyVisuals, type LobbyLighting, type LobbyVisuals, 
   layoutsFor, teamsForLayout,
   type ChatChannel, type ChatMessage, type Identity, type LobbyInfo, type LobbySlot, type LobbySummary, type MatchResult, type MatchSeat,
   type ServerMessage, type Visibility,
@@ -38,6 +38,8 @@ export interface Lobby {
   visibility: Visibility;
   difficulty: number;
   handicap: boolean;
+  visuals: LobbyVisuals;
+  lighting: LobbyLighting;
   slots: LobbySlot[];
   /** Connections of the people in the lobby's seats. */
   members: Map<string, Conn>;
@@ -85,7 +87,7 @@ export class Lobbies {
   info(l: Lobby): LobbyInfo {
     return {
       id: l.id, code: l.code, name: l.name, owner: l.owner, mapId: l.mapId, mapName: l.map.name, visibility: l.visibility,
-      slots: l.slots, difficulty: l.difficulty, handicap: l.handicap, state: l.state, gameId: l.room?.id,
+      slots: l.slots, difficulty: l.difficulty, handicap: l.handicap, visuals: l.visuals, lighting: l.lighting, state: l.state, gameId: l.room?.id,
     };
   }
 
@@ -141,7 +143,7 @@ export class Lobbies {
     const bases = Math.min(MAX_BASES, map.bases.length);
     const l: Lobby = {
       id: id(), code: code(), name: (opts.name?.trim() || `${c.identity.name}'s game`).slice(0, 40), owner: c.identity.id, mapId: opts.mapId, map,
-      visibility: opts.visibility === 'private' ? 'private' : 'open', difficulty: this.settings.get().defaultDifficulty, handicap: false,
+      visibility: opts.visibility === 'private' ? 'private' : 'open', difficulty: this.settings.get().defaultDifficulty, handicap: false, visuals: 'any', lighting: 'any',
       slots: [], members: new Map(), state: 'waiting', room: null, quick: false, chatMuted: false, created: Date.now(),
     };
     l.slots = this.defaultSlots(l, bases);
@@ -305,9 +307,11 @@ export class Lobbies {
     return l;
   }
 
-  settingsFor(c: Conn, s: { name?: string; mapId?: string; visibility?: Visibility; difficulty?: number; handicap?: boolean }): void {
+  settingsFor(c: Conn, s: { name?: string; mapId?: string; visibility?: Visibility; difficulty?: number; handicap?: boolean; visuals?: LobbyVisuals; lighting?: LobbyLighting }): void {
     const l = this.owned(c);
     if (s.handicap !== undefined) l.handicap = s.handicap === true;
+    if (s.visuals !== undefined) l.visuals = lobbyVisuals(s.visuals);
+    if (s.lighting !== undefined) l.lighting = lobbyLighting(s.lighting);
     if (s.name !== undefined) l.name = String(s.name).trim().slice(0, 40) || l.name;
     if (s.visibility) l.visibility = s.visibility === 'private' ? 'private' : 'open';
     if (s.difficulty !== undefined) {
@@ -420,7 +424,7 @@ export class Lobbies {
     }));
     const room = new Room({
       id: id(), mapId: l.mapId, map: l.map, defs: this.maps.defs, shore: this.maps.shore, seats, seed: randomBytes(4).readInt32LE(0) || 1,
-      difficulty: l.difficulty, handicap: l.handicap, pauseOnDrop: l.visibility === 'private', desyncDir: this.hooks.desyncDir,
+      difficulty: l.difficulty, handicap: l.handicap, visuals: l.visuals, lighting: l.lighting, pauseOnDrop: l.visibility === 'private', desyncDir: this.hooks.desyncDir,
       onEnd: (result) => this.ended(l, room, result), onDesync: this.hooks.onDesync,
     });
     l.room = room;

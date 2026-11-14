@@ -10,6 +10,7 @@ import { MapPreview } from './mappreview.js';
 import { formatTime, type ScoreMode, type ScoreTable } from './scores.js';
 import { layoutsFor, teamsForLayout } from '@rfw/net';
 import type { Settings, TeamChoice } from './settings.js';
+import { modernAvailable } from './modern/layout.js';
 
 export function el<K extends keyof HTMLElementTagNameMap>(tag: K, props: Partial<HTMLElementTagNameMap[K]> & { class?: string } = {},
   ...children: (Node | string)[]): HTMLElementTagNameMap[K] {
@@ -202,6 +203,59 @@ export function field(label: string, input: HTMLElement): HTMLLabelElement {
   return el('label', { class: 'field' }, el('span', {}, label), input);
 }
 
+const PREVIEWS = {
+  retro: new URL('./previews/classic.jpg', import.meta.url).href,
+  modern: new URL('./previews/modern.jpg', import.meta.url).href,
+};
+
+export interface ViewChoice {
+  value: string;
+  label: string;
+  hint: string;
+  /** A picture of the view; a choice without one shows both. */
+  image?: 'retro' | 'modern';
+}
+
+/** The views a player picks from: classic pixels or the modern 3D view, each with a picture of it in play. */
+export const VIEW_CHOICES: ViewChoice[] = [
+  { value: 'retro', label: 'Classic', hint: 'The original pixel look', image: 'retro' },
+  { value: 'modern', label: 'Modern', hint: '3D drone feed at 720p', image: 'modern' },
+];
+
+/**
+ * Cards to pick a view from, each with its preview. The element's value is the picked choice; it sends change. A
+ * browser without WebGL cannot show Modern, so for the player's own view (local) that card is greyed out.
+ */
+export function viewPicker(value: string, choices: readonly ViewChoice[] = VIEW_CHOICES, local = true): HTMLDivElement & { value: string } {
+  const root = el('div', { class: 'view-picker' }) as HTMLDivElement & { value: string };
+  root.setAttribute('role', 'radiogroup');
+  root.value = value;
+  const cards = choices.map((c) => {
+    const off = local && c.value === 'modern' && !modernAvailable();
+    const pic = c.image
+      ? el('img', { src: PREVIEWS[c.image], alt: `${c.label} view`, loading: 'lazy' })
+      : el('span', { class: 'view-both' }, el('img', { src: PREVIEWS.retro, alt: '' }), el('img', { src: PREVIEWS.modern, alt: '' }));
+    const card = el('button', { type: 'button', class: 'view-card', disabled: off, title: off ? 'This browser cannot show the modern view (no WebGL)' : c.hint },
+      pic, el('strong', {}, c.label), el('small', {}, off ? 'Needs WebGL' : c.hint));
+    card.setAttribute('role', 'radio');
+    card.addEventListener('click', () => {
+      root.value = c.value;
+      sync();
+      root.dispatchEvent(new Event('change'));
+    });
+    return { c, card };
+  });
+  const sync = () => {
+    for (const { c, card } of cards) {
+      card.classList.toggle('picked', c.value === root.value);
+      card.setAttribute('aria-checked', String(c.value === root.value));
+    }
+  };
+  sync();
+  root.append(...cards.map((x) => x.card));
+  return root;
+}
+
 /**
  * Player Selector (N, New Game): Training (one player against the computer) or Tournament (two players at one
  * keyboard), and the Brown and Green names. Phones and tablets play Training only. fixed keeps s.players and hides the
@@ -218,7 +272,10 @@ export async function playerSelector(s: Settings, handheld: boolean, fixed = fal
   const greenLabel = field('Green:', green);
   const names = el('fieldset', {}, el('legend', {}, 'Players'), field('Brown:', brown), greenLabel);
   const skillRow = field('Computer skill:', skill);
-  const body = el('div', { class: 'cols' }, mode, el('div', {}, names, skillRow));
+  // The view: classic or modern, with a preview of each. Options > Visuals still switches it at any time.
+  const view = viewPicker(s.visuals === 'modern' && modernAvailable() ? 'modern' : 'retro');
+  const viewSet = el('fieldset', { class: 'view-set' }, el('legend', {}, 'View'), view);
+  const body = el('div', { class: 'stack' }, el('div', { class: 'cols' }, mode, el('div', {}, names, skillRow)), viewSet);
   const sync = () => {
     const two = mode.querySelector<HTMLInputElement>('input:checked')?.value === '2';
     skillRow.hidden = two;
@@ -231,6 +288,7 @@ export async function playerSelector(s: Settings, handheld: boolean, fixed = fal
   const players = handheld ? 1 : fixed ? s.players : (Number(mode.querySelector<HTMLInputElement>('input:checked')?.value) as 1 | 2) || 1;
   return {
     ...s, players,
+    visuals: view.value === 'modern' ? 'modern' : 'retro',
     names: [brown.value.trim() || 'Brown', green.value.trim() || 'Green'],
     difficulty: clampDifficulty(Number(skill.value)),
   };

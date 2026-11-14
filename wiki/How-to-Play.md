@@ -15,7 +15,7 @@ The title screen shows the menu after the splash. Any key or a tap brings it bac
 | **Level Editor** | Make your own maps (desktop only). See [[Level Editor]] |
 | **Options** | Controls, sound, picture and Swap Sides |
 
-Training and Two Players open the **Player Selector** (names and the computer's skill, 1 to 9), then the **Level Selector**, which lists the maps by level 1 to 9 with a preview of each. On a map with three or four bases you are also asked for the team layout.
+Training and Two Players open the **Player Selector** (names, the computer's skill, 1 to 9, and the view: Classic or Modern, each with a preview), then the **Level Selector**, which lists the maps by level 1 to 9 with a preview of each. On a map with three or four bases you are also asked for the team layout.
 
 ![The Level Selector with levels, maps and a map preview](images/level-selector.png)
 
@@ -74,6 +74,7 @@ With one player (Training, online and the editor's test play) either half of the
 | M | Open the menu |
 | L | Hall of Fame |
 | V | Sound off or on |
+| I | Thermal camera on or off (modern view) |
 | Alt+Enter | Full screen |
 | Alt+3 | Swap Sides (player 1 takes the right-hand keys) |
 | Esc | Leave the game |
@@ -141,7 +142,9 @@ Replays save as `.rfwreplay.json` files or, signed in, to your account.
 - **Sound:** master, effects and music volume. The retro view plays a military band; the modern view has a hardcore and metalcore soundtrack of its own.
 - **Instruments:** Built-in (the default) or Sampled, which plays the retro band from real instrument samples (the GeneralUser GS SoundFont). The first time you pick Sampled the game downloads it (32 MB); after that your browser keeps it. The modern soundtrack keeps its own guitars and drums either way.
 - **Visuals:** Retro (the original's 320 × 240 pixel picture, the default) or Modern (the same game in 3D at 1280 × 720, with lighting, shadows and effects, a 3D bunker and skull, and modern messages and scoreboard). You can switch during a match; the game plays the same either way.
-- **Lighting:** Day or Night for the modern view. At night the vehicles have headlights, explosions light up the ground, and street lamps, watchtowers and windows are lit.
+- **Lighting:** Day or Night for the modern view. Night is dark: the vehicles have headlights, explosions light up the ground, and street lamps, watchtowers and windows are lit.
+- **Camera:** Drone feed (the default) shows the modern view as a surveillance drone sees it, with grain, a lens, stream errors when something blows up nearby (worst when you are hit) and an overlay of the clock, altitude and grid; Clean drops all that.
+- **Thermal:** the modern view through a thermal camera, white-hot: vehicles, soldiers and drones glow, the ground and buildings are grey and the sea is black, so it sees in the dark. **I** or the **IR** button beside the menu button switches it too.
 - **Picture:** a subtle CRT look (on by default, retro only) and how the picture is scaled.
 - **Swap Sides:** gives player 1 the right-hand keys.
 

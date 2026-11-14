@@ -3,6 +3,7 @@
 // scorch marks on the ground and short flashes of light on everything near a blast. None of it touches the game.
 
 import * as THREE from 'three';
+import { THERMAL } from './look.js';
 
 const MAX_POINTS = 4000;
 const MAX_CHUNKS = 600;
@@ -82,7 +83,7 @@ class PointBatch {
     this.geo.setAttribute('tint', new THREE.BufferAttribute(this.col, 4).setUsage(THREE.DynamicDrawUsage));
     this.geo.setAttribute('size', new THREE.BufferAttribute(this.size, 1).setUsage(THREE.DynamicDrawUsage));
     this.material = new THREE.ShaderMaterial({
-      uniforms: { map: { value: texture }, scale: { value: 400 } },
+      uniforms: { map: { value: texture }, scale: { value: 400 }, thermal: THERMAL },
       vertexShader: /* glsl */ `
         attribute vec4 tint;
         attribute float size;
@@ -96,9 +97,12 @@ class PointBatch {
         }`,
       fragmentShader: /* glsl */ `
         uniform sampler2D map;
+        uniform float thermal;
         varying vec4 vTint;
         void main() {
           float a = texture2D(map, gl_PointCoord).a * vTint.a;
+          // Smoke hardly shows on the thermal camera; fire burns white.
+          ${additive ? '' : 'a *= 1.0 - thermal * 0.7;'}
           if (a < 0.01) discard;
           gl_FragColor = vec4(vTint.rgb, a);
         }`,

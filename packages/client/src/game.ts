@@ -23,7 +23,7 @@ import {
 } from '@rfw/net';
 import type { GameAssets } from './assets.js';
 import { BAYS, drawBunker } from './bunker.js';
-import { Camera, layout } from './camera.js';
+import { Camera, FOCAL, layout } from './camera.js';
 import { isPortrait, type Display } from './display.js';
 import { setTouchMode, touchModeFor } from './touch.js';
 import { Effects } from './effects.js';
@@ -39,7 +39,7 @@ import { drawSkull } from './skull.js';
 import { drawView } from './view.js';
 import { MODERN_H, MODERN_W, modernAvailable, modernLayout, type ModernRect } from './modern/layout.js';
 import type { ModernRenderer, ModernScreen } from './modern/renderer.js';
-import { bunkerBayAt, dimView, drawBanner, drawBunkerPanel, drawChatLines, drawLog, drawModernHud, drawName, drawNote, drawScoreTable } from './modern/hud.js';
+import { bunkerBayAt, dimView, drawBanner, drawBunkerPanel, drawChatLines, drawLog, drawFeed, drawModernHud, drawName, drawNote, drawScoreTable } from './modern/hud.js';
 import { TEAMS } from './paint.js';
 
 /** The modern renderer's module, fetched (with three.js) the first time the modern view is picked. */
@@ -100,6 +100,8 @@ export interface GameOptions {
   visuals?: () => 'retro' | 'modern';
   /** The modern view's lighting. */
   lighting?: () => 'day' | 'night';
+  /** The modern view's camera: the drone's feed or a clean picture, and the thermal camera. */
+  camera?: () => { drone: boolean; thermal: boolean };
 }
 
 /** What a replay's controls (main.ts) show and change. */
@@ -192,6 +194,10 @@ export class Game {
     const signal = this.abort.signal;
     const start = online?.start;
     const net = online?.net;
+    /** Retro or modern: the host's pick for everyone online, or the player's own. */
+    const wanted = () => (start?.visuals && start.visuals !== 'any' ? start.visuals : this.o.visuals?.());
+    // The host's pick brings its own soundtrack too.
+    if (start?.visuals && start.visuals !== 'any') music.setStyle(start.visuals === 'modern' && modernAvailable() ? 'modern' : 'retro');
     const players = online ? 1 : this.o.players;
     let sides = activeControls();
     const pick = () => (online || players === 1 ? [sides.solo] : this.o.swapSides ? [sides.right, sides.left] : [sides.left, sides.right]);
@@ -690,13 +696,13 @@ export class Game {
         }
       }
       // The modern view draws once its code has loaded (and only where there is WebGL); until then, retro.
-      if (this.o.visuals?.() === 'modern' && !modern && modernAvailable()) {
+      if (wanted() === 'modern' && !modern && modernAvailable()) {
         modernModule ??= import('./modern/renderer.js');
         void modernModule.then((mod) => {
           if (!modern && !signal.aborted) modern = new mod.ModernRenderer(assets);
         });
       }
-      const useModern = this.o.visuals?.() === 'modern' && !!modern;
+      const useModern = wanted() === 'modern' && !!modern;
       frame.setClip(0, 0, SCREEN_W, SCREEN_H);
       frame.fill(0xff000000);
       const extras = effects.current(match.tick);
@@ -754,7 +760,10 @@ export class Game {
       display.sides = v.map((p) => match.players[p]!.base);
       if (useModern && modern) {
         const rects = modernLayout(cameras.length);
-        modern.setNight(this.o.lighting?.() === 'night');
+        const night = (start?.lighting && start.lighting !== 'any' ? start.lighting : this.o.lighting?.()) === 'night';
+        const look = this.o.camera?.() ?? { drone: false, thermal: false };
+        modern.setNight(night);
+        modern.setLook(look.drone, look.thermal);
         modern.draw(match, cameras.map((cam, i) => ({ cam, rect: rects[i]!, viewer: v[i]!, skip: !field[i], screen: screens[i] })), extras);
         modernRects = rects;
         const g = modern.canvas.getContext('2d')!;
@@ -773,8 +782,18 @@ export class Game {
           } else if (sc?.kind === 'skull') {
             dimView(g, r, sc.look.light);
           } else {
+            if (look.drone) {
+              const pose = cam.pose();
+              const tile = (n: number) => String(Math.max(0, Math.floor(n / 32))).padStart(2, '0');
+              drawFeed(g, r, {
+                name: `UAV-${i + 1}`,
+                mode: look.thermal ? 'IR  WHT' : night ? 'EO  NIGHT' : 'EO  DAY',
+                lines: [`ALT ${Math.round((FOCAL + pose.z) * 6)}FT`, 'HDG 000', `GRID ${tile(pose.x)}-${tile(pose.y)}`, `ZOOM ${(FOCAL / (FOCAL + pose.z) * 2).toFixed(1)}X`],
+                now: new Date(),
+              });
+            }
             dimView(g, r, pl.fade);
-            drawModernHud(g, match, r, v[i]!);
+            drawModernHud(g, match, r, v[i]!, (x, y, z) => modern!.project(cam, r, x, y, z));
           }
           if (notes[i]) drawNote(g, r, notes[i]!);
           if (!field[i] || sc) return;

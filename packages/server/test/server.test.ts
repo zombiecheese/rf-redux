@@ -294,9 +294,18 @@ describe('online play', () => {
     g.send({ t: 'quick' });
     const l = await g.wait('lobby', (m) => !!m.lobby);
     expect(l.lobby!.slots.filter((s) => s.kind === 'bot')).toHaveLength(1);
+    expect(l.lobby).toMatchObject({ visuals: 'any', lighting: 'any' });
+    // The host has everyone play in the modern view at night; nonsense is each player's choice.
+    g.send({ t: 'settings', visuals: 'modern', lighting: 'night' });
+    await g.wait('lobby', (m) => m.lobby?.visuals === 'modern' && m.lobby.lighting === 'night');
+    g.send({ t: 'settings', lighting: 'dusk' as 'day' });
+    await g.wait('lobby', (m) => m.lobby?.lighting === 'any');
+    g.send({ t: 'settings', lighting: 'night' });
+    await g.wait('lobby', (m) => m.lobby?.lighting === 'night');
     g.send({ t: 'start' });
     const s = await g.wait('start');
     expect(s.match.seats[1]!.bot).toBe(true);
+    expect(s.match).toMatchObject({ visuals: 'modern', lighting: 'night' });
     g.send({ t: 'loaded' });
     await g.playUntil(200);
     // The bot waits in its bunker until Quinn launches; its moves then arrive in the frames like anyone's.

@@ -5,7 +5,7 @@
 import { randomBytes } from 'node:crypto';
 import type { IncomingMessage } from 'node:http';
 import type { Duplex } from 'node:stream';
-import {
+import { lobbyLighting, lobbyVisuals, 
   PROTOCOL_VERSION, decodeClientBinary,
   type ChatChannel, type ClientMessage, type Identity, type ServerMessage, type Visibility,
 } from '@rfw/net';
@@ -154,7 +154,7 @@ export class Hub {
         return L.leave(c);
       case 'settings':
         if (msg.teams) L.layout(c, teams(msg.teams) ?? []);
-        return L.settingsFor(c, { name: str(msg.name, 40), mapId: str(msg.mapId, 80), visibility: msg.visibility ? vis(msg.visibility) : undefined, difficulty: num(msg.difficulty), handicap: typeof msg.handicap === 'boolean' ? msg.handicap : undefined });
+        return L.settingsFor(c, { name: str(msg.name, 40), mapId: str(msg.mapId, 80), visibility: msg.visibility ? vis(msg.visibility) : undefined, difficulty: num(msg.difficulty), handicap: typeof msg.handicap === 'boolean' ? msg.handicap : undefined, visuals: msg.visuals === undefined ? undefined : lobbyVisuals(msg.visuals), lighting: msg.lighting === undefined ? undefined : lobbyLighting(msg.lighting) });
       case 'slot':
         return L.slot(c, Number(msg.slot), { kind: msg.kind === 'open' || msg.kind === 'closed' || msg.kind === 'bot' ? msg.kind : undefined, team: num(msg.team), difficulty: num(msg.difficulty) });
       case 'seat':
