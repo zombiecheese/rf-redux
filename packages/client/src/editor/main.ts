@@ -1,15 +1,18 @@
-// The level editor page (/editor.html): a map view drawn by the game's renderer, tools on the left, the palette,
-// map settings and problem list on the right, and the menu bar of the game's front end. Maps are saved as drafts in
-// this browser and can be exported as .rfw.json files, test played against bots, and opened again later.
+// The level editor page (/editor.html), for desktop browsers only: a bar along the top with the menus, the map's
+// name and save state, undo and redo, the preview switch (Classic, Modern or Night: the game's own renderers draw
+// the map as it is edited) and the camera, and Test Play; tools down the left; the map in the middle with the
+// minimap, zoom buttons and a read-out of the tile under the pointer; the palette, map settings and problem list
+// on the right. It is dressed like the game's menus (ui.css). Maps are saved as drafts in this browser and can be
+// exported as .rfw.json files, test played against bots, and opened again later.
 
 import {
   MAX_BASES, ShorePainter, checkMap, decodeTerrain, newMap, parseMap, type Ground, type MapPoint, type MapProblem, type RfwMap, type Transform,
 } from '@rfw/sim';
 import { loadCommon, loadMap, loadMapIndex, type GameData } from '../assets.js';
 import { isHandheld } from '../display.js';
-import { Menubar, dialog, dialogOpen, el, field, notice } from '../dialogs.js';
-import '../w95.css';
-import { BASE_CSS, MapView, Minimap, dot, type Overlay } from './canvas.js';
+import { Menubar, dialog, dialogOpen, el, field, modernUi, notice } from '../dialogs.js';
+import '../ui.css';
+import { BASE_CSS, MapView, Minimap, dot, type Look, type Overlay, type ViewMode } from './canvas.js';
 import { EditorDoc } from './doc.js';
 import { settingsPanel } from './settings.js';
 import { browseLibrary, saveToLibrary } from './library.js';
@@ -25,20 +28,69 @@ import './editor.css';
 
 type ToolId = 'select' | 'land' | 'shallow' | 'deep' | 'tile' | 'bridge' | 'object' | 'erase' | 'start' | 'flag' | 'note' | 'pan';
 type Shape = 'brush' | 'line' | 'rect' | 'fill';
+type ToolGroup = 'Terrain' | 'Objects' | 'Bases' | 'Arrange';
 
-const TOOLS: { id: ToolId; label: string; key: string; hint: string; shapes?: boolean }[] = [
-  { id: 'select', label: 'Select', key: 'S', hint: 'Drag a box to copy, cut, turn or mirror it' },
-  { id: 'land', label: 'Land', key: 'L', hint: 'Paint land; the coast follows', shapes: true },
-  { id: 'shallow', label: 'Shallows', key: 'W', hint: 'Paint shallow water (vehicles can drive through it)', shapes: true },
-  { id: 'deep', label: 'Deep water', key: 'D', hint: 'Paint deep water (vehicles sink)', shapes: true },
-  { id: 'tile', label: 'Tile', key: 'T', hint: 'Lay one terrain tile exactly, with no coast fixing', shapes: true },
-  { id: 'bridge', label: 'Bridge', key: 'R', hint: 'Drag across water along a row or column' },
-  { id: 'object', label: 'Building', key: 'B', hint: 'Place buildings and scenery', shapes: true },
-  { id: 'erase', label: 'Erase', key: 'E', hint: 'Remove buildings and scenery', shapes: true },
-  { id: 'start', label: 'Base start', key: 'A', hint: 'Place a base\'s lift, where its vehicles come up' },
-  { id: 'flag', label: 'Flag site', key: 'F', hint: 'Add or remove a building the base\'s flag can hide in' },
-  { id: 'note', label: 'Note', key: 'N', hint: 'Pin a note to a tile (only editors see it)' },
-  { id: 'pan', label: 'Move view', key: 'H', hint: 'Drag to move around (or drag with the right button anywhere)' },
+/** Line icons for the tools, 20 x 20, drawn in the text colour. */
+const ICONS: Record<ToolId | Shape, string> = {
+  select: '<rect x="3.5" y="3.5" width="13" height="13" rx="1" stroke-dasharray="3 2"/>',
+  land: '<path d="M2 16l5-8 3 4 2-3 6 7z"/>',
+  shallow: '<path d="M2 8c2-2 4 2 6 0s4 2 6 0 3 1 4 0M2 13c2-2 4 2 6 0s4 2 6 0 3 1 4 0"/>',
+  deep: '<path d="M2 6c2-2 4 2 6 0s4 2 6 0 3 1 4 0M2 10.5c2-2 4 2 6 0s4 2 6 0 3 1 4 0M2 15c2-2 4 2 6 0s4 2 6 0 3 1 4 0"/>',
+  tile: '<rect x="3" y="3" width="14" height="14" rx="1"/><path d="M10 3v14M3 10h14"/>',
+  bridge: '<path d="M2 8h16M2 12h16M5 8v4M10 8v4M15 8v4"/>',
+  object: '<path d="M4 17V8l6-4 6 4v9zM8 17v-5h4v5"/>',
+  erase: '<path d="M8 17l-5-5 8-8 6 6-7 7zM6 9l6 6M8 17h9"/>',
+  start: '<rect x="3.5" y="3.5" width="13" height="13" rx="2"/><path d="M10 14V7M7 10l3-3 3 3"/>',
+  flag: '<path d="M5 18V3M5 4h10l-3 3.5 3 3.5H5"/>',
+  note: '<path d="M4 3h9l3 3v11H4zM7 8h6M7 11h6M7 14h4"/>',
+  pan: '<path d="M10 2v16M2 10h16M10 2l-2 2M10 2l2 2M10 18l-2-2M10 18l2-2M2 10l2-2M2 10l2 2M18 10l-2-2M18 10l-2 2"/>',
+  brush: '<circle cx="10" cy="10" r="5"/>',
+  line: '<path d="M4 16L16 4"/>',
+  rect: '<rect x="4" y="5" width="12" height="10" rx="1"/>',
+  fill: '<path d="M4 10l6-6 6 6-6 6zM16 13c1 1.5 1.5 2.4 1.5 3a1.5 1.5 0 0 1-3 0c0-.6.5-1.5 1.5-3z"/>',
+};
+
+function icon(name: keyof typeof ICONS): SVGSVGElement {
+  const wrap = document.createElement('span');
+  wrap.innerHTML = `<svg class="ico" viewBox="0 0 20 20" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true">${ICONS[name]}</svg>`;
+  return wrap.firstElementChild as SVGSVGElement;
+}
+
+/** The preview switch: the game's two views, and the modern one at night (night is a match option of the modern view). */
+const LOOKS: { id: Look; label: string; hint: string }[] = [
+  { id: 'classic', label: 'Classic', hint: 'The classic pixel view, through its CRT' },
+  { id: 'modern', label: 'Modern', hint: 'The modern 3D view, as the drone\'s feed, by day' },
+  { id: 'night', label: 'Night', hint: 'The modern 3D view in a night match' },
+];
+const CAMERAS: { id: ViewMode; label: string; hint: string }[] = [
+  { id: 'top', label: 'Top down', hint: 'Look straight down, best for laying out' },
+  { id: 'tilted', label: 'Game camera', hint: 'The game\'s own tilted camera, as players see the map' },
+];
+/** The editor's own choices kept in this browser: the preview and the camera. */
+const VIEW_KEY = 'rfw-editor-view';
+/** Below this the editor's panels do not fit round a usable map. */
+const MIN_W = 1000;
+const MIN_H = 560;
+
+/** A building's name as the palette shows it: TOWER_LARGE becomes Tower large, BLDG_N becomes Bldg (N), its facing. */
+function pretty(name: string): string {
+  const t = name.replace(/_([NSEWHV])$/, ' ($1)').replace(/_/g, ' ').toLowerCase().replace(/\(([nsewhv])\)$/, (_, f: string) => `(${f.toUpperCase()})`);
+  return t.charAt(0).toUpperCase() + t.slice(1);
+}
+
+const TOOLS: { id: ToolId; label: string; key: string; hint: string; group: ToolGroup; shapes?: boolean }[] = [
+  { id: 'select', label: 'Select', key: 'S', hint: 'Drag a box to copy, cut, turn or mirror it', group: 'Arrange' },
+  { id: 'land', label: 'Land', key: 'L', hint: 'Paint land; the coast follows', group: 'Terrain', shapes: true },
+  { id: 'shallow', label: 'Shallows', key: 'W', hint: 'Paint shallow water (vehicles can drive through it)', group: 'Terrain', shapes: true },
+  { id: 'deep', label: 'Deep water', key: 'D', hint: 'Paint deep water (vehicles sink)', group: 'Terrain', shapes: true },
+  { id: 'tile', label: 'Tile', key: 'T', hint: 'Lay one terrain tile exactly, with no coast fixing', group: 'Terrain', shapes: true },
+  { id: 'bridge', label: 'Bridge', key: 'R', hint: 'Drag across water along a row or column', group: 'Terrain' },
+  { id: 'object', label: 'Building', key: 'B', hint: 'Place buildings and scenery', group: 'Objects', shapes: true },
+  { id: 'erase', label: 'Erase', key: 'E', hint: 'Remove buildings and scenery', group: 'Objects', shapes: true },
+  { id: 'start', label: 'Base start', key: 'A', hint: 'Place a base\'s lift, where its vehicles come up', group: 'Bases' },
+  { id: 'flag', label: 'Flag site', key: 'F', hint: 'Add or remove a building the base\'s flag can hide in', group: 'Bases' },
+  { id: 'note', label: 'Note', key: 'N', hint: 'Pin a note to a tile (only editors see it)', group: 'Arrange' },
+  { id: 'pan', label: 'Move view', key: 'H', hint: 'Drag to move around (or drag with the right button anywhere)', group: 'Arrange' },
 ];
 const SHAPES: { id: Shape; label: string }[] = [
   { id: 'brush', label: 'Brush' }, { id: 'line', label: 'Line' }, { id: 'rect', label: 'Box' }, { id: 'fill', label: 'Fill' },
@@ -50,6 +102,8 @@ async function boot(): Promise<void> {
     document.getElementById('desktop-only')!.hidden = false;
     return;
   }
+  modernUi();
+  document.body.classList.add('ui');
   const status = document.getElementById('status')!;
   status.textContent = 'Loading the game data…';
   const data = await loadCommon();
@@ -108,8 +162,17 @@ class Editor {
   private savedFor = -1;
   private readonly side = el('div', { class: 'side-body' });
   private readonly statusbar = el('div', { class: 'statusbar' });
-  private readonly toolbar = el('div', { class: 'w95 raised toolbar' });
+  private readonly toolbar = el('aside', { class: 'ed-rail' });
   private readonly tabs = el('div', { class: 'tabs' });
+  private readonly docName = el('span', { class: 'ed-doc-name' });
+  private readonly saveChip = el('span', { class: 'ed-chip' });
+  private readonly lookSwitch = el('div', { class: 'ed-seg', role: 'radiogroup', ariaLabel: 'Preview' } as Partial<HTMLElement>);
+  private readonly cameraSwitch = el('div', { class: 'ed-seg', role: 'radiogroup', ariaLabel: 'Camera' } as Partial<HTMLElement>);
+  private readonly undoBtn = el('button', { type: 'button', class: 'ed-icon', title: 'Undo (Ctrl+Z)', ariaLabel: 'Undo' }, '↶');
+  private readonly redoBtn = el('button', { type: 'button', class: 'ed-icon', title: 'Redo (Ctrl+Y)', ariaLabel: 'Redo' }, '↷');
+  private readonly loadingPill = el('div', { class: 'ed-pill ed-loading', hidden: true }, 'Loading the modern view…');
+  private readonly tooSmall = el('div', { class: 'ed-too-small', hidden: true },
+    el('b', {}, 'Make the window bigger'), el('span', {}, `The level editor needs a window at least ${MIN_W} × ${MIN_H} pixels for its tools and the map.`));
   private tab: 'palette' | 'settings' | 'problems' = 'palette';
   private testing = false;
 
@@ -128,7 +191,18 @@ class Editor {
     setLastOpen(this.draftId);
 
     this.view = new MapView(data, () => this.doc);
+    this.view.onLoad = () => {
+      this.syncToolbar();
+      this.redraw();
+    };
     this.minimap = new Minimap(tileColours(data), () => this.doc);
+    try {
+      const saved = JSON.parse(localStorage.getItem(VIEW_KEY) ?? '{}') as { look?: Look; mode?: ViewMode };
+      if (saved.mode === 'top' || saved.mode === 'tilted') this.view.mode = saved.mode;
+      if (saved.look && LOOKS.some((l) => l.id === saved.look)) this.view.setLook(saved.look);
+    } catch {
+      // The defaults: classic, top down.
+    }
     this.layout();
     requestAnimationFrame(() => {
       this.view.fit();
@@ -185,13 +259,18 @@ class Editor {
       },
       {
         label: 'View', items: [
+          ...LOOKS.map((l) => ({
+            label: `Preview: ${l.label}`, key: 'V', action: () => this.setLook(l.id), checked: () => this.view.look === l.id,
+            enabled: () => l.id === 'classic' || MapView.modernAvailable,
+          })),
+          { label: '-' },
           { label: 'Top Down', key: 'Tab', action: () => this.setMode('top'), checked: () => this.view.mode === 'top' },
           { label: 'Game Camera', key: 'Tab', action: () => this.setMode('tilted'), checked: () => this.view.mode === 'tilted' },
           { label: '-' },
           { label: 'Grid', key: 'G', action: () => this.toggleGrid(), checked: () => this.grid },
           { label: 'Zoom to Fit', key: '0', action: () => { this.view.fit(); this.redraw(); } },
           {
-            label: 'Pixel Size', items: [1, 2, 3].map((n) => ({
+            label: 'Classic Pixel Size', items: [1, 2, 3].map((n) => ({
               label: `${n}×`, action: () => { this.view.pixel = n; this.redraw(); }, checked: () => this.view.pixel === n,
             })),
           },
@@ -208,25 +287,49 @@ class Editor {
       },
       {
         label: 'Help', items: [
-          { label: 'Editor Help', key: '?', action: () => void this.help() },
+          { label: 'Map Editor Help', key: '?', action: () => void this.help() },
         ],
       },
     ]);
-    menubar.root.classList.add('editor-menubar');
-    const testBtn = el('button', { type: 'button', class: 'btn test' }, '▶ Test Play');
+    menubar.root.className = 'editor-menubar';
+    const testBtn = el('button', { type: 'button', class: 'btn default ed-test', title: 'Play the map against the computer (P)' }, '▶ Test Play');
     testBtn.addEventListener('click', () => void this.test());
-    menubar.root.append(el('span', { class: 'spacer' }), testBtn);
+    const back = el('a', { class: 'ed-back', href: './', title: 'Back to the game' }, '✕');
+    this.undoBtn.addEventListener('click', () => this.undo());
+    this.redoBtn.addEventListener('click', () => this.redo());
+    const segment = (wrap: HTMLElement, items: { id: string; label: string; hint: string }[], key: string, pick: (id: string) => void) => {
+      for (const it of items) {
+        const b = el('button', { type: 'button', class: 'ed-seg-btn', title: `${it.hint} (${key})`, role: 'radio' } as Partial<HTMLButtonElement>, it.label);
+        b.dataset.id = it.id;
+        b.addEventListener('click', () => pick(it.id));
+        wrap.append(b);
+      }
+    };
+    segment(this.lookSwitch, LOOKS, 'V', (id) => this.setLook(id as Look));
+    segment(this.cameraSwitch, CAMERAS, 'Tab', (id) => this.setMode(id as ViewMode));
+    const header = el('header', { class: 'ed-top' },
+      el('div', { class: 'ed-brand' }, el('b', {}, 'Map Editor'), el('span', {}, 'Return Fire: Redux')),
+      menubar.root,
+      el('div', { class: 'ed-doc' }, this.docName, this.saveChip),
+      el('span', { class: 'spacer' }),
+      el('div', { class: 'ed-group' }, this.undoBtn, this.redoBtn),
+      el('div', { class: 'ed-labelled' }, el('span', {}, 'Preview'), this.lookSwitch),
+      el('div', { class: 'ed-labelled' }, el('span', {}, 'Camera'), this.cameraSwitch),
+      testBtn, back);
 
-    for (const t of TOOLS) {
-      const b = el('button', { type: 'button', class: 'tool', title: `${t.hint} (${t.key})` }, el('span', { class: 'k' }, t.key), t.label);
-      b.dataset.tool = t.id;
-      b.addEventListener('click', () => this.setTool(t.id));
-      this.toolbar.append(b);
+    for (const group of ['Terrain', 'Objects', 'Bases', 'Arrange'] as const) {
+      this.toolbar.append(el('div', { class: 'ed-caption' }, group));
+      for (const t of TOOLS.filter((x) => x.group === group)) {
+        const b = el('button', { type: 'button', class: 'tool', title: `${t.hint} (${t.key})` }, icon(t.id), el('span', { class: 'tool-label' }, t.label), el('kbd', {}, t.key));
+        b.dataset.tool = t.id;
+        b.addEventListener('click', () => this.setTool(t.id));
+        this.toolbar.append(b);
+      }
     }
-    this.toolbar.append(el('hr'));
+    this.toolbar.append(el('div', { class: 'ed-caption' }, 'Brush'));
     const shapes = el('div', { class: 'shapes' });
     for (const s of SHAPES) {
-      const b = el('button', { type: 'button', class: 'shape' }, s.label);
+      const b = el('button', { type: 'button', class: 'shape', title: s.label, ariaLabel: s.label }, icon(s.id));
       b.dataset.shape = s.id;
       b.addEventListener('click', () => {
         this.shape = s.id;
@@ -246,16 +349,30 @@ class Editor {
     });
     this.toolbar.append(shapes, el('label', { class: 'small' }, 'Size', size), el('label', { class: 'small' }, 'Symmetry', sym));
 
-    const stage = el('div', { class: 'stage' }, this.view.canvas, this.minimap.canvas, this.statusbar);
+    const zoomBtn = (label: string, title: string, fn: () => void) => {
+      const b = el('button', { type: 'button', class: 'ed-icon', title, ariaLabel: title }, label);
+      b.addEventListener('click', () => {
+        fn();
+        this.redraw();
+      });
+      return b;
+    };
+    const zoom = el('div', { class: 'ed-zoom' },
+      zoomBtn('+', 'Zoom in (+)', () => this.view.zoom(1.25)), zoomBtn('−', 'Zoom out (-)', () => this.view.zoom(0.8)),
+      zoomBtn('⤢', 'Zoom to fit (0)', () => this.view.fit()));
+    const stage = el('main', { class: 'stage' }, this.view.canvas, this.minimap.canvas, zoom, this.statusbar, this.loadingPill);
     for (const [id, label] of [['palette', 'Palette'], ['settings', 'Map'], ['problems', 'Problems']] as const) {
       const b = el('button', { type: 'button', class: 'tab' }, label);
       b.dataset.tab = id;
       b.addEventListener('click', () => this.showTab(id));
       this.tabs.append(b);
     }
-    const sidebar = el('div', { class: 'w95 raised sidebar' }, this.tabs, this.side);
-    document.body.append(el('div', { class: 'editor' }, this.toolbar, stage, sidebar));
+    const sidebar = el('aside', { class: 'sidebar' }, this.tabs, this.side);
+    document.body.append(header, el('div', { class: 'editor' }, this.toolbar, stage, sidebar), this.tooSmall);
     document.body.classList.add('editor-page');
+    const fits = () => (this.tooSmall.hidden = innerWidth >= MIN_W && innerHeight >= MIN_H);
+    addEventListener('resize', fits);
+    fits();
 
     this.bindCanvas();
     this.bindKeys();
@@ -275,8 +392,27 @@ class Editor {
     const errors = this.problems.filter((p) => p.level === 'error').length;
     const warnings = this.problems.length - errors;
     const label = this.tabs.querySelector<HTMLElement>('[data-tab=problems]')!;
-    label.textContent = errors ? `Problems (${errors})` : warnings ? `Problems (${warnings}⚠)` : 'Problems ✓';
+    label.replaceChildren('Problems', el('span', { class: 'count' }, errors ? String(errors) : warnings ? String(warnings) : '✓'));
     label.classList.toggle('bad', errors > 0);
+    label.classList.toggle('warn', !errors && warnings > 0);
+    label.classList.toggle('good', !errors && !warnings);
+    const look = this.view.look;
+    this.lookSwitch.querySelectorAll<HTMLButtonElement>('.ed-seg-btn').forEach((b) => {
+      b.classList.toggle('on', b.dataset.id === look);
+      b.setAttribute('aria-checked', String(b.dataset.id === look));
+      if (b.dataset.id !== 'classic' && !MapView.modernAvailable) {
+        b.disabled = true;
+        b.title = 'The modern view needs WebGL, which this browser does not have';
+      }
+    });
+    this.cameraSwitch.querySelectorAll<HTMLButtonElement>('.ed-seg-btn').forEach((b) => {
+      b.classList.toggle('on', b.dataset.id === this.view.mode);
+      b.setAttribute('aria-checked', String(b.dataset.id === this.view.mode));
+    });
+    this.loadingPill.hidden = !this.view.loading;
+    this.undoBtn.disabled = !this.doc.canUndo;
+    this.redoBtn.disabled = !this.doc.canRedo;
+    document.body.dataset.look = this.view.shownLook;
   }
 
   private setTool(t: ToolId): void {
@@ -323,11 +459,11 @@ class Editor {
     const grid = el('div', { class: 'tiles' });
     for (let t = 0; t < 128; t++) {
       if (!this.data.cel(t) || !show(t)) continue;
-      const b = el('button', { type: 'button', class: 'swatch', title: `Terrain ${t}` }, tileIcon(this.data, t));
+      const b = el('button', { type: 'button', class: 'pick', title: `Terrain ${t}` }, tileIcon(this.data, t));
       b.classList.toggle('on', get() === t);
       b.addEventListener('click', () => {
         set(t);
-        grid.querySelectorAll('.swatch').forEach((x) => x.classList.remove('on'));
+        grid.querySelectorAll('.pick').forEach((x) => x.classList.remove('on'));
         b.classList.add('on');
       });
       grid.append(b);
@@ -353,7 +489,7 @@ class Editor {
       if (!list.length) continue;
       const grid = el('div', { class: 'objects' });
       for (const e of list) {
-        const b = el('button', { type: 'button', class: 'swatch', title: e.def.name }, buildingIcon(assets, e.def.id, e.owned ? colours : -1), el('span', {}, e.def.name));
+        const b = el('button', { type: 'button', class: 'pick', title: pretty(e.def.name) }, buildingIcon(assets, e.def.id, e.owned ? colours : -1), el('span', {}, pretty(e.def.name)));
         b.classList.toggle('on', this.objectType === e.def.name);
         b.addEventListener('click', () => {
           this.objectType = e.def.name;
@@ -440,7 +576,7 @@ class Editor {
       if (this.tab === 'problems') this.renderSide();
       this.needsDraw = true;
     }
-    if (!this.needsDraw || this.testing) return;
+    if (this.testing || (!this.needsDraw && !this.view.animated)) return;
     this.needsDraw = false;
     this.view.render(this.overlay());
     this.minimap.render(this.view);
@@ -487,10 +623,23 @@ class Editor {
       const f = this.doc.flagAt(c.x, c.y);
       if (f >= 0) parts.push(`base ${f + 1} flag site`);
     }
-    parts.push(`${this.doc.width} × ${this.doc.height}`, `zoom ${Math.round(this.view.scale * 100)}%`);
-    parts.push(this.doc.version === this.savedFor ? 'saved in this browser' : 'unsaved');
-    if (this.doc.library) parts.push(`library: ${this.doc.library.visibility}, revision ${this.doc.library.revision}`);
-    this.statusbar.textContent = `${this.doc.meta.name} · ${parts.join(' · ')}`;
+    parts.push(`${this.doc.width} × ${this.doc.height} tiles`, `zoom ${Math.round(this.view.scale * 100)}%`);
+    const text = parts.join(' · ');
+    if (this.statusbar.textContent !== text) this.statusbar.textContent = text;
+    const name = this.doc.meta.name;
+    if (this.docName.textContent !== name) {
+      this.docName.textContent = name;
+      document.title = `${name} · Return Fire: Redux Map Editor`;
+    }
+    const saved = this.doc.version === this.savedFor;
+    const lib = this.doc.library ? ` · library ${this.doc.library.visibility}, r${this.doc.library.revision}` : '';
+    const chip = (saved ? 'Saved in this browser' : 'Unsaved changes') + lib;
+    if (this.saveChip.textContent !== chip) {
+      this.saveChip.textContent = chip;
+      this.saveChip.classList.toggle('dirty', !saved);
+    }
+    this.undoBtn.disabled = !this.doc.canUndo;
+    this.redoBtn.disabled = !this.doc.canRedo;
   }
 
   private thumbnail(): string | undefined {
@@ -811,6 +960,7 @@ class Editor {
           this.spaceHeld = true;
           return handle(() => {});
         case 'Tab': return handle(() => this.setMode(this.view.mode === 'top' ? 'tilted' : 'top'));
+        case 'KeyV': return handle(() => this.setLook(LOOKS[(LOOKS.findIndex((l) => l.id === this.view.look) + 1) % LOOKS.length]!.id));
         case 'KeyG': return handle(() => this.toggleGrid());
         case 'Digit0': return handle(() => { this.view.fit(); this.redraw(); });
         case 'Equal': case 'NumpadAdd': return handle(() => { this.view.zoom(1.25); this.redraw(); });
@@ -830,9 +980,28 @@ class Editor {
     });
   }
 
-  private setMode(m: 'top' | 'tilted'): void {
+  private setMode(m: ViewMode): void {
     this.view.mode = m;
+    this.keepView();
+    this.syncToolbar();
     this.redraw();
+  }
+
+  /** Classic, Modern or Night: which of the game's renderers draws the map. */
+  private setLook(look: Look): void {
+    if (look !== 'classic' && !MapView.modernAvailable) return;
+    this.view.setLook(look);
+    this.keepView();
+    this.syncToolbar();
+    this.redraw();
+  }
+
+  private keepView(): void {
+    try {
+      localStorage.setItem(VIEW_KEY, JSON.stringify({ look: this.view.look, mode: this.view.mode }));
+    } catch {
+      // Not remembered.
+    }
   }
 
   private toggleGrid(): void {
@@ -1066,7 +1235,9 @@ class Editor {
     this.autosave();
     this.testing = true;
     try {
-      await testPlay(this.data, map, () => document.body.classList.add('testing'));
+      // The match is drawn as the map is being previewed: classic, or the modern view by day or at night.
+      const look = this.view.look;
+      await testPlay(this.data, map, () => document.body.classList.add('testing'), { visuals: look === 'classic' ? 'retro' : 'modern', lighting: look === 'night' ? 'night' : 'day' });
     } finally {
       this.testing = false;
       document.body.classList.remove('testing');
@@ -1075,20 +1246,30 @@ class Editor {
   }
 
   private async help(): Promise<void> {
-    const rows: [string, string][] = [
-      ['Pick a tool', 'Click it, or press its letter'], ['Brush, line, box, fill', 'Shape buttons under the tools'],
-      ['Move the view', 'Right-drag, Space + drag, or the arrow keys'], ['Zoom', 'Mouse wheel, + and -; 0 fits the map'],
-      ['Top down / game camera', 'Tab'], ['Grid on or off', 'G'], ['Take a tile or building as the brush', 'Alt + click'],
-      ['Select all / clear the selection', 'Ctrl+A / Esc'], ['Delete the selection', 'Delete or Backspace'],
-      ['Undo / redo', 'Ctrl+Z / Ctrl+Y (or Ctrl+Shift+Z)'], ['Copy, cut, paste', 'Ctrl+C, Ctrl+X, Ctrl+V (R turns, H and V mirror, Esc drops)'],
-      ['New map', 'Ctrl+Alt+N'], ['Open a draft or file', 'Ctrl+O'], ['Export as a file', 'Ctrl+E'],
-      ['Save the draft', 'Ctrl+S (drafts also save by themselves)'], ['Save to your library on the server', 'Ctrl+Shift+S'],
-      ['Shared maps and your library', 'Ctrl+Shift+O'], ['Test play', 'P'],
-      ['In test play', "The game's keys (its Help lists them); P pauses, Esc comes back"], ['This help', '?'],
+    const sections: [string, [string, string][]][] = [
+      ['Tools and painting', [
+        ['Pick a tool', 'Click it, or press its letter'], ['Brush, line, box, fill', 'The Brush buttons under the tools'],
+        ['Take a tile or building as the brush', 'Alt + click'], ['Undo / redo', 'Ctrl+Z / Ctrl+Y (or Ctrl+Shift+Z)'],
+        ['Select all / clear the selection', 'Ctrl+A / Esc'], ['Delete the selection', 'Delete or Backspace'],
+        ['Copy, cut, paste', 'Ctrl+C, Ctrl+X, Ctrl+V (R turns, H and V mirror, Esc drops)'],
+      ]],
+      ['Looking at the map', [
+        ['Preview: Classic, Modern or Night', 'V, or the Preview switch at the top'], ['Top down / game camera', 'Tab'],
+        ['Move the view', 'Right-drag, Space + drag, or the arrow keys'], ['Zoom', 'Mouse wheel, + and -; 0 fits the map'],
+        ['Jump to a place', 'Click or drag on the minimap'], ['Grid on or off', 'G'],
+      ]],
+      ['Files and playing', [
+        ['New map', 'Ctrl+Alt+N'], ['Open a draft or an original map', 'Ctrl+O'], ['Export as a file', 'Ctrl+E'],
+        ['Save the draft', 'Ctrl+S (drafts also save by themselves)'], ['Save to your library on the server', 'Ctrl+Shift+S'],
+        ['Shared maps and your library', 'Ctrl+Shift+O'], ['Test play', 'P, or Test Play at the top'],
+        ['In test play', "The game's keys (its Help lists them); P pauses, Esc comes back"], ['This help', '?'],
+      ]],
     ];
-    await dialog('Editor Help', el('div', { class: 'stack' },
+    const table = (rows: [string, string][]) => el('table', { class: 'grid help' }, el('tbody', {}, ...rows.map(([x, y]) => el('tr', {}, el('td', {}, x), el('td', {}, y)))));
+    await dialog('Map Editor Help', el('div', { class: 'stack' },
       el('p', {}, 'Paint land and water and the coast follows. Place up to four bases, each with a start (its lift) and at least one flag site, then add buildings and defences. Symmetry repeats every edit on the mirrored side so fair maps stay fair. The Problems tab says what stops a map being played.'),
-      el('table', { class: 'grid' }, el('tbody', {}, ...rows.map(([a, b]) => el('tr', {}, el('td', {}, a), el('td', {}, b)))))),
+      el('p', {}, 'The Preview switch draws the map with the game\'s own views while you edit: Classic is the pixel view through its CRT, Modern is the 3D view as the drone\'s feed, and Night is the modern view in a night match, with the buildings\' lights. Test Play starts in the view you are previewing.'),
+      ...sections.flatMap(([title, rows]) => [el('div', { class: 'caption' }, title), table(rows)])),
     [['OK', 'ok']]);
   }
 }

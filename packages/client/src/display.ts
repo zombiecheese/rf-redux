@@ -88,12 +88,7 @@ export class Display {
   private readonly ctx = this.canvas.getContext('2d')!;
   private readonly big = document.createElement('canvas');
   private readonly bigCtx = this.big.getContext('2d')!;
-  /** The glow: the picture at half size, smoothed back up and screened over it, which blurs and brightens. */
-  private readonly glow = document.createElement('canvas');
-  private readonly glowCtx = this.glow.getContext('2d')!;
-  /** Scanlines and a vignette for the picture's current size, drawn once and laid over every frame. */
-  private readonly lines = document.createElement('canvas');
-  private linesFor = '';
+  private readonly crtLook = new CrtLook();
   /** The camo for the bars round the picture at its current size and placing, drawn once per change. */
   private readonly bars = document.createElement('canvas');
   private readonly barsLow = document.createElement('canvas');
@@ -229,7 +224,26 @@ export class Display {
   }
 
   private drawCrt(low: Picture, x: number, y: number, w: number, h: number, rows: number): void {
-    const { ctx, glow, glowCtx, lines } = this;
+    this.crtLook.draw(this.ctx, low, x, y, w, h, rows);
+  }
+
+}
+
+/**
+ * The classic view's CRT look: scanlines, a soft glow and a vignette over a picture already drawn at (x, y, w, h) in
+ * a 2D context's pixels. Shared by the game's display and the level editor's Classic preview.
+ */
+export class CrtLook {
+  /** The glow: the picture at half size, smoothed back up and screened over it, which blurs and brightens. */
+  private readonly glow = document.createElement('canvas');
+  private readonly glowCtx = this.glow.getContext('2d')!;
+  /** Scanlines and a vignette for the picture's current size, drawn once and laid over every frame. */
+  private readonly lines = document.createElement('canvas');
+  private linesFor = '';
+
+  /** rows is the picture's height in its own pixels: one scanline under each. */
+  draw(ctx: CanvasRenderingContext2D, low: Picture, x: number, y: number, w: number, h: number, rows: number): void {
+    const { glow, glowCtx, lines } = this;
     const gw = Math.max(1, low.width >> 1);
     const gh = Math.max(1, low.height >> 1);
     if (glow.width !== gw || glow.height !== gh) {

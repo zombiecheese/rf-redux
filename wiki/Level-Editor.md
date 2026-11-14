@@ -1,16 +1,31 @@
 # Level Editor
 
-The level editor is **Level Editor** in the main menu, or `/editor.html`. It needs a mouse and a keyboard, so it is desktop only. It draws the map with the game's own renderer, so a map looks the same in the editor as in a match.
+The level editor is **Level Editor** in the main menu, or `/editor.html`. It needs a mouse and a keyboard, so it works only in a desktop browser: on a phone or tablet the menu shows it greyed out as desktop only, and the page itself says so and offers a way back to the game. It draws the map with the game's own views as you edit, so a map looks the same in the editor as in a match.
 
 ## The layout
 
-- **Tools** on the left, each with a key.
-- **The map** in the middle, top down or in the game's tilted view (Tab). The wheel zooms, a right-drag or Space and drag pans, and 0 fits the whole map.
+- **The top bar**: the menus, the map's name and whether it is saved, undo and redo, the **Preview** switch, the **Camera** switch and **Test Play**.
+- **Tools** on the left, grouped as Terrain, Objects, Bases and Arrange, each with a key, and the brush shape, size and symmetry under them.
+- **The map** in the middle, top down or in the game's tilted view (Tab). The wheel or the + and − buttons zoom, a right-drag or Space and drag pans, and 0 fits the whole map. The corner read-out names the tile under the pointer.
 - **The side panel** on the right: the palette for the current tool, the Map tab and the Problems tab.
 
 ![The level editor showing a whole island map](images/editor-map.png)
 
 *A whole map in the editor, with the tools on the left, the palette on the right and the minimap in the corner. The numbers mark each base's start.*
+
+## Previewing in Classic, Modern or Night
+
+The **Preview** switch at the top (or the **V** key) draws the map you are editing in either of the game's views, and every tool keeps working:
+
+- **Classic**: the pixel view, through its CRT look.
+- **Modern**: the 3D view as the drone's feed, by day.
+- **Night**: the modern view in a night match, with the buildings' lights.
+
+**Test Play** starts in the view you are previewing. The modern choices need WebGL; the editor remembers your preview and camera.
+
+![The same map previewed in the modern view at night, from the game camera](images/editor-night.png)
+
+*The Night preview from the game camera: the modern view in a night match.*
 
 | Tool | Key | Tool | Key |
 | --- | --- | --- | --- |
@@ -43,7 +58,7 @@ The **Problems** tab lists what is wrong, and the map outlines the tiles involve
 - **Errors** (red) stop the map being played: a lift in the water, a missing flag site, a base with no jeeps, a bridge end without its partner.
 - **Warnings** (amber) do not: a flag a jeep cannot reach, two buildings on one tile.
 
-**Test Play** (P) starts a solo match on the map from the base you pick, with the computer playing the others. Esc comes back to the editor where you were.
+**Test Play** (P) starts a solo match on the map from the base you pick, with the computer playing the others, in the view you are previewing. Esc comes back to the editor where you were.
 
 ## Saving and sharing
 

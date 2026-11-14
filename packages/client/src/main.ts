@@ -752,7 +752,10 @@ function titleItems(): MenuEntry[] {
     },
     { label: 'Hall of Fame', key: shortcutName('hallOfFame'), action: () => void showHallOfFame() },
     { label: 'Replays', hint: 'Watch your last matches again', action: () => void showReplays() },
-    ...(handheld ? [] : [{ label: 'Level Editor', hint: 'Make your own maps', action: () => location.assign('editor.html') }]),
+    // Shown on phones and tablets too, greyed out, so players learn it is there and that it needs a desktop browser.
+    handheld
+      ? { label: 'Level Editor', hint: 'Desktop only: needs a computer with a mouse and keyboard', enabled: () => false }
+      : { label: 'Level Editor', hint: 'Make your own maps', action: () => location.assign('editor.html') },
     { label: 'Options', items: optionItems },
     { label: 'Help', items: helpItems },
     // Only the site's moderators, admins and owner see it; the server checks every call again.

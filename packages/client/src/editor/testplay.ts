@@ -1,5 +1,6 @@
-// Test play: a solo match on the map being edited, against bots at a chosen skill, in the game's own display. Esc
-// (or the match ending) comes back to the editor where it was.
+// Test play: a solo match on the map being edited, against bots at a chosen skill, in the game's own display and
+// in the view the editor is previewing (classic, or modern by day or at night). Esc (or the match ending) comes
+// back to the editor where it was.
 
 import { DIFFICULTY, MAX_BASES, clampDifficulty, type RfwMap } from '@rfw/sim';
 import type { GameData } from '../assets.js';
@@ -15,8 +16,14 @@ let sound: Sound | null = null;
 let music: Music | null = null;
 const SKILL = 'rfw-editor-skill';
 
+/** How the test match is drawn. */
+export interface TestLook {
+  visuals: 'retro' | 'modern';
+  lighting: 'day' | 'night';
+}
+
 /** Asks how to play, then runs the match; started is called as it begins. */
-export async function testPlay(data: GameData, map: RfwMap, started: () => void): Promise<void> {
+export async function testPlay(data: GameData, map: RfwMap, started: () => void, look: TestLook = { visuals: 'retro', lighting: 'day' }): Promise<void> {
   const base = el('select', {});
   map.bases.forEach((_, i) => base.add(new Option(`Base ${i + 1}`, String(i))));
   const bots = el('input', { type: 'checkbox', checked: true });
@@ -33,7 +40,7 @@ export async function testPlay(data: GameData, map: RfwMap, started: () => void)
     field('Play from:', base),
     el('label', { class: 'check' }, bots, others ? `Computer plays the other ${others === 1 ? 'base' : `${others} bases`}` : 'No other bases to play against'),
     field('Computer skill:', skill),
-    el('p', { class: 'hint' }, 'The game\'s keys (H in the game lists them). P pauses, Esc comes back to the editor.'));
+    el('p', { class: 'hint' }, `Drawn as previewed: ${look.visuals === 'retro' ? 'the classic view' : look.lighting === 'night' ? 'the modern view, at night' : 'the modern view'}. The game's keys (H in the game lists them). P pauses, Esc comes back to the editor.`));
   if (map.bases.length > MAX_BASES) return;
   const r = await dialog('Test Play', body, [['Play', 'ok'], ['Cancel', 'cancel']]);
   if (!r) return;
@@ -61,6 +68,7 @@ export async function testPlay(data: GameData, map: RfwMap, started: () => void)
   const game = new Game({
     assets: { ...data, map }, display, sound, music, seed: (Date.now() % 0x7fffffff) | 0 || 1, players: 1, difficulty: clampDifficulty(Number(skill.value)),
     names, swapSides: false, bots: bots.checked, homeBase: Number(base.value), handheld: false,
+    visuals: () => look.visuals, lighting: () => look.lighting,
   });
   // The editor's own keys wait (main.ts); Esc ends the test and P pauses, as in the game.
   const onKey = (e: KeyboardEvent) => {

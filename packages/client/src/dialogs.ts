@@ -34,9 +34,9 @@ export interface MenuItem {
   items?: MenuItem[];
 }
 
-/** The level editor's menu bar, opened by click, closed by Esc or a click elsewhere. */
+/** The level editor's menu bar (styled by editor.css), opened by click, closed by Esc or a click elsewhere. */
 export class Menubar {
-  readonly root = el('nav', { class: 'w95 menubar', role: 'menubar' } as Partial<HTMLElement>);
+  readonly root = el('nav', { class: 'menubar', role: 'menubar' } as Partial<HTMLElement>);
   private open: HTMLElement | null = null;
 
   constructor(menus: { label: string; items: MenuItem[] }[]) {
@@ -85,7 +85,7 @@ export class Menubar {
   }
 
   private list(items: MenuItem[]): HTMLElement {
-    const ul = el('div', { class: 'w95 raised dropdown', role: 'menu' } as Partial<HTMLElement>);
+    const ul = el('div', { class: 'dropdown', role: 'menu' } as Partial<HTMLElement>);
     for (const it of items) {
       if (it.label === '-') {
         ul.append(el('hr'));
@@ -127,10 +127,10 @@ export class Menubar {
 // ---- Dialogs ----------------------------------------------------------------------------------------------------
 
 /**
- * The look of the dialogs: the Windows 95 controls (w95.css), which the level editor keeps, or the game's modern
- * panels (ui.css), which the game page picks with modernUi().
+ * The look of the dialogs: the game's modern panels (ui.css), which every page (the game, the level editor) picks
+ * with modernUi() as it starts.
  */
-let skin = 'w95 raised';
+let skin = 'ui';
 
 export function modernUi(): void {
   skin = 'ui';

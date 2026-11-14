@@ -1,7 +1,7 @@
 /*
  * The game page's menus and panels: the on-screen menu (menu.ts), the dialogs (dialogs.ts) and the online screens
  * (online/ui.ts). Dark glass panels over the title art, sized from the window's smaller side so they read the same
- * on a phone held sideways and on a big monitor. The level editor keeps the Win95 look (w95.css).
+ * on a phone held sideways and on a big monitor. The level editor (editor/editor.css) builds on the same look.
  */
 :root {
   --ui-size: clamp(12px, 2.5vmin, 20px);
