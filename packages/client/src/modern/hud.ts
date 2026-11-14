@@ -129,7 +129,7 @@ export function drawModernHud(g: CanvasRenderingContext2D, m: Match, rect: Moder
   g.clip();
   g.shadowColor = 'rgba(0, 0, 0, 0.7)';
   g.shadowBlur = 2;
-  for (const t of tracks) box(g, rect, t, project, m.tick);
+  for (const t of lagged(player, tracks)) box(g, rect, t, project, m.tick);
   g.restore();
 
   const scale = Math.min(1, rect.w / 900);
@@ -139,6 +139,30 @@ export function drawModernHud(g: CanvasRenderingContext2D, m: Match, rect: Moder
   const r = v && RADAR[v.kind];
   if (v && r) radar(g, m, v, r, rect.w / scale - 26, rect.h / scale - 26, team, teamOf);
   g.restore();
+}
+
+/** The tracks of each view's last few frames, newest last: the analysis runs a little behind the picture. */
+const seen = new Map<number, Map<string, Track>[]>();
+/** How many frames behind each track is drawn (3-5), changing now and then as the detector's load does. */
+const lagOf = new Map<string, number>();
+const KEEP = 6;
+
+/** What the detector has caught up to: each track as it was 3 to 5 frames ago, so the boxes trail what they mark. */
+function lagged(view: number, tracks: readonly Track[]): Track[] {
+  const frames = seen.get(view) ?? [];
+  seen.set(view, frames);
+  frames.push(new Map(tracks.map((t) => [`${t.label}:${t.seed}`, t])));
+  if (frames.length > KEEP) frames.shift();
+  const keys = new Set(frames.flatMap((f) => [...f.keys()]));
+  const out: Track[] = [];
+  for (const key of keys) {
+    let lag = lagOf.get(key);
+    if (lag === undefined || Math.random() < 1 / 12) lagOf.set(key, (lag = 3 + Math.floor(Math.random() * 3)));
+    const t = frames[Math.max(0, frames.length - 1 - lag)]!.get(key);
+    if (t) out.push(t);
+  }
+  if (lagOf.size > 512) lagOf.clear();
+  return out;
 }
 
 /** The player's own vehicle's state, beside its box. */
