@@ -103,6 +103,8 @@ let maps: MapEntry[] = [];
 type Screen = 'start' | 'gate' | 'splash' | 'title' | 'loading' | 'game' | 'win';
 let screen: Screen = 'start';
 let game: Game | null = null;
+/** The running online match's start, for the host's picks of how everyone sees it. */
+let onlineStart: MatchStart | null = null;
 /** Ends the splash, or the win scene, that is showing. */
 let skip = new AbortController();
 /** Bumped by every new match, so a superseded one's ending is ignored. */
@@ -144,7 +146,7 @@ function syncLook(): void {
   thermalState.textContent = thermal ? 'ON' : 'OFF';
   thermalKey.textContent = thermalKeys();
   thermalButton.setAttribute('aria-pressed', String(thermal));
-  thermalButton.title = `Thermal camera ${thermal ? 'on' : 'off'} (${thermalKeys()}; change the key in Options > Controls)`;
+  thermalButton.title = `Thermal camera ${thermal ? 'on' : 'off'} (${thermalKeys()}; change the key in Options > Controls > Vehicle Keys)`;
 }
 
 // ---- Profile (profiles card) ---------------------------------------------------------------------------------
@@ -214,15 +216,21 @@ async function title(): Promise<void> {
   setScreen('title');
   music.menus();
   if (menuShown && !lobbyWin?.visible) openMenu();
-  const img = await stage.titleArt();
-  if (screen === 'title') stage.show(img);
+  await showTitleArt();
+}
+
+/** The title screen's picture, in the player's view: modern (the default) or classic. */
+async function showTitleArt(): Promise<void> {
+  const style = settings.visuals === 'modern' && modernAvailable() ? 'modern' : 'retro';
+  const img = await stage.titleArt(style);
+  if (screen === 'title') stage.show(img, style === 'modern');
 }
 
 // ---- Starting and ending a match ---------------------------------------------------------------------------------
 
 /**
- * New Game (N): the Player Selector, then the Level Selector, then the match. Play > Training and Play > Two Players
- * fix the number of players; New Game offers both and starts on Training, so one player always gets the single view.
+ * New Game (N): the Player Selector, then the Level Selector, then the match. Local Play > Training and Local Play > Split
+ * Screen fix the number of players; New Game offers both and starts on Training, so one player always gets the single view.
  */
 async function newGame(players?: 1 | 2): Promise<void> {
   if (game?.online) {
@@ -553,6 +561,7 @@ async function startOnline(s: MatchStart): Promise<void> {
     const assets = await loadAssetsWith(s.map);
     status.textContent = '';
     if (mine !== run) return;
+    onlineStart = s;
     thermal = params.get('thermal') === '1';
     game = new Game({
       assets, display, sound, music, seed: s.seed, players: 1, difficulty: s.difficulty, names: settings.names, swapSides: false, bots: false, handheld,
@@ -730,8 +739,17 @@ const showHallOfFame = () => overGame(() => hallOfFame(loadScores(), settings.pl
 
 function titleItems(): MenuEntry[] {
   return [
-    { label: 'Play', primary: true, items: playItems },
+    { label: 'Local Play', hint: 'Training, or split screen on one keyboard', primary: true, items: playItems },
     { label: 'Online', items: onlineItems },
+    {
+      label: 'Style', hint: modernAvailable() ? 'Modern 3D, or the classic pixel look' : 'This browser shows classic only (no WebGL)',
+      value: () => (settings.visuals === 'modern' && modernAvailable() ? 'Modern' : 'Classic'),
+      enabled: () => modernAvailable(),
+      action: () => {
+        save({ ...settings, visuals: settings.visuals === 'modern' ? 'retro' : 'modern' });
+        void showTitleArt();
+      },
+    },
     { label: 'Hall of Fame', key: shortcutName('hallOfFame'), action: () => void showHallOfFame() },
     { label: 'Replays', hint: 'Watch your last matches again', action: () => void showReplays() },
     ...(handheld ? [] : [{ label: 'Level Editor', hint: 'Make your own maps', action: () => location.assign('editor.html') }]),
@@ -745,7 +763,7 @@ function titleItems(): MenuEntry[] {
 function playItems(): MenuEntry[] {
   return [
     { label: 'Training', hint: 'You against the computer', primary: true, action: () => void newGame(1) },
-    ...(handheld ? [] : [{ label: 'Two Players', hint: 'Split screen on one keyboard', action: () => void newGame(2) }]),
+    ...(handheld ? [] : [{ label: 'Split Screen', hint: 'Two players on one keyboard', action: () => void newGame(2) }]),
   ];
 }
 
@@ -787,39 +805,52 @@ function onlineItems(): MenuEntry[] {
   ];
 }
 
+/** Options, in groups that each fit the screen. */
 function optionItems(): MenuEntry[] {
   return [
     { label: 'Full Screen', key: shortcutName('fullScreen'), value: () => onOff(!!document.fullscreenElement), action: fullScreen },
+    { label: 'View', hint: 'Retro or modern, picture scaling', items: viewItems },
+    { label: 'Sound and Music', hint: 'Volume, music, instruments', items: soundItems },
+    ...(handheld ? [] : [{ label: 'Controls', hint: 'Vehicle keys, swap sides', items: controlItems }]),
+  ];
+}
+
+/** The host's pick of the view while in an online lobby or match: it sets how everyone sees it. */
+function hostVisuals(): 'retro' | 'modern' | null {
+  const start = game?.online ? onlineStart : null;
+  if (start) return start.visuals === 'modern' ? 'modern' : 'retro';
+  return net.lobby ? net.lobby.visuals : null;
+}
+
+function viewItems(): MenuEntry[] {
+  const host = hostVisuals();
+  const hostNote: MenuEntry[] = host ? [{ label: 'Online, the host picks the view for every player.', note: true }] : [];
+  return [
+    ...hostNote,
     {
-      label: 'Picture', hint: 'Fill the window, or whole-number pixels only',
-      value: () => (settings.scale === 'integer' ? 'Whole pixels' : 'Fill'),
-      action: () => save({ ...settings, scale: settings.scale === 'integer' ? 'sharp' : 'integer' }),
-    },
-    {
-      label: 'Visuals', hint: 'Retro pixels, or modern 3D at 720p',
-      value: () => (settings.visuals === 'modern' ? 'Modern' : 'Retro'),
+      label: 'Visuals', hint: host ? 'Set by the host' : 'Modern 3D at 720p, or classic pixels',
+      value: () => ((host ?? settings.visuals) === 'modern' ? 'Modern' : 'Classic'),
+      enabled: () => !host,
       action: () => save({ ...settings, visuals: settings.visuals === 'modern' ? 'retro' : 'modern' }),
     },
     {
-      label: 'Lighting', hint: 'Day, or night with headlights (modern)',
-      value: () => (settings.lighting === 'night' ? 'Night' : 'Day'),
-      action: () => save({ ...settings, lighting: settings.lighting === 'night' ? 'day' : 'night' }),
+      label: 'Picture', hint: 'Fill the window, or whole-number pixels only (retro)',
+      value: () => (settings.scale === 'integer' ? 'Whole pixels' : 'Fill'),
+      action: () => save({ ...settings, scale: settings.scale === 'integer' ? 'sharp' : 'integer' }),
     },
+  ];
+}
+
+function soundItems(): MenuEntry[] {
+  return [
     {
-      label: 'Sound', hint: 'Master, effects and music volume',
+      label: 'Volume', hint: 'Master, effects and music',
       value: () => (settings.volume.muted ? 'Muted' : `${settings.volume.master}%`),
       action: () => void overGame(async () => {
         const v = await soundDialog(settings.volume, applyVolume);
         if (v) save({ ...settings, volume: v });
       }),
     },
-    ...(handheld ? [] : [{
-      label: 'Controls', hint: 'Change the vehicle keys',
-      action: () => void overGame(async () => {
-        const keys = await controlsDialog();
-        if (keys) save({ ...settings, keys });
-      }),
-    }]),
     {
       label: 'Music', value: () => onOff(settings.music),
       action: () => {
@@ -837,10 +868,22 @@ function optionItems(): MenuEntry[] {
         void music.unlock().then(() => music.setSampled(settings.instruments === 'sampled')).then(() => menu.refresh());
       },
     },
-    ...(handheld ? [] : [{
+  ];
+}
+
+function controlItems(): MenuEntry[] {
+  return [
+    {
+      label: 'Vehicle Keys', hint: 'Change the keys for each player',
+      action: () => void overGame(async () => {
+        const keys = await controlsDialog();
+        if (keys) save({ ...settings, keys });
+      }),
+    },
+    {
       label: 'Swap Sides', hint: `Arrow keys play Brown (${shortcutName('swapSides')})`, value: () => onOff(settings.swapSides),
       action: () => save({ ...settings, swapSides: !settings.swapSides }),
-    }]),
+    },
   ];
 }
 
@@ -852,7 +895,7 @@ function helpItems(): MenuEntry[] {
   ];
 }
 
-/** The thermal camera on or off in a modern match (its key, set in Options > Controls, or the THERMAL button). */
+/** The thermal camera on or off in a modern match (its key, set in Options > Controls > Vehicle Keys, or the THERMAL button). */
 function toggleThermal(): void {
   if (!game?.night) return;
   thermal = !thermal;

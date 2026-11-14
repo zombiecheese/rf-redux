@@ -135,7 +135,7 @@ which is git-ignored.
 The server also serves a folder of your own at `/generated/` (`assets/generated/` in a checkout, `ASSETS_DIR` in a
 deployment; git-ignored). The game looks there for two things, and needs neither:
 
-- `music/soundfont.sf2`, a General MIDI SoundFont for Options > Instruments > Sampled (the Docker image ships GeneralUser GS here; `npm run soundfont` fetches it for a checkout);
+- `music/soundfont.sf2`, a General MIDI SoundFont for Options > Sound and Music > Instruments > Sampled (the Docker image ships GeneralUser GS here; `npm run soundfont` fetches it for a checkout);
 - `music/<name>.mid`, to replace a piece, and `music/modern-<name>.mid` for the modern soundtrack ([music.md](music.md)).
 
 The server lists what is there at `/generated/extras.json`, and the game asks only for files on that list, so an

@@ -213,7 +213,7 @@ export class Sound {
   private mineLit = new WeakMap<Mine, boolean>();
   private droneLoop: Voice | null = null;
   private tick = 0;
-  /** Every voice goes through this, for the volume in Options > Sound. */
+  /** Every voice goes through this, for the volume in Options > Sound and Music > Volume. */
   private out: GainNode | null = null;
   private volume = 1;
   /** Paused with the game: the context stays suspended until the game lets it go. */

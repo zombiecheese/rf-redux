@@ -257,38 +257,46 @@ export function viewPicker(value: string, choices: readonly ViewChoice[] = VIEW_
 }
 
 /**
- * Player Selector (N, New Game): Training (one player against the computer) or Tournament (two players at one
- * keyboard), and the Brown and Green names. Phones and tablets play Training only. fixed keeps s.players and hides the
- * choice (Play > Training, Play > Two Players): one player gets the single full-screen view, never the split screen.
+ * Player Selector (N, New Game): Training (one player against the computer) or Split Screen (two players at one
+ * keyboard), the Brown and Green names, the difficulty, the time of day and the view. Phones and tablets play Training
+ * only. fixed keeps s.players and hides the choice (Local Play > Training, Local Play > Split Screen): one player gets
+ * the single full-screen view, never the split screen.
  */
 export async function playerSelector(s: Settings, handheld: boolean, fixed = false): Promise<Settings | null> {
-  const mode = el('fieldset', {}, el('legend', {}, 'Game'), radio('mode', 'Training', s.players === 1, '1'));
-  if (!handheld) mode.append(radio('mode', 'Tournament', s.players === 2, '2'));
-  mode.hidden = fixed || handheld;
-  const brown = el('input', { type: 'text', value: s.names[0], maxLength: 20 });
-  const green = el('input', { type: 'text', value: s.names[1], maxLength: 20 });
+  // Laid out like an online lobby's match settings: game, players, difficulty and time of day, then the view.
+  const seg = (name: string, options: [string, string][], value: string) =>
+    el('div', { class: 'segmented', role: 'radiogroup' } as Partial<HTMLDivElement>, ...options.map(([v, label]) => radio(name, label, v === value, v)));
+  const checked = (g: HTMLElement) => g.querySelector<HTMLInputElement>('input:checked')?.value;
+  const mode = seg('mode', handheld ? [['1', 'Training']] : [['1', 'Training'], ['2', 'Split Screen']], String(s.players));
+  const modeRow = field('Game:', mode);
+  modeRow.hidden = fixed || handheld;
+  const brown = el('input', { type: 'text', value: s.names[0], maxLength: 20, ariaLabel: 'Brown' });
+  const green = el('input', { type: 'text', value: s.names[1], maxLength: 20, ariaLabel: 'Green' });
   const skill = el('select', {});
   for (let d = DIFFICULTY.min; d <= DIFFICULTY.max; d++) skill.add(new Option(String(d), String(d), false, d === s.difficulty));
-  const greenLabel = field('Green:', green);
-  const names = el('fieldset', {}, el('legend', {}, 'Players'), field('Brown:', brown), greenLabel);
-  const skillRow = field('Computer skill:', skill);
-  // The view: classic or modern, with a preview of each. Options > Visuals still switches it at any time.
+  skill.title = 'The computer players\' skill';
+  const greenRow = field('Green:', green);
+  const skillRow = field('Difficulty:', skill);
+  // Day or night is part of the game, like the difficulty (the modern view draws the night).
+  const time = seg('time', [['day', 'Day'], ['night', 'Night']], s.lighting === 'night' ? 'night' : 'day');
+  // The view: classic or modern, with a picture of each. Options > View > Visuals still switches it at any time.
   const view = viewPicker(s.visuals === 'modern' && modernAvailable() ? 'modern' : 'retro');
-  const viewSet = el('fieldset', { class: 'view-set' }, el('legend', {}, 'View'), view);
-  const body = el('div', { class: 'stack' }, el('div', { class: 'cols' }, mode, el('div', {}, names, skillRow)), viewSet);
+  const body = el('div', { class: 'match-setup' }, modeRow, field('Brown:', brown), greenRow, skillRow, field('Time of day:', time),
+    el('fieldset', { class: 'view-set' }, el('legend', {}, 'View'), view));
   const sync = () => {
-    const two = mode.querySelector<HTMLInputElement>('input:checked')?.value === '2';
+    const two = checked(mode) === '2';
     skillRow.hidden = two;
-    greenLabel.querySelector('span')!.textContent = two ? 'Green:' : 'Computer:';
+    greenRow.querySelector('span')!.textContent = two ? 'Green:' : 'Computer:';
   };
   mode.addEventListener('change', sync);
   sync();
   const r = await dialog('Player Selector', body, [['OK', 'ok'], ['Cancel', 'cancel']]);
   if (!r) return null;
-  const players = handheld ? 1 : fixed ? s.players : (Number(mode.querySelector<HTMLInputElement>('input:checked')?.value) as 1 | 2) || 1;
+  const players = handheld ? 1 : fixed ? s.players : (Number(checked(mode)) as 1 | 2) || 1;
   return {
     ...s, players,
     visuals: view.value === 'modern' ? 'modern' : 'retro',
+    lighting: checked(time) === 'night' ? 'night' : 'day',
     names: [brown.value.trim() || 'Brown', green.value.trim() || 'Green'],
     difficulty: clampDifficulty(Number(skill.value)),
   };
@@ -577,7 +585,7 @@ function morePage(): HTMLElement {
 export interface ServerInfo {
   /** A game server answered: online play is open. */
   online: boolean;
-  /** The server has a SoundFont for Options > Instruments > Sampled. */
+  /** The server has a SoundFont for Options > Sound and Music > Instruments > Sampled. */
   soundfont: boolean;
   /** Who is signed in, if anyone. */
   account?: string;

@@ -18,7 +18,7 @@ import {
   type Match, type MatchEvent, type Snapshot, type VehicleInput, type VehicleKind,
 } from '@rfw/sim';
 import {
-  DOCK, ReplayPlayer, ReplayRecorder, SoloRecorder, applyFrame, commandCode, packInput,
+  DOCK, ReplayPlayer, ReplayRecorder, SoloRecorder, applyFrame, commandCode, lobbyLighting, lobbyVisuals, packInput,
   type MatchResult, type MatchStart, type Replay, type SoloLog,
 } from '@rfw/net';
 import type { GameAssets } from './assets.js';
@@ -165,7 +165,7 @@ export class Game {
   /** Whether the match is at night: the replay's, the host's pick online, or the player's own. */
   get night(): boolean {
     const start = this.o.online?.start;
-    return (this.o.replay?.look?.lighting ?? (start?.lighting && start.lighting !== 'any' ? start.lighting : this.o.lighting?.())) === 'night';
+    return (this.o.replay?.look?.lighting ?? (start ? lobbyLighting(start.lighting) : this.o.lighting?.())) === 'night';
   }
 
   get fixedVisuals(): 'retro' | 'modern' | null {
@@ -211,7 +211,7 @@ export class Game {
     const start = online?.start;
     const net = online?.net;
     /** Retro or modern: a replay as its match was seen, the host's pick for everyone online, or the player's own. */
-    const wanted = () => replay?.look?.visuals ?? (start?.visuals && start.visuals !== 'any' ? start.visuals : this.o.visuals?.());
+    const wanted = () => replay?.look?.visuals ?? (start ? lobbyVisuals(start.visuals) : this.o.visuals?.());
     const nightNow = () => this.night;
     // The host's pick brings its own soundtrack too.
     if (this.fixedVisuals) music.setStyle(this.fixedVisuals === 'modern' && modernAvailable() ? 'modern' : 'retro');

@@ -103,7 +103,7 @@ When two players' games disagree (a desync, which should not happen), the server
 | `RF_DOMAIN` | `localhost` | `caddy`: the site's DNS name |
 | `PORT` | `8080` | `web`: listening port inside the container |
 | `CLIENT_DIR` | `/app/client` | `web`: built client |
-| `ASSETS_DIR` | `/assets/generated` | `web`: an optional folder of extras served at `/generated/`, such as `music/soundfont.sf2` ([music.md](music.md)). The image already holds GeneralUser GS there for Options > Instruments; a folder mounted over it replaces it, so put a SoundFont in yours if you want Sampled |
+| `ASSETS_DIR` | `/assets/generated` | `web`: an optional folder of extras served at `/generated/`, such as `music/soundfont.sf2` ([music.md](music.md)). The image already holds GeneralUser GS there for Options > Sound and Music > Instruments; a folder mounted over it replaces it, so put a SoundFont in yours if you want Sampled |
 | `DATA_DIR` | `/data` | `web`: database, backups and desync reports |
 | `SECURE_COOKIES` | as `TRUST_PROXY` | `web`: `1` or `0` to force the Secure flag on the sign-in cookie |
 

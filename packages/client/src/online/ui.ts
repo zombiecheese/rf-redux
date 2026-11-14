@@ -43,11 +43,10 @@ export async function lobbyMaps(): Promise<LobbyMap[]> {
 
 /** The host's picks of how everyone sees the match. */
 const LOBBY_VIEWS: ViewChoice[] = [
-  { value: 'any', label: 'Each player\'s choice', hint: 'Whatever each has in Options' },
-  { value: 'retro', label: 'Classic for all', hint: 'The original pixel look', image: 'retro' },
-  { value: 'modern', label: 'Modern for all', hint: '3D drone feed at 720p', image: 'modern' },
+  { value: 'retro', label: 'Classic', hint: 'The original pixel look', image: 'retro' },
+  { value: 'modern', label: 'Modern', hint: '3D drone feed at 720p', image: 'modern' },
 ];
-const LIGHTING: [LobbyLighting, string][] = [['any', 'Each player\'s choice'], ['day', 'Day for all'], ['night', 'Night for all']];
+const LIGHTING: [LobbyLighting, string][] = [['day', 'Day'], ['night', 'Night']];
 
 function skillSelect(value: number): HTMLSelectElement {
   const s = el('select', {});
@@ -331,6 +330,11 @@ function segmented(name: string, options: [string, string][], value: string): HT
 
 const segValue = (s: HTMLElement) => s.querySelector<HTMLInputElement>('input:checked')!.value;
 
+/** The lobby's Multiplayer view section: how every player sees the match, which only the host picks. */
+function multiplayerView(look: HTMLElement): HTMLFieldSetElement {
+  return el('fieldset', { class: 'view-set' }, el('legend', {}, 'Multiplayer view · set by the host'), look);
+}
+
 /** Host a Game: name, who may join, the map and the team layout. */
 export async function createLobby(maps: LobbyMap[]): Promise<{ mapId: string; visibility: 'open' | 'private'; name: string; teams?: number[] } | null> {
   if (!maps.length) {
@@ -381,9 +385,11 @@ export class LobbyWindow {
     const send = button('Send', () => this.send(), 'btn');
     const chat = el('section', { class: 'lobby-chat' }, el('h3', {}, 'Chat'), this.log, el('div', { class: 'chat-send' }, this.to, this.say, send));
     const win = el('div', { class: `${skinClass()} window lobby-window`, role: 'dialog' } as Partial<HTMLElement>,
-      el('div', { class: 'titlebar' }, el('div', { class: 'lobby-heading' }, this.title, this.badges), menu, close),
-      el('div', { class: 'body' }, this.invite,
-        el('div', { class: 'lobby-main' }, el('section', { class: 'lobby-seats' }, el('h3', {}, 'Players'), this.seats, this.settings), chat),
+      el('div', { class: 'titlebar' }, el('div', { class: 'lobby-heading' }, this.title, this.badges, this.invite), menu, close),
+      el('div', { class: 'body' },
+        el('div', { class: 'lobby-main' },
+          el('section', { class: 'lobby-seats' }, el('h3', {}, 'Players'), this.seats, this.settings),
+          el('div', { class: 'lobby-side' }, this.preview.root, chat)),
         this.controls));
     win.setAttribute('aria-label', 'Lobby');
     this.layer = el('div', { class: 'dialog-layer lobby-layer' }, win);
@@ -471,7 +477,7 @@ export class LobbyWindow {
     const copy = button('Copy Invite Link', () => void navigator.clipboard?.writeText(link).then(() => (copy.textContent = 'Copied')));
     this.invite.replaceChildren(el('span', { class: 'invite-label' }, 'Code'), el('span', { class: 'code' }, l.code), copy);
 
-    // The match settings under the map's preview: the host changes them while the lobby waits; everyone else sees them.
+    // The match settings under the seats: the host changes them while the lobby waits; everyone else sees them.
     this.settings.replaceChildren();
     if (owner && waiting) {
       const maps = this.maps.length ? this.maps : [{ id: l.mapId, name: l.mapName, bases: l.slots.length }];
@@ -488,35 +494,31 @@ export class LobbyWindow {
       this.preview.actions.replaceChildren(change);
       const handicap = el('input', { type: 'checkbox', checked: l.handicap });
       handicap.addEventListener('change', () => this.net.send({ t: 'settings', handicap: handicap.checked }));
-      const handicapRow = el('label', { class: 'check' }, handicap, 'Handicap for the smaller side');
+      const handicapRow = el('label', { class: 'check' }, handicap, 'Handicap the smaller side');
       handicapRow.title = 'In an uneven match (2v1, say) the smaller team starts with more vehicles, in proportion, and its flag must be captured three times';
       const look = viewPicker(l.visuals, LOBBY_VIEWS, false);
-      look.title = 'Have every player see the match the same way, or let each pick in Options';
+      look.title = 'Every player sees the match this way';
       look.addEventListener('change', () => this.net.send({ t: 'settings', visuals: look.value as LobbyVisuals }));
-      const light = el('select', {});
-      for (const [v, name] of LIGHTING) light.add(new Option(name, v));
-      light.value = l.lighting;
-      light.title = 'Day or night in the modern view for every player, or let each pick in Options';
-      light.addEventListener('change', () => this.net.send({ t: 'settings', lighting: light.value as LobbyLighting }));
-      this.settings.append(
-        field('Teams:', layout), field('Difficulty:', skill), field('Who can join:', vis), field('Lighting:', light), handicapRow,
-        el('fieldset', { class: 'view-set' }, el('legend', {}, 'Visuals'), look));
+      const light = segmented('lobby-light', LIGHTING, l.lighting);
+      light.title = 'Day or night for the match';
+      light.addEventListener('change', () => this.net.send({ t: 'settings', lighting: segValue(light) as LobbyLighting }));
+      this.settings.append(field('Teams:', layout), field('Difficulty:', skill), field('Time of day:', light), field('Who can join:', vis), handicapRow,
+        multiplayerView(look));
+      this.settings.classList.add('host');
     } else {
       this.preview.actions.replaceChildren();
-      this.settings.append(field('Difficulty:', el('span', {}, String(l.difficulty))));
-      if (l.visuals !== 'any') {
-        // The host's pick, with its preview.
-        const shown = viewPicker(l.visuals, LOBBY_VIEWS.filter((c) => c.value === l.visuals), false);
-        for (const b of shown.querySelectorAll('button')) b.tabIndex = -1;
-        shown.classList.add('view-shown');
-        this.settings.append(el('fieldset', { class: 'view-set' }, el('legend', {}, 'Visuals'), shown));
-      }
-      if (l.lighting !== 'any') this.settings.append(field('Lighting:', el('span', {}, LIGHTING.find(([v]) => v === l.lighting)![1])));
+      this.settings.classList.remove('host');
+      this.settings.append(field('Difficulty:', el('span', {}, String(l.difficulty))),
+        field('Time of day:', el('span', { class: 'lobby-light' }, LIGHTING.find(([v]) => v === l.lighting)![1])));
       if (l.handicap) this.settings.append(el('p', { class: 'hint' }, 'Handicap on: the smaller side gets extra vehicles, and its flag must be captured more than once.'));
+      // The host's picks, with a picture of the view.
+      const shown = viewPicker(l.visuals, LOBBY_VIEWS.filter((c) => c.value === l.visuals), false);
+      for (const b of shown.querySelectorAll('button')) b.tabIndex = -1;
+      shown.classList.add('view-shown');
+      this.settings.append(multiplayerView(shown));
     }
     const known = this.maps.find((m) => m.id === l.mapId);
     showLobbyMap(this.preview, known ?? { id: l.mapId, name: l.mapName, bases: l.slots.length });
-    this.settings.prepend(this.preview.root);
 
     this.seats.replaceChildren(...l.slots.map((s, i) => this.seat(l, s, i, owner && waiting, me)));
 

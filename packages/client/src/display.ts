@@ -1,5 +1,5 @@
 // Putting the 320 x 240 frame on the page: it fills as much of the window as it can at 4:3, with every game pixel
-// a square block, and phones and tablets play in landscape only. Options > Picture can lay a subtle CRT look over it.
+// a square block, and phones and tablets play in landscape only. The classic view always wears a subtle CRT look.
 // The bars left round it are filled with a pixel camo (camo.ts) in the colour of whoever is playing.
 
 import { camoTile, camoTones, TILE } from './camo.js';
@@ -76,7 +76,7 @@ export type ScaleMode = 'sharp' | 'integer';
 /** Anything the display can put up: the game frame, or one of the original's pictures. */
 export type Picture = OffscreenCanvas | HTMLCanvasElement | HTMLImageElement;
 
-/** The CRT look (Options > Picture): how dark the gap under each line is, and how strong the glow. Kept subtle. */
+/** The classic view's CRT look: how dark the gap under each line is, and how strong the glow. Kept subtle. */
 const SCANLINE_ALPHA = 0.22;
 /** The dark part of each picture line, as a fraction of its height. */
 const SCANLINE_GAP = 0.4;

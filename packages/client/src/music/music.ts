@@ -205,7 +205,7 @@ export class Music implements MusicOut {
 
   // ---- What the front end and the game tell it -------------------------------------------------------------------
 
-  /** The music volume as a gain (0-1), master volume and mute included (Options > Sound). */
+  /** The music volume as a gain (0-1), master volume and mute included (Options > Sound and Music > Volume). */
   setVolume(gain: number): void {
     this.volume = gain;
     if (this.master) this.master.gain.value = gain;

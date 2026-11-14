@@ -2,7 +2,7 @@
 // panel: a stick that comes to wherever the left thumb lands, and on the right the buttons the vehicle in play
 // actually has (the tank's turret, the jeep's tyres and flag, the ASV's mines, the helicopter's strafe and weapon
 // swap), the four launch buttons on the lift screen, and pause, chat and the scores along the top. Each control
-// presses the same key a keyboard player would (the left half's, as rebound in Options > Controls), so the game
+// presses the same key a keyboard player would (the left half's, as rebound in Options > Controls > Vehicle Keys), so the game
 // and menus handle touch exactly like the keyboard.
 
 import { ONLINE_KEYS, SHORTCUTS, touchKey, type Action } from './keys.js';

@@ -2,7 +2,7 @@
 
 The original played its score from the CD's audio tracks. The remake does not use those: it plays MIDI band
 arrangements of public-domain military and classical music, chosen the way the original chose its tracks. The
-modern view (Options > Visuals) has a soundtrack of its own: original hardcore, beatdown and metalcore
+modern view (Options > View > Visuals) has a soundtrack of its own: original hardcore, beatdown and metalcore
 instrumentals, chosen by the same director (see "The modern soundtrack" below).
 
 ## How it works
@@ -27,7 +27,7 @@ instrumentals, chosen by the same director (see "The modern soundtrack" below).
   volume, expression, pan, modulation, sustain, pitch bend and its range.
 - **SoundFonts** (`soundfont.ts`): load a SoundFont 2 file for sampled instruments. Programs it has play from its
   samples (key and velocity splits, loops, tuning, volume envelope, attenuation, pan, filter); the rest stay on the
-  built-in timbres. **Options > Instruments** switches the band between **Built-in** (the default) and **Sampled**,
+  built-in timbres. **Options > Sound and Music > Instruments** switches the band between **Built-in** (the default) and **Sampled**,
   which plays it from the site's SoundFont at `/generated/music/soundfont.sf2`. The browser fetches it the first time
   Sampled is picked and keeps it in its cache, so later visits start at once; the choice follows a signed-in account.
   The modern soundtrack always plays its own rig.
@@ -40,8 +40,8 @@ instrumentals, chosen by the same director (see "The modern soundtrack" below).
   (FluidR3_GM is MIT-licensed, but at about 140 MB it is a long download for a browser).
 - **Replacing a piece**: put a MIDI file at `assets/generated/music/<name>.mid`, where `<name>` is one of the file
   names below. Name its sections with marker events to match the start and loop points the director uses.
-- **Options > Music** switches the music off and on (as the original's menu did); **Options > Sound** sets the
-  master, effects and music volume (V mutes everything).
+- **Options > Sound and Music > Music** switches the music off and on (as the original's menu did); **Options > Sound
+  and Music > Volume** sets the master, effects and music volume (V mutes everything).
 
 ## The pieces, and why each is in the public domain
 

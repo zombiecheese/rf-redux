@@ -1,5 +1,5 @@
 // Every key the game answers to, in one place, so the controls, the shortcuts and Help Topics cannot drift apart.
-// The two halves of the keyboard start as the original's Tournament layout and can be rebound (Options > Controls);
+// The two halves of the keyboard start as the original's Tournament layout and can be rebound (Options > Controls > Vehicle Keys);
 // nothing else (chat, the scoreboard, the menus' shortcuts) may use a key either half plays with, so the keys a
 // player can bind exclude those (reservedKey).
 
