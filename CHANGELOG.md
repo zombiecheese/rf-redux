@@ -4,13 +4,16 @@ Each release's section below becomes its GitHub release notes (`.github/workflow
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-14
+
+The modern view: the game in 3D, with its own hardcore and metalcore soundtrack.
+
 ### Added
 
 - Modern visuals (Options > Visuals): the game in 3D at 1280 × 720 with toy-soldier models, sunlight and shadows, an animated sea, explosions, smoke and debris, and a modern HUD. Retro stays the default and either can be picked at any time, even during a match. The modern view has its own 3D bunker, laughing skull, messages, chat and scoreboard, and Options > Lighting adds a night mode with headlights and lit buildings (street lamps, watchtowers, windows).
 - The modern view has its own soundtrack: original hardcore, beatdown and metalcore instrumentals for every moment the band covers (each vehicle, the bunker, deaths, the flag, the win and the menus), played on the built-in synthesiser's new guitar amp, bass and metal kit. Retro keeps the band.
 - Tap or click a bay on the lift screen to pick that vehicle, and again to launch it (retro and modern).
 - A [wiki](https://github.com/zombiecheese/rf-redux/wiki) for players and hosts: installing, deploying, running a site, how to play, the rules, online play, the level editor and troubleshooting, with screenshots.
-
 - The jeep's tyres are seen to blow up and go down: over about two seconds the wheels lean out and flatten, the fat tyres show under the body, and a floating jeep sits in rings of ripples and leaves a trail behind it.
 - The tank, jeep and ASV leave a wake of spray in water once going at half their top speed there.
 
@@ -48,5 +51,6 @@ The first release: a browser remake of Return Fire (1995) that plays like the or
 
 - A Docker Compose stack with one image, `ghcr.io/zombiecheese/rf-redux`, published for every version tag together with a compose file, an `.env` template and a Caddyfile for HTTPS ([docs/deploy.md](docs/deploy.md)).
 
-[Unreleased]: https://github.com/zombiecheese/rf-redux/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/zombiecheese/rf-redux/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/zombiecheese/rf-redux/releases/tag/v0.3.0
 [0.2.0]: https://github.com/zombiecheese/rf-redux/releases/tag/v0.2.0

@@ -28,7 +28,7 @@ Every release on GitHub (see [Releasing](#releasing)) pushes the image to the Gi
    docker compose up -d
    ```
 
-To move to a newer release, download its `docker-compose.yml` over the old one (or set `RF_VERSION` in `.env`, for example `RF_VERSION=0.2.0`; `RF_VERSION=latest` follows the newest release), then `docker compose pull && docker compose up -d`. Everything else on this page, from HTTPS to backups, works the same way.
+To move to a newer release, download its `docker-compose.yml` over the old one (or set `RF_VERSION` in `.env`, for example `RF_VERSION=0.3.0`; `RF_VERSION=latest` follows the newest release), then `docker compose pull && docker compose up -d`. Everything else on this page, from HTTPS to backups, works the same way.
 
 ## Running it from a checkout
 

@@ -8,7 +8,7 @@ The aim is a like-for-like remake: the same look (a software renderer reproduces
 
 ## Status
 
-The latest release is [v0.2.0](https://github.com/zombiecheese/rf-redux/releases/tag/v0.2.0) (2026-11-14); what changed in each release, and what is waiting for the next one, is in [CHANGELOG.md](CHANGELOG.md). Version 1.0.0 is kept for when the game can go public.
+The latest release is [v0.3.0](https://github.com/zombiecheese/rf-redux/releases/tag/v0.3.0) (2026-11-14); what changed in each release, and what is waiting for the next one, is in [CHANGELOG.md](CHANGELOG.md). Version 1.0.0 is kept for when the game can go public.
 
 | Part | State |
 | --- | --- |
