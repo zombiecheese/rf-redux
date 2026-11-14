@@ -30,7 +30,7 @@ It keeps the original's look, handling and rules, and adds online play for one t
 - **Players:** one to four per match, with the computer playing any base nobody takes.
 - **Maps:** 104 two-player maps, sixteen maps for three and four bases, and any map made in the level editor.
 - **Where it runs:** any current desktop browser with a keyboard. Phones and tablets play solo, in landscape, with on-screen controls.
-- **How it looks:** the original's 320 × 240 pixel picture with a military band score, or a modern 3D view with day and night lighting and its own hardcore and metalcore soundtrack (Options > Visuals).
+- **How it looks:** the original's 320 × 240 pixel picture with a military band score, or a modern 3D view with day and night lighting and its own hardcore and metalcore soundtrack (Options > View > Visuals).
 - **What it needs:** nothing but the game itself. The art, sounds, music and maps are all included.
 
 The latest version is on the [Releases page](https://github.com/zombiecheese/rf-redux/releases), and the list of changes is in the [changelog](https://github.com/zombiecheese/rf-redux/blob/main/CHANGELOG.md).

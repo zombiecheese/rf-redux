@@ -2,7 +2,7 @@
 
 The original played its score from the CD's audio tracks. The remake does not use those: it plays MIDI band
 arrangements of public-domain military and classical music, chosen the way the original chose its tracks. The
-modern view (Options > Visuals) has a soundtrack of its own: original hardcore, beatdown and metalcore
+modern view (Options > View > Visuals) has a soundtrack of its own: original hardcore, beatdown and metalcore
 instrumentals, chosen by the same director (see "The modern soundtrack" below).
 
 ## How it works
@@ -27,7 +27,7 @@ instrumentals, chosen by the same director (see "The modern soundtrack" below).
   volume, expression, pan, modulation, sustain, pitch bend and its range.
 - **SoundFonts** (`soundfont.ts`): load a SoundFont 2 file for sampled instruments. Programs it has play from its
   samples (key and velocity splits, loops, tuning, volume envelope, attenuation, pan, filter); the rest stay on the
-  built-in timbres. **Options > Instruments** switches the band between **Built-in** (the default) and **Sampled**,
+  built-in timbres. **Options > Sound and Music > Instruments** switches the band between **Built-in** (the default) and **Sampled**,
   which plays it from the site's SoundFont at `/generated/music/soundfont.sf2`. The browser fetches it the first time
   Sampled is picked and keeps it in its cache, so later visits start at once; the choice follows a signed-in account.
   The modern soundtrack always plays its own rig. **Options > Jukebox** can also load any `.sf2` file for one visit.

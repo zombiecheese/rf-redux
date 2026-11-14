@@ -215,21 +215,31 @@ body.replay .thermal-fab { display: none; }
 
 /* ---- Online: the lobby ---- */
 
+/*
+ * The lobby fits the window without scrolling: the seats and the match settings on the left, the map and the chat on
+ * the right, Ready or Start along the bottom. On a short window (a phone held sideways) each column scrolls on its own,
+ * so the chat box and the Start button stay in view.
+ */
 .lobby-layer { background: none; pointer-events: none; }
 .lobby-layer[hidden] { display: none; }
-.lobby-layer .window > .body > * { flex-shrink: 0; }
-.lobby-layer .window { pointer-events: auto; width: min(58em, 100%); max-width: min(58em, 100%); max-height: 100%; }
-.ui .lobby-heading { flex: 1; min-width: 0; display: flex; align-items: center; flex-wrap: wrap; }
+.lobby-layer .window { pointer-events: auto; width: min(60em, 100%); max-width: min(60em, 100%); max-height: 100%; font-size: calc(var(--ui-size) * .92); }
+.lobby-layer .window > .body { overflow: hidden; gap: .7em; padding: .7em 1em .8em; }
+.lobby-layer .window > .titlebar { padding-top: .5em; padding-bottom: .45em; }
+.ui .lobby-heading { flex: 1; min-width: 0; display: flex; align-items: center; flex-wrap: wrap; gap: .2em .6em; }
 .ui .lobby-title { font-size: 1.15em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ui .lobby-invite { display: flex; align-items: center; gap: .6em; flex-wrap: wrap; }
+.ui .lobby-invite { display: flex; align-items: center; gap: .5em; font-weight: 400; letter-spacing: 0; }
+.ui .lobby-invite .btn { min-height: 2em; padding: .15em .7em; font-size: .85em; }
 .ui .invite-label { color: var(--ui-muted); font-size: .8em; text-transform: uppercase; letter-spacing: .1em; }
-.ui .code { font: 700 1.25em/1 ui-monospace, "Cascadia Mono", Menlo, monospace; letter-spacing: .2em; padding: .25em .55em; border-radius: .4em;
+.ui .code { font: 700 1.1em/1 ui-monospace, "Cascadia Mono", Menlo, monospace; letter-spacing: .2em; padding: .25em .5em; border-radius: .4em;
   background: rgba(0, 0, 0, .45); color: var(--ui-accent); user-select: all; }
-.ui .lobby-main { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 1em; min-height: 0; }
-.ui .lobby-main h3 { margin: 0 0 .5em; font-size: .8em; text-transform: uppercase; letter-spacing: .12em; color: var(--ui-muted); }
-.ui .lobby-seats, .ui .lobby-chat { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
-.ui .seats { display: grid; grid-template-columns: repeat(auto-fill, minmax(12.5em, 1fr)); gap: .5em; }
-.ui .seat { --side: #888; display: flex; flex-direction: column; gap: .4em; padding: .55em .7em .65em; border-radius: var(--ui-radius);
+.ui .lobby-main { flex: 1 1 auto; display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); grid-template-rows: minmax(0, 1fr);
+  gap: 1em; min-height: 0; }
+.ui .lobby-main h3 { margin: 0 0 .4em; font-size: .8em; text-transform: uppercase; letter-spacing: .12em; color: var(--ui-muted); }
+.ui .lobby-seats, .ui .lobby-side { display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: auto; }
+.ui .lobby-side { gap: .7em; overflow: hidden; }
+.ui .lobby-chat { display: flex; flex-direction: column; flex: 1 1 auto; min-width: 0; min-height: 7em; }
+.ui .seats { display: grid; grid-template-columns: repeat(auto-fill, minmax(12em, 1fr)); gap: .45em; flex: none; }
+.ui .seat { --side: #888; display: flex; flex-direction: column; gap: .3em; padding: .45em .65em .5em; border-radius: var(--ui-radius);
   background: linear-gradient(90deg, color-mix(in srgb, var(--side) 22%, transparent), var(--ui-raise) 70%);
   border: 1px solid color-mix(in srgb, var(--side) 55%, transparent); border-left: .35em solid var(--side); }
 .ui .seat.closed { opacity: .55; }
@@ -241,29 +251,61 @@ body.replay .thermal-fab { display: none; }
 .ui .seat-who select { width: 100%; }
 .ui .seat-name { font-weight: 700; font-size: 1.05em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ui .seat-name.muted { color: var(--ui-muted); font-weight: 400; font-style: italic; }
-.ui .seat-extra { display: flex; align-items: center; gap: .4em; flex-wrap: wrap; min-height: 1.4em; }
+.ui .seat-extra { display: flex; align-items: center; gap: .4em; flex-wrap: wrap; }
+.ui .seat-extra:empty { display: none; }
 .ui .seat-extra .badge { margin-left: 0; }
 .ui .seat-extra .btn { margin-left: auto; }
-.ui .lobby-settings { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .5em .8em; margin-top: .8em; padding-top: .7em; border-top: 1px solid var(--ui-line); }
-.ui .lobby-settings .field { grid-template-columns: 1fr; gap: .2em; }
-.ui .lobby-settings .field > span:first-child { color: var(--ui-muted); font-size: .75em; text-transform: uppercase; letter-spacing: .1em; }
+/* The match settings: a tight grid of labelled boxes, the Visuals cards across the bottom. */
+.ui .lobby-settings { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .4em .8em; margin-top: .7em; padding-top: .6em; border-top: 1px solid var(--ui-line); flex: none; }
+.ui .lobby-settings .field:has(input[name=lobby-vis]) { grid-column: span 2; }
+/* The Player Selector, laid out like the lobby's match settings. */
+.ui .match-setup { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .5em .9em; width: min(30em, 80vw); }
+.ui .match-setup > .field:first-child { grid-column: 1 / -1; }
+.ui .match-setup > .field[hidden] { display: none; }
+.ui .lobby-settings .field, .ui .match-setup .field { grid-template-columns: 1fr; gap: .15em; }
+.ui .lobby-settings .field > span:first-child, .ui .match-setup .field > span:first-child { color: var(--ui-muted); font-size: .75em; text-transform: uppercase; letter-spacing: .1em; }
+.ui .lobby-settings .view-set, .ui .match-setup .view-set, .ui .lobby-settings > .hint, .ui .match-setup > .hint { grid-column: 1 / -1; }
+.ui .lobby-settings .check, .ui .match-setup .check { align-self: end; min-height: 1.9em; }
+.ui .lobby-settings .segmented .btn, .ui .match-setup .segmented .btn, .ui .lobby-settings .segmented button, .ui .match-setup .segmented button { min-height: 1.9em; padding: .1em .8em; }
 .ui .seat select, .ui .lobby-settings select { min-height: 1.9em; padding: .1em .45em; }
-.ui .chatlog { flex: 1; min-height: 8em; max-height: 34vh; overflow: auto; padding: .5em .6em; border-radius: var(--ui-radius); background: rgba(0, 0, 0, .4);
+.ui .lobby-settings .view-set, .ui .match-setup .view-set { margin: 0; padding: .2em .5em .45em; }
+.ui .lobby-settings .view-picker, .ui .match-setup .view-picker { grid-template-columns: repeat(2, minmax(0, 11em)); gap: .45em; }
+.ui .lobby-settings .view-picker.view-shown { grid-template-columns: minmax(0, 11em); }
+.ui .lobby-settings .lobby-light { font-weight: 600; }
+.ui .lobby-settings .view-card, .ui .match-setup .view-card { padding: .3em; gap: .1em; font-size: .9em; }
+.ui .lobby-settings .view-card img, .ui .match-setup .view-card img, .ui .lobby-settings .view-card .view-both, .ui .match-setup .view-card .view-both { aspect-ratio: 16 / 9; }
+.ui .lobby-settings .view-card small, .ui .match-setup .view-card small { display: none; }
+/* The map's preview at the top of the right column. */
+.ui .lobby-side .map-preview.compact { flex: none; }
+.ui .lobby-side .map-preview.compact .map-preview-frame { width: 6em; }
+.ui .lobby-side .map-preview-actions .btn { min-height: 1.9em; padding: .1em .8em; font-size: .9em; }
+.ui .chatlog { flex: 1 1 auto; min-height: 4em; overflow: auto; padding: .5em .6em; border-radius: var(--ui-radius); background: rgba(0, 0, 0, .4);
   font-size: .9em; display: flex; flex-direction: column; gap: .2em; }
 .ui .chat-line { overflow-wrap: anywhere; }
 .ui .chat-line.sys { color: #e8c46a; font-style: italic; }
 .ui .chat-line.team b { color: #9fd38f; }
 .ui .chat-line.whisper { color: #f0a8f0; }
 .ui .chat-tag { font-size: .75em; padding: 0 .4em; margin-right: .35em; border-radius: .3em; background: rgba(255, 255, 255, .12); }
-.ui .chat-send { display: flex; gap: .4em; margin-top: .5em; }
-.ui .chat-send input { flex: 1; }
+.ui .chat-send { display: flex; gap: .4em; margin-top: .45em; }
+.ui .chat-send input { flex: 1; min-width: 0; }
 .ui .chat-send select { flex: none; max-width: 8em; }
-.ui .lobby-actions { display: flex; align-items: center; justify-content: flex-end; gap: .6em; flex-wrap: wrap; padding-top: .3em; }
+.ui .lobby-actions { display: flex; align-items: center; justify-content: flex-end; gap: .6em; flex-wrap: wrap; flex: none; }
 .ui .lobby-actions .hint { margin-right: auto; }
-/* A short window (a phone held sideways): one column that scrolls. */
-@media (max-width: 720px), (max-height: 460px) {
-  .ui .lobby-main { grid-template-columns: 1fr; }
-  .ui .chatlog { min-height: 6em; }
+/* A short window (a phone held sideways): the Visuals cards drop their pictures, the seats tighten up. */
+@media (max-height: 460px) {
+  .ui .lobby-settings .view-card img, .ui .lobby-settings .view-card .view-both { display: none; }
+  .ui .lobby-settings .view-card { padding: .3em .7em; }
+  .ui .seat { gap: .2em; padding: .3em .55em .35em; }
+  .ui .seat-who { min-height: 1.8em; }
+  .ui .lobby-main h3 { display: none; }
+  .ui .lobby-settings { margin-top: .5em; padding-top: .45em; }
+}
+/* A narrow window (portrait, which handhelds never show): one column that scrolls as a whole. */
+@media (max-width: 560px) {
+  .lobby-layer .window > .body { overflow: auto; }
+  .ui .lobby-main { grid-template-columns: 1fr; grid-template-rows: none; flex: none; }
+  .ui .lobby-seats, .ui .lobby-side { overflow: visible; }
+  .ui .lobby-chat { min-height: 12em; }
 }
 @media (max-height: 460px) {
   .ui .field { grid-template-columns: auto 1fr; }

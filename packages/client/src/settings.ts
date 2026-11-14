@@ -28,11 +28,11 @@ export interface Settings {
   volume: Volume;
   /** Options > Controls: keys the player has changed from the original layout, per half of the keyboard. */
   keys: Partial<Record<Half, Partial<Bindings>>>;
-  /** Options > Visuals: the retro 320 x 240 picture, or the modern 3D view at 1280 x 720. */
+  /** Options > View > Visuals (online, the host picks): the retro 320 x 240 picture, or the modern 3D view at 1280 x 720. */
   visuals: 'retro' | 'modern';
-  /** Options > Lighting: the modern view by day, or at night with headlights and glowing fire. */
+  /** Time of day on the Player Selector (online, the host picks): the modern view by day, or at night with headlights and glowing fire. */
   lighting: 'day' | 'night';
-  /** Options > Instruments: the band on the built-in synthesiser, or sampled from the site's SoundFont. */
+  /** Options > Sound and Music > Instruments: the band on the built-in synthesiser, or sampled from the site's SoundFont. */
   instruments: 'builtin' | 'sampled';
   /** The last choices on the Teams dialog, for offline games on maps with three or four bases. */
   teams: TeamChoice;
@@ -62,7 +62,7 @@ const KEY = 'rfw.settings';
 const DEFAULTS: Settings = {
   names: ['Brown', 'Green'], difficulty: DIFFICULTY.default, players: 1, level: 1, mapId: 'rfmap101',
   swapSides: false, scale: 'sharp', music: true,
-  volume: { master: 80, effects: 100, music: 70, muted: false }, keys: {}, visuals: 'retro', lighting: 'day', instruments: 'builtin',
+  volume: { master: 80, effects: 100, music: 70, muted: false }, keys: {}, visuals: 'modern', lighting: 'day', instruments: 'builtin',
   teams: { layout: '', handicap: false, together: false, bots: true },
 };
 

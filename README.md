@@ -16,7 +16,7 @@ Still to come: two-player maps of the project's own.
 
 **Playing**
 
-- Training (you against the computer, one full-screen view) and Two Players on one keyboard in split screen (desktop only). On a map with three or four bases both ask for the team layout (2v2, 2v1v1, 3v1 and so on, or everyone for themselves), and the computer plays every base without a player.
+- Training (you against the computer, one full-screen view) and Split Screen on one keyboard in split screen (desktop only). On a map with three or four bases both ask for the team layout (2v2, 2v1v1, 3v1 and so on, or everyone for themselves), and the computer plays every base without a player.
 - The 104 original two-player maps, and sixteen 3- and 4-base maps made from pieces of them on islands shaped like the originals', mirror-symmetric so every base gets the same layout ([docs/map-format.md](docs/map-format.md)).
 - Capture the flag: a base is out when an enemy jeep takes its flag home or it has no jeeps left. Home is the jeep's own base or any teammate's still in the match. The last team standing wins, and a player whose base is out watches a teammate.
 - An optional handicap, offline and in lobbies, helps the smaller side of an uneven match: extra vehicles in proportion, and a flag that must be captured three times (one base against two).
@@ -57,13 +57,13 @@ Still to come: two-player maps of the project's own.
 **Replays, options and music**
 
 - Every match is recorded in the browser (the last 20, plus any you star) and plays back at ¼× to 8× with pause, ten-second jumps, a timeline and a choice of player to follow. Replays save as `.rfwreplay.json` files or, signed in, to your account.
-- Options: rebind every vehicle key for either half of the keyboard, master, effects and music volume, built-in or sampled instruments for the band, retro or modern visuals, day or night lighting for the modern view, how the picture is scaled, and Swap Sides. Names, settings and the Hall of Fame are kept in the browser, and settings follow a signed-in account.
-- Music chosen the way the original's music director chose it, for each vehicle, the bunker, deaths, the flag, the win and the menus ([docs/music.md](docs/music.md)). The retro view plays MIDI band arrangements of public-domain music on an MT-32-style synthesiser, or, with Options > Instruments > Sampled, from the GeneralUser GS SoundFont (a 32 MB download the first time, then kept by the browser). The modern view has its own soundtrack: original hardcore, beatdown and metalcore instrumentals, with a breakdown in every piece, played on the synthesiser's guitar amp, bass and metal kit. Switching the view switches the music at once.
+- Options: rebind every vehicle key for either half of the keyboard, master, effects and music volume, built-in or sampled instruments for the band, retro or modern visuals, how the picture is scaled, and Swap Sides. Names, settings and the Hall of Fame are kept in the browser, and settings follow a signed-in account.
+- Music chosen the way the original's music director chose it, for each vehicle, the bunker, deaths, the flag, the win and the menus ([docs/music.md](docs/music.md)). The retro view plays MIDI band arrangements of public-domain music on an MT-32-style synthesiser, or, with Options > Sound and Music > Instruments > Sampled, from the GeneralUser GS SoundFont (a 32 MB download the first time, then kept by the browser). The modern view has its own soundtrack: original hardcore, beatdown and metalcore instrumentals, with a breakdown in every piece, played on the synthesiser's guitar amp, bass and metal kit. Switching the view switches the music at once.
 
 **The picture, and phones and tablets**
 
 - The 320 × 240 picture fills the browser at 4:3 with square pixels, with a subtle CRT look. The bars left over are pixel camouflage in the watching player's colour.
-- Options > Visuals switches to a modern view, at any time, even during a match: the same game drawn in 3D at 1280 × 720 (16:9) with low-poly toy-soldier models, sunlight and shadows, an animated sea, glowing explosions, smoke and debris, and a HUD that reads like a machine-vision analysis of the feed: tracking boxes with integrity on vehicles, gun towers and flag buildings, your fuel and ammunition beside your own vehicle, and a tactical plot for the radar. The bunker is a 3D cutaway of the hill with the vehicles parked in their bays and the lift carrying them up, the skull is a 3D skull in the rival's helmet, and messages, chat and the scoreboard use the menus' style too. It has its own hardcore and metalcore soundtrack. Options > Lighting picks day, or a dark night with headlights, glowing fire, and lit windows and lamps on the buildings. The picture is a surveillance drone's feed, and in a night match the THERMAL toggle beside the menu button (or its key, G or I, rebindable in Options > Controls) switches to a white-hot thermal camera that sees in the dark; each match starts with it off, and by day there is none. Colour-coded arrows at the edges point to where each rival's flag may be. The camera follows and zooms as the retro one does, so both show the same part of the map across, and retro and modern players can share an online match. It needs WebGL; without it the game stays retro. `/modern-gallery.html` in the dev server shows every modern model.
+- The modern view is the default (Style on the main menu, or Options > View > Visuals, switches between it and the classic one at any time, even during a match, and swaps the title picture): the same game drawn in 3D at 1280 × 720 (16:9) with low-poly toy-soldier models, sunlight and shadows, an animated sea, glowing explosions, smoke and debris, and a HUD that reads like a machine-vision analysis of the feed: tracking boxes with integrity on vehicles, gun towers and flag buildings, your fuel and ammunition beside your own vehicle, and a tactical plot for the radar. The bunker is a 3D cutaway of the hill with the vehicles parked in their bays and the lift carrying them up, the skull is a 3D skull in the rival's helmet, and messages, chat and the scoreboard use the menus' style too. It has its own hardcore and metalcore soundtrack. Time of day (on the Player Selector, or the host's pick online) is day, or a dark night with headlights, glowing fire, and lit windows and lamps on the buildings. The picture is a surveillance drone's feed, and in a night match the THERMAL toggle beside the menu button (or its key, G or I, rebindable in Options > Controls > Vehicle Keys) switches to a white-hot thermal camera that sees in the dark; each match starts with it off, and by day there is none. Colour-coded arrows at the edges point to where each rival's flag may be. The camera follows and zooms as the retro one does, so both show the same part of the map across, and online the host picks retro or modern for every player. It needs WebGL; without it the game stays retro. `/modern-gallery.html` in the dev server shows every modern model.
 - Phones and tablets play solo, in landscape, with on-screen controls ([Touch controls](#touch-controls)). Held upright they show a "turn your device sideways" notice and the match waits.
 
 ## Getting started
@@ -77,7 +77,7 @@ npm install
 npm run dev
 ```
 
-Then open http://localhost:5173. The Zombiecheese Productions splash plays first (press a key or tap to start it with sound, any key to skip it, or Esc to go straight to the title), then the title screen shows the menu; any key or tap brings it back after Esc. Play > Training (you against the computer, in one full-screen view) and Play > Two Players (two players on one keyboard, split screen) open the Player Selector for names and the computer's skill, then the Level Selector for the map; New Game (N) also lets you pick Training or Tournament, starting on Training. One player always gets the single view: split screen only appears when two people pick Two Players, and that choice is not remembered for the next visit. P pauses, Alt+R restarts, L shows the Hall of Fame, H shows every key and Esc leaves the game.
+Then open http://localhost:5173. The Zombiecheese Productions splash plays first (press a key or tap to start it with sound, any key to skip it, or Esc to go straight to the title), then the title screen shows the menu; any key or tap brings it back after Esc. Local Play > Training (you against the computer, in one full-screen view) and Local Play > Split Screen (two players on one keyboard, split screen) open the Player Selector for names, the difficulty, the time of day and the view, then the Level Selector for the map; New Game (N) also lets you pick Training or Split Screen, starting on Training. Online play is under Online and is always one player per screen. One player always gets the single view: split screen only appears when two people pick Split Screen, and that choice is not remembered for the next visit. P pauses, Alt+R restarts, L shows the Hall of Fame, H shows every key and Esc leaves the game.
 
 The level editor is at http://localhost:5173/editor.html. For online play (Online in the main menu), also run the game server: `npm run build -w @rfw/server && npm start` in a second terminal. See [docs/online.md](docs/online.md).
 
@@ -98,10 +98,10 @@ Help > Controls and Keys (H) in the game lists every key; it is built from the s
 | Launch jeep, tank, ASV, helicopter | 1 2 3 4, or drive keys and fire on the lift screen | 7 8 9 0 |
 | Thermal camera on / off (modern view, at night) | G | I |
 
-These are the original's keys; Options > Controls rebinds any of them for either half (Controls and Keys always shows
+These are the original's keys; Options > Controls > Vehicle Keys rebinds any of them for either half (Controls and Keys always shows
 the keys in use). A key the other half, a shortcut, chat or the menus use cannot be taken.
 In one-player mode (Training, online, and the editor's test play) either half of the keyboard works. Swap Sides
-(Alt+3, or Options > Swap Sides) gives player 1 the right-hand keys. The game is played with the keyboard, a mouse
+(Alt+3, or Options > Controls > Swap Sides) gives player 1 the right-hand keys. The game is played with the keyboard, a mouse
 for the menus, or touch on phones and tablets; there is no gamepad support.
 
 | Shortcut | |
@@ -132,7 +132,7 @@ menu is open the match takes none either.
 ### Touch controls
 
 Phones and tablets (a touch screen with no mouse, or any iPhone, iPad or Android device) get on-screen controls
-during a match, drawn as faded pixel buttons. They play solo only: Two Players and the level editor are not offered (`editor.html` shows a "Desktop only" notice).
+during a match, drawn as faded pixel buttons. They play solo only: Split Screen and the level editor are not offered (`editor.html` shows a "Desktop only" notice).
 
 | Control | What it does |
 | --- | --- |
@@ -149,7 +149,7 @@ during a match, drawn as faded pixel buttons. They play solo only: Two Players a
 | Chat, Scores (top, online) | Open the chat line (tap its label to pick who it goes to); show the scoreboard while held |
 | P1–P4 (top, out of the match or spectating) | Watch that player |
 
-Each control presses the left-hand key for its action, so rebinding in Options > Controls carries over.
+Each control presses the left-hand key for its action, so rebinding in Options > Controls > Vehicle Keys carries over.
 
 ## Deploying
 
@@ -173,7 +173,7 @@ The site serves the original's map layouts. Whether to open it to the internet i
 | `npm run art` | Builds the art pack (`assets/art/pack`) from the code in `tools/art/` and the drawings in `assets/art/cels/`. Commit the pack with the change that produced it; a test fails when it is out of date |
 | `npm run art-sheet` | Review sheets for the art pack: each sprite enlarged and numbered, written to `assets/generated/art-sheets/` (`-- --cels 0-93` picks sprites) |
 | `AUDIT=ffa3,ffa4,2v2 SEEDS=60 npx vitest run packages/sim/test/bot-audit.test.ts` | Bot balance audit: bot-only matches on the test arena, with wins and first-out counts per base appended to `bot-audit.txt` in the temp folder (PowerShell: set `$env:AUDIT` and `$env:SEEDS` first) |
-| `npm run soundfont` | Fetches the GeneralUser GS SoundFont to `assets/generated/music/` so Options > Instruments > Sampled works with the dev server (the Docker image has it already) |
+| `npm run soundfont` | Fetches the GeneralUser GS SoundFont to `assets/generated/music/` so Options > Sound and Music > Instruments > Sampled works with the dev server (the Docker image has it already) |
 | `npm run typecheck` | Type-checks all four packages |
 | `npm run build` / `npm start` | Production build, then serve it on port 8080 without Docker |
 

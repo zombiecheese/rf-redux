@@ -8,14 +8,14 @@ The title screen shows the menu after the splash. Any key or a tap brings it bac
 
 | Menu item | What it starts |
 | --- | --- |
-| **Play > Training** | You against the computer in one full-screen view |
-| **Play > Two Players** | Two players on one keyboard in split screen (desktop only) |
+| **Local Play > Training** | You against the computer in one full-screen view |
+| **Local Play > Split Screen** | Two players on one keyboard in split screen (desktop only) |
 | **Online** | Matches with other people. See [[Online Play]] |
 | **Replays** | Your recorded matches |
 | **Level Editor** | Make your own maps (desktop only). See [[Level Editor]] |
 | **Options** | Controls, sound, picture and Swap Sides |
 
-Training and Two Players open the **Player Selector** (names, the computer's skill, 1 to 9, and the view: Classic or Modern, each with a preview), then the **Level Selector**, which lists the maps by level 1 to 9 with a preview of each. On a map with three or four bases you are also asked for the team layout.
+Training and Split Screen open the **Player Selector** (names, the difficulty, 1 to 9, the time of day, Day or Night, and the view: Classic or Modern, each with a preview), laid out like an online lobby's match settings, then the **Level Selector**, which lists the maps by level 1 to 9 with a preview of each. On a map with three or four bases you are also asked for the team layout.
 
 ![The Level Selector with levels, maps and a map preview](images/level-selector.png)
 
@@ -40,7 +40,7 @@ Training and Two Players open the **Player Selector** (names, the computer's ski
 
 **H** in the game lists every key, always showing the keys in use.
 
-| | Player 1 (Brown) | Player 2 (Green, Two Players) |
+| | Player 1 (Brown) | Player 2 (Green, Split Screen) |
 | --- | --- | --- |
 | Drive | W A S D | Arrow keys |
 | Fire | Space | Enter |
@@ -62,7 +62,7 @@ What the second and third buttons do depends on the vehicle:
 
 On the lift screen the drive keys and fire also pick and launch a vehicle, or click a bay to pick it and click it again to launch.
 
-With one player (Training, online and the editor's test play) either half of the keyboard works. **Options > Controls** rebinds any vehicle key. There is no gamepad support.
+With one player (Training, online and the editor's test play) either half of the keyboard works. **Options > Controls > Vehicle Keys** rebinds any vehicle key. There is no gamepad support.
 
 ## Shortcuts
 
@@ -91,7 +91,7 @@ In the menus, the arrow keys move, Enter or Space picks, and Esc goes back. A mo
 
 ## Phones and tablets
 
-Phones and tablets play solo, in landscape, with faded on-screen buttons. Held upright, the game asks you to turn the device and the match waits. Two Players and the level editor are desktop only.
+Phones and tablets play solo, in landscape, with faded on-screen buttons. Held upright, the game asks you to turn the device and the match waits. Split Screen and the level editor are desktop only.
 
 | Control | Does |
 | --- | --- |
@@ -120,7 +120,7 @@ Phones and tablets play solo, in landscape, with faded on-screen buttons. Held u
 
 ![Split screen with two players and two cockpit panels](images/two-players.png)
 
-*Two Players: Brown on the left half, Green on the right, each with their own panel.*
+*Split Screen: Brown on the left half, Green on the right, each with their own panel.*
 
 ## Replays
 
@@ -142,8 +142,8 @@ Replays save as `.rfwreplay.json` files or, signed in, to your account.
 - **Controls:** rebind every vehicle key for either half of the keyboard.
 - **Sound:** master, effects and music volume. The retro view plays a military band; the modern view has a hardcore and metalcore soundtrack of its own.
 - **Instruments:** Built-in (the default) or Sampled, which plays the retro band from real instrument samples (the GeneralUser GS SoundFont). The first time you pick Sampled the game downloads it (32 MB); after that your browser keeps it. The modern soundtrack keeps its own guitars and drums either way.
-- **Visuals:** Retro (the original's 320 × 240 pixel picture with a subtle CRT look, the default) or Modern (the same game in 3D at 1280 × 720, with lighting, shadows and effects, a 3D bunker and skull, and modern messages and scoreboard). You can switch during a match; the game plays the same either way. The modern view is a surveillance drone's feed: grain, a lens, stream errors when something blows up nearby (worst when you are hit), and an overlay of the clock, altitude and grid. In a modern match at night, the **THERMAL** button beside the menu button, or its key (**G** left hand, **I** right hand, changed in Options > Controls), switches to a white-hot thermal camera that sees in the dark; each match starts with it off, and by day there is no thermal camera. Arrows at the edges in each rival's colour point to its flag buildings (any of them may hide the flag), to a flag lying in the open, and home while your jeep carries one.
-- **Lighting:** Day or Night for the modern view. Night is dark: the vehicles have headlights, explosions light up the ground, and street lamps, watchtowers and windows are lit. The lights are not clean discs: beams carry grime and scratches, and lamps throw the bars of their cages and flicker.
+- **Visuals** (also **Style** on the main menu, which swaps the title picture too): Modern (the default: the game in 3D at 1280 × 720, with lighting, shadows and effects, a 3D bunker and skull, and modern messages and scoreboard) or Classic (the original's 320 × 240 pixel picture with a subtle CRT look). The game remembers your pick. You can switch during a match; the game plays the same either way. The modern view is a surveillance drone's feed: grain, a lens, stream errors when something blows up nearby (worst when you are hit), and an overlay of the clock, altitude and grid. In a modern match at night, the **THERMAL** button beside the menu button, or its key (**G** left hand, **I** right hand, changed in Options > Controls > Vehicle Keys), switches to a white-hot thermal camera that sees in the dark; each match starts with it off, and by day there is no thermal camera. Arrows at the edges in each rival's colour point to its flag buildings (any of them may hide the flag), to a flag lying in the open, and home while your jeep carries one.
+- **Time of day** (on the Player Selector, or the host's pick online; not in Options): Day or Night. Night is dark: the vehicles have headlights, explosions light up the ground, and street lamps, watchtowers and windows are lit. The lights are not clean discs: beams carry grime and scratches, and lamps throw the bars of their cages and flicker.
 - **Picture:** how the picture is scaled.
 - **Swap Sides:** gives player 1 the right-hand keys.
 
