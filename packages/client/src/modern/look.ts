@@ -25,12 +25,15 @@ float grainNoise(vec2 p) {
   return mix(mix(grainHash(i), grainHash(i + vec2(1.0, 0.0)), f.x), mix(grainHash(i + vec2(0.0, 1.0)), grainHash(i + vec2(1.0, 1.0)), f.x), f.y);
 }
 // A headlight or searchlight through scratched, dirty glass: blotches across the beam, faint rings from the
-// reflector, and a slight flutter from the engine. Worked out across the cone, so the pattern travels with the beam.
+// reflector, and a slight flutter from the engine. Worked out across the cone in the world's directions, so the
+// pattern travels with the beam and nothing in it turns when the camera tilts or follows.
 float beamGrain(vec3 toLight, vec3 axis, float k) {
-  float c = max(dot(toLight, axis), 0.2);
-  vec3 side = normalize(cross(axis, abs(axis.y) < 0.9 ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0)));
-  vec3 up = cross(axis, side);
-  vec2 q = vec2(dot(toLight, side), dot(toLight, up)) / c;
+  vec3 l = (vec4(toLight, 0.0) * viewMatrix).xyz;
+  vec3 a = (vec4(axis, 0.0) * viewMatrix).xyz;
+  float c = max(dot(l, a), 0.2);
+  vec3 side = normalize(cross(a, abs(a.y) < 0.9 ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0)));
+  vec3 up = cross(a, side);
+  vec2 q = vec2(dot(l, side), dot(l, up)) / c;
   float blotch = grainNoise(q * 7.0 + k * 7.3) * 0.6 + grainNoise(q * 21.0 - k * 3.1) * 0.4;
   float rings = 0.5 + 0.5 * sin(length(q) * 46.0 + k);
   float grime = 1.0 - 0.6 * smoothstep(0.62, 0.8, grainNoise(q * 13.0 + vec2(k * 5.1, 2.0)));
@@ -39,7 +42,12 @@ float beamGrain(vec3 toLight, vec3 axis, float k) {
   return (0.3 + 1.05 * blotch * blotch) * (0.8 + 0.2 * rings) * grime * scratch * flutter;
 }
 // A lamp through its cage and grimy glass: soft bars of shadow round it, smudges, and an old bulb's or a flame's
-// flicker. Worked out in the world's directions, so the bars stand upright whatever the camera does.
+// flicker. Worked out in the world's directions, so the bars stand upright whatever the camera does, and seeded by
+// where the lamp stands, so each lamp keeps its own pattern and flicker however the lights are shared out.
+float lampSeed(vec3 lightPos) {
+  vec3 w = (vec4(lightPos - viewMatrix[3].xyz, 0.0) * viewMatrix).xyz;
+  return grainHash(floor(w.xz / 4.0 + 0.5)) * 23.0;
+}
 float lampGrain(vec3 toLight, float k) {
   vec3 d = normalize((vec4(-toLight, 0.0) * viewMatrix).xyz);
   float a = atan(d.x, d.z);
@@ -57,7 +65,7 @@ float lampGrain(vec3 toLight, float k) {
 export function grainLights(shader: { uniforms: Record<string, THREE.IUniform>; fragmentShader: string }): void {
   shader.uniforms.lightTime = LIGHT_TIME;
   const chunk = THREE.ShaderChunk.lights_fragment_begin
-    .replace('getPointLightInfo( pointLight, geometryPosition, directLight );', '$&\n\t\tdirectLight.color *= lampGrain( directLight.direction, float( UNROLLED_LOOP_INDEX ) );')
+    .replace('getPointLightInfo( pointLight, geometryPosition, directLight );', '$&\n\t\tdirectLight.color *= lampGrain( directLight.direction, lampSeed( pointLight.position ) );')
     .replace('getSpotLightInfo( spotLight, geometryPosition, directLight );', '$&\n\t\tdirectLight.color *= beamGrain( directLight.direction, spotLight.direction, float( UNROLLED_LOOP_INDEX ) );');
   shader.fragmentShader = shader.fragmentShader
     .replace('void main() {', `${GRAIN_GLSL}\nvoid main() {`)
