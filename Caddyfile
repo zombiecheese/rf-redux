@@ -1,0 +1,6 @@
+# HTTPS for the game server (the caddy service in docker-compose.yml). Caddy gets and renews the certificate
+# for RF_DOMAIN by itself; WebSockets (/ws) pass through reverse_proxy unchanged.
+{$RF_DOMAIN} {
+	encode zstd gzip
+	reverse_proxy web:8080
+}

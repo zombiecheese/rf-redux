@@ -1,0 +1,426 @@
+/*
+ * The game page's menus and panels: the on-screen menu (menu.ts), the dialogs (dialogs.ts) and the online screens
+ * (online/ui.ts). Dark glass panels over the title art, sized from the window's smaller side so they read the same
+ * on a phone held sideways and on a big monitor. The level editor keeps the Win95 look (w95.css).
+ */
+:root {
+  --ui-size: clamp(12px, 2.5vmin, 20px);
+  --ui-panel: rgba(16, 19, 15, .88);
+  --ui-raise: rgba(255, 255, 255, .06);
+  --ui-hover: rgba(255, 255, 255, .12);
+  --ui-line: rgba(255, 255, 255, .14);
+  --ui-text: #ece7d8;
+  --ui-muted: #a39f8f;
+  --ui-accent: #e3a33b;
+  --ui-accent-ink: #1d1406;
+  --ui-good: #7cc46a;
+  --ui-bad: #e0644c;
+  --ui-radius: .6em;
+}
+
+.ui { font: var(--ui-size)/1.35 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color: var(--ui-text); }
+.ui button, .ui input, .ui select { font: inherit; color: inherit; }
+.ui :focus-visible { outline: 2px solid var(--ui-accent); outline-offset: 2px; }
+.ui b { color: #fff; }
+
+/* ---- The menu ---- */
+
+.main-menu { position: fixed; inset: 0; z-index: 15; display: flex; align-items: center; pointer-events: none;
+  padding: max(2vmin, env(safe-area-inset-top)) max(3vmin, env(safe-area-inset-right)) max(2vmin, env(safe-area-inset-bottom)) max(3vmin, env(safe-area-inset-left)); }
+.main-menu[hidden] { display: none; }
+/* Over a match the menu sits in the middle of a dimmed picture. */
+body[data-screen=game] .main-menu { justify-content: center; background: rgba(0, 0, 0, .45); pointer-events: auto; }
+.menu-panel { pointer-events: auto; width: min(22em, 46vw); max-height: 100%; display: flex; flex-direction: column; gap: .5em; padding: .9em;
+  background: var(--ui-panel); border: 1px solid var(--ui-line); border-radius: calc(var(--ui-radius) * 1.6);
+  box-shadow: 0 1em 3em rgba(0, 0, 0, .55); backdrop-filter: blur(6px); animation: menu-in .18s ease-out; }
+@keyframes menu-in { from { opacity: 0; transform: translateX(-.8em); } }
+.menu-head { display: flex; align-items: center; gap: .4em; min-height: 2em; padding: 0 .2em; }
+.menu-title { font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--ui-accent); }
+/* The pixel-art logo (logo.ts), at whole-pixel scale where the panel allows. */
+.menu-logo { display: block; width: 100%; max-width: 320px; margin: 0 auto; image-rendering: pixelated; }
+.mi-back { width: 2em; height: 2em; border-radius: 50%; border: 1px solid var(--ui-line); background: var(--ui-raise); font-size: 1.1em; line-height: 1; cursor: pointer; }
+.mi-back:hover { background: var(--ui-hover); }
+.menu-list { display: flex; flex-direction: column; gap: .35em; overflow: auto; padding: .15em; }
+.mi { display: flex; align-items: center; justify-content: space-between; gap: .8em; min-height: 2.6em; padding: .45em .9em; text-align: left;
+  background: var(--ui-raise); border: 1px solid transparent; border-radius: var(--ui-radius); cursor: pointer;
+  transition: background .1s, border-color .1s, transform .1s; touch-action: manipulation; }
+.mi:hover, .mi:focus-visible { background: var(--ui-hover); border-color: var(--ui-accent); outline: none; }
+.mi:active { transform: scale(.98); }
+.mi:disabled { opacity: .4; cursor: default; }
+.mi.primary { background: var(--ui-accent); color: var(--ui-accent-ink); font-weight: 700; }
+.mi.primary:hover, .mi.primary:focus-visible { background: #f0b552; border-color: #fff; }
+.mi-text { display: flex; flex-direction: column; min-width: 0; }
+.mi-label { font-weight: 600; }
+.mi-hint { font-size: .78em; opacity: .7; }
+.mi-key, .mi-value, .mi-more { flex: none; font-size: .8em; opacity: .75; }
+.mi-key:not(:empty) { padding: .1em .45em; border: 1px solid currentColor; border-radius: .35em; }
+.mi-value { opacity: 1; padding: .15em .6em; border-radius: 1em; background: rgba(0, 0, 0, .35); color: var(--ui-accent); font-weight: 600; }
+.mi-more { font-size: 1.3em; line-height: 1; }
+.mi-note { padding: .3em .9em; font-size: .85em; color: var(--ui-muted); }
+.menu-foot { font-size: .78em; color: var(--ui-muted); padding: 0 .3em; }
+.menu-foot:empty { display: none; }
+
+/* The menu button over a match: faint until the pointer comes near, always there for a finger. */
+.menu-fab { display: none; position: fixed; z-index: 12; top: max(1.2vmin, env(safe-area-inset-top)); left: max(1.2vmin, env(safe-area-inset-left));
+  width: 2.4em; height: 2.4em; border-radius: 50%; border: 1px solid rgba(255, 255, 255, .3); background: rgba(0, 0, 0, .45); color: #fff;
+  font: 600 var(--ui-size)/1 system-ui, sans-serif; cursor: pointer; opacity: .25; transition: opacity .15s; }
+body[data-screen=game]:not(.menu-open) .menu-fab { display: block; }
+.menu-fab:hover, .menu-fab:focus-visible, body.handheld .menu-fab { opacity: .85; }
+
+/* ---- Dialogs ---- */
+
+.dialog-layer { position: fixed; inset: 0; z-index: 30; display: grid; place-items: center; padding: 2vmin; background: rgba(0, 0, 0, .5); }
+.ui.window { display: flex; flex-direction: column; min-width: min(18em, 100%); max-width: min(46em, 100%); max-height: 100%;
+  background: var(--ui-panel); border: 1px solid var(--ui-line); border-radius: calc(var(--ui-radius) * 1.6);
+  box-shadow: 0 1.2em 3.5em rgba(0, 0, 0, .6); backdrop-filter: blur(8px); overflow: hidden; animation: dialog-in .16s ease-out; }
+@keyframes dialog-in { from { opacity: 0; transform: scale(.97); } }
+.ui .titlebar { display: flex; align-items: center; gap: .6em; padding: .65em .8em .5em 1.1em; font-weight: 700; letter-spacing: .03em;
+  border-bottom: 1px solid var(--ui-line); }
+.ui .titlebar > span:first-child { flex: 1; }
+.ui .close { flex: none; width: 1.9em; height: 1.9em; border-radius: 50%; border: 0; background: var(--ui-raise); font-size: 1em; line-height: 1; cursor: pointer; }
+.ui .close:hover { background: var(--ui-bad); color: #fff; }
+.ui .body { display: flex; flex-direction: column; gap: .9em; padding: .9em 1.1em 1em; overflow: auto; min-height: 0; }
+.ui p { margin: 0; max-width: 48ch; }
+.ui .hint { color: var(--ui-muted); font-size: .85em; }
+.ui .buttons { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: .5em; }
+.ui .btn { min-height: 2.3em; padding: .35em 1em; border-radius: var(--ui-radius); border: 1px solid var(--ui-line); background: var(--ui-raise);
+  font-weight: 600; cursor: pointer; touch-action: manipulation; white-space: nowrap; }
+.ui .btn:hover { background: var(--ui-hover); }
+.ui .btn:active { transform: scale(.97); }
+.ui .btn.default { background: var(--ui-accent); color: var(--ui-accent-ink); border-color: transparent; }
+.ui .btn.default:hover { background: #f0b552; }
+.ui .btn.quiet { background: none; color: var(--ui-text); border-color: var(--ui-line); }
+.ui .btn.quiet:hover { background: var(--ui-hover); }
+.ui .btn.small { min-height: 1.8em; padding: .15em .6em; font-size: .85em; }
+.ui .btn:disabled { opacity: .45; cursor: default; }
+
+.ui [hidden] { display: none !important; }
+.ui fieldset { margin: 0; padding: .6em .8em .8em; border: 1px solid var(--ui-line); border-radius: var(--ui-radius); display: flex; flex-direction: column; gap: .4em; }
+.ui legend { padding: 0 .4em; color: var(--ui-muted); font-size: .8em; text-transform: uppercase; letter-spacing: .1em; }
+.ui input[type=text], .ui input[type=email], .ui input[type=password], .ui input[type=search], .ui select, .ui .listview {
+  min-height: 2.2em; padding: .3em .6em; border-radius: calc(var(--ui-radius) * .8); border: 1px solid var(--ui-line);
+  background: rgba(0, 0, 0, .4); color: var(--ui-text); min-width: 0; }
+.ui select option, .ui select optgroup { background: #1c201a; color: var(--ui-text); }
+.ui input:focus, .ui select:focus { border-color: var(--ui-accent); outline: none; }
+.ui .listview { padding: .3em; flex: 1; min-width: 12em; }
+.ui .listview option { padding: .25em .4em; border-radius: .3em; }
+.ui .listview option:checked { background: var(--ui-accent) linear-gradient(var(--ui-accent), var(--ui-accent)); color: var(--ui-accent-ink); }
+.ui .cols { display: flex; flex-wrap: wrap; gap: .9em; align-items: stretch; }
+.ui .grow { flex: 1; display: flex; flex-direction: column; gap: .3em; }
+.ui .caption { color: var(--ui-muted); font-size: .8em; text-transform: uppercase; letter-spacing: .1em; }
+.ui .stack { display: flex; flex-direction: column; gap: .7em; }
+.ui .row { display: flex; flex-wrap: wrap; align-items: center; gap: .5em; }
+.ui .field { display: grid; grid-template-columns: minmax(6em, auto) 1fr; align-items: center; gap: .6em; }
+.ui .inline { display: inline-flex; align-items: center; gap: .5em; flex-wrap: wrap; }
+.ui .check { display: flex; align-items: center; gap: .5em; cursor: pointer; }
+.ui .check input { width: 1.2em; height: 1.2em; accent-color: var(--ui-accent); }
+.ui .scroll { max-height: 52vh; overflow: auto; border-radius: var(--ui-radius); }
+
+/* Radio buttons are pill toggles; a set of them reads as one switch. */
+.ui .radio { position: relative; display: inline-flex; align-items: center; padding: .3em .85em; border-radius: 1.2em; border: 1px solid var(--ui-line);
+  background: var(--ui-raise); cursor: pointer; white-space: nowrap; touch-action: manipulation; }
+.ui .radio input { position: absolute; opacity: 0; pointer-events: none; }
+.ui .radio:hover { background: var(--ui-hover); }
+.ui .radio:has(input:checked) { background: var(--ui-accent); color: var(--ui-accent-ink); border-color: transparent; font-weight: 600; }
+.ui .radio:has(input:disabled) { opacity: .35; cursor: default; }
+.ui .radio:has(input:focus-visible) { outline: 2px solid var(--ui-accent); outline-offset: 2px; }
+.ui fieldset:has(> .radio) { flex-direction: row; flex-wrap: wrap; align-items: flex-start; align-content: flex-start; }
+.ui fieldset.levels { flex-direction: column; flex-wrap: nowrap; align-items: stretch; }
+.ui .segmented { display: inline-flex; flex-wrap: wrap; gap: .3em; }
+
+.ui .grid { border-collapse: collapse; white-space: nowrap; width: 100%; }
+.ui .grid th { text-align: left; font-weight: 600; color: var(--ui-muted); font-size: .85em; padding: .4em .7em; border-bottom: 1px solid var(--ui-line);
+  position: sticky; top: 0; background: #181c16; }
+.ui .grid td { padding: .35em .7em; border-bottom: 1px solid rgba(255, 255, 255, .05); }
+.ui .grid td.num { text-align: right; }
+.ui .grid tbody th { position: static; background: none; }
+.ui .grid td.none { color: var(--ui-muted); text-align: center; padding: 1em; }
+.ui .grid tr.picked td { background: rgba(227, 163, 59, .2); }
+.ui .grid.help th { color: var(--ui-accent); }
+
+.ui .toolbar { display: flex; flex-wrap: wrap; gap: .5em; align-items: center; }
+.ui .toolbar input[type=search] { flex: 1 1 10em; }
+.ui .empty { padding: 1.4em; text-align: center; color: var(--ui-muted); }
+.ui .badge { display: inline-block; padding: .05em .55em; margin-left: .45em; border-radius: 1em; font-size: .75em; font-weight: 600; vertical-align: middle;
+  background: rgba(255, 255, 255, .1); color: var(--ui-muted); }
+.ui .badge.live { background: rgba(224, 100, 76, .25); color: #ff9a85; }
+.ui .badge.ready { background: rgba(124, 196, 106, .2); color: var(--ui-good); }
+.ui .badge.you { background: var(--ui-accent); color: var(--ui-accent-ink); }
+.ui .result-title { font-size: 1.4em; font-weight: 700; color: var(--ui-accent); }
+.ui .code-input { font: 700 1.6em/1 ui-monospace, "Cascadia Mono", Menlo, monospace; letter-spacing: .3em; text-transform: uppercase; text-align: center; }
+
+/* ---- Online: the lobby browser and the map picker ---- */
+
+.ui .browse { width: min(40em, 86vw); }
+.ui .lobby-list, .ui .map-list { display: flex; flex-direction: column; gap: .35em; max-height: 46vh; overflow: auto; padding: .1em; }
+.ui .lobby-row { display: flex; align-items: center; gap: .8em; padding: .6em .8em; border-radius: var(--ui-radius); background: var(--ui-raise); }
+.ui .lobby-row-main { flex: 1; min-width: 0; }
+.ui .lobby-row-name { font-weight: 600; }
+.ui .lobby-row-meta { color: var(--ui-muted); font-size: .85em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ui .lobby-row-actions { display: flex; gap: .4em; }
+.ui .map-picker { display: flex; flex-direction: column; gap: .5em; width: min(52em, 88vw); }
+.ui.window:has(.map-picker), .ui.window:has(.level-selector) { max-width: min(60em, 100%); }
+.ui .map-picker-body { display: flex; flex-wrap: wrap; gap: .8em; align-items: flex-start; }
+.ui .map-picker-body .map-list { flex: 1 1 18em; min-width: 0; }
+.ui .map-picker-body .map-preview { flex: 0 1 16em; }
+.ui .map-picker-body .map-preview-frame { width: min(100%, 40vh); }
+/* Host a Game has its settings above the picker too. */
+.ui .host .map-picker-body .map-preview-frame { width: min(100%, 28vh); }
+.ui .map-list { max-height: 38vh; }
+.ui .map-row { display: flex; align-items: center; gap: .6em; padding: .45em .8em; text-align: left; border-radius: var(--ui-radius); border: 1px solid transparent;
+  background: var(--ui-raise); cursor: pointer; }
+.ui .map-row:hover { background: var(--ui-hover); }
+.ui .map-row.picked { border-color: var(--ui-accent); background: rgba(227, 163, 59, .16); }
+.ui .map-name { flex: 1; min-width: 0; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ui .map-group { color: var(--ui-muted); font-size: .8em; }
+.ui .badge.bases-3, .ui .badge.bases-4 { background: rgba(227, 163, 59, .25); color: var(--ui-accent); }
+
+/* ---- Map previews (mappreview.ts): the Level Selector, the map picker and the lobby ---- */
+
+.ui .map-preview { display: flex; flex-direction: column; gap: .5em; min-width: 0; }
+.ui .map-preview-frame { position: relative; display: grid; place-items: center; aspect-ratio: 1; border-radius: var(--ui-radius); overflow: hidden;
+  background: #0b1a24; border: 1px solid var(--ui-line); box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .5); }
+.ui .map-preview-picture { width: 100%; height: 100%; object-fit: contain; image-rendering: pixelated; display: block; }
+.ui .map-preview-picture[hidden] { display: none; }
+.ui .map-preview-frame.loading::after, .ui .map-preview-frame.none::after { position: absolute; color: var(--ui-muted); font-size: .85em; }
+.ui .map-preview-frame.loading::after { content: 'Drawing the map…'; }
+.ui .map-preview-frame.none::after { content: 'No preview'; }
+.ui .map-preview-text { display: flex; flex-direction: column; gap: .2em; min-width: 0; }
+.ui .map-preview-name { font-size: 1.05em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ui .map-preview-meta { color: var(--ui-muted); font-size: .85em; }
+.ui .map-preview-bases { display: flex; flex-wrap: wrap; gap: .25em .7em; font-size: .8em; color: var(--ui-muted); }
+.ui .map-preview-base { display: inline-flex; align-items: center; gap: .35em; }
+.ui .map-preview-base i { width: .75em; height: .75em; border-radius: 50%; box-shadow: 0 0 0 2px rgba(0, 0, 0, .4); }
+.ui .cols.level-selector { flex-wrap: nowrap; }
+.ui .level-selector > .grow { min-width: 0; }
+.ui .level-selector .listview { width: 100%; min-width: 9em; }
+.ui .level-selector .preview-col { flex: 0 1 16em; min-width: 10em; }
+.ui .map-preview-actions:not(:empty) { margin-top: .3em; }
+.ui .map-preview.compact { flex-direction: row; align-items: center; gap: .8em; grid-column: 1 / -1; }
+.ui .map-preview.compact .map-preview-frame { flex: none; width: 7.5em; }
+
+/* ---- Online: the lobby ---- */
+
+.lobby-layer { background: none; pointer-events: none; }
+.lobby-layer[hidden] { display: none; }
+.lobby-layer .window > .body > * { flex-shrink: 0; }
+.lobby-layer .window { pointer-events: auto; width: min(58em, 100%); max-width: min(58em, 100%); max-height: 100%; }
+.ui .lobby-heading { flex: 1; min-width: 0; display: flex; align-items: center; flex-wrap: wrap; }
+.ui .lobby-title { font-size: 1.15em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ui .lobby-invite { display: flex; align-items: center; gap: .6em; flex-wrap: wrap; }
+.ui .invite-label { color: var(--ui-muted); font-size: .8em; text-transform: uppercase; letter-spacing: .1em; }
+.ui .code { font: 700 1.25em/1 ui-monospace, "Cascadia Mono", Menlo, monospace; letter-spacing: .2em; padding: .25em .55em; border-radius: .4em;
+  background: rgba(0, 0, 0, .45); color: var(--ui-accent); user-select: all; }
+.ui .lobby-main { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 1em; min-height: 0; }
+.ui .lobby-main h3 { margin: 0 0 .5em; font-size: .8em; text-transform: uppercase; letter-spacing: .12em; color: var(--ui-muted); }
+.ui .lobby-seats, .ui .lobby-chat { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+.ui .seats { display: grid; grid-template-columns: repeat(auto-fill, minmax(12.5em, 1fr)); gap: .5em; }
+.ui .seat { --side: #888; display: flex; flex-direction: column; gap: .4em; padding: .55em .7em .65em; border-radius: var(--ui-radius);
+  background: linear-gradient(90deg, color-mix(in srgb, var(--side) 22%, transparent), var(--ui-raise) 70%);
+  border: 1px solid color-mix(in srgb, var(--side) 55%, transparent); border-left: .35em solid var(--side); }
+.ui .seat.closed { opacity: .55; }
+.ui .seat-side { display: flex; align-items: center; gap: .45em; font-size: .8em; color: var(--ui-muted); }
+.ui .seat-side select { margin-left: auto; min-height: 1.9em; padding: .1em .4em; }
+.ui .seat-side .badge { margin-left: auto; }
+.ui .swatch { width: .8em; height: .8em; border-radius: 50%; background: var(--side); box-shadow: 0 0 0 2px rgba(0, 0, 0, .4); }
+.ui .seat-who { min-height: 2em; display: flex; align-items: center; }
+.ui .seat-who select { width: 100%; }
+.ui .seat-name { font-weight: 700; font-size: 1.05em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ui .seat-name.muted { color: var(--ui-muted); font-weight: 400; font-style: italic; }
+.ui .seat-extra { display: flex; align-items: center; gap: .4em; flex-wrap: wrap; min-height: 1.4em; }
+.ui .seat-extra .badge { margin-left: 0; }
+.ui .seat-extra .btn { margin-left: auto; }
+.ui .lobby-settings { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .5em .8em; margin-top: .8em; padding-top: .7em; border-top: 1px solid var(--ui-line); }
+.ui .lobby-settings .field { grid-template-columns: 1fr; gap: .2em; }
+.ui .lobby-settings .field > span:first-child { color: var(--ui-muted); font-size: .75em; text-transform: uppercase; letter-spacing: .1em; }
+.ui .seat select, .ui .lobby-settings select { min-height: 1.9em; padding: .1em .45em; }
+.ui .chatlog { flex: 1; min-height: 8em; max-height: 34vh; overflow: auto; padding: .5em .6em; border-radius: var(--ui-radius); background: rgba(0, 0, 0, .4);
+  font-size: .9em; display: flex; flex-direction: column; gap: .2em; }
+.ui .chat-line { overflow-wrap: anywhere; }
+.ui .chat-line.sys { color: #e8c46a; font-style: italic; }
+.ui .chat-line.team b { color: #9fd38f; }
+.ui .chat-line.whisper { color: #f0a8f0; }
+.ui .chat-tag { font-size: .75em; padding: 0 .4em; margin-right: .35em; border-radius: .3em; background: rgba(255, 255, 255, .12); }
+.ui .chat-send { display: flex; gap: .4em; margin-top: .5em; }
+.ui .chat-send input { flex: 1; }
+.ui .chat-send select { flex: none; max-width: 8em; }
+.ui .lobby-actions { display: flex; align-items: center; justify-content: flex-end; gap: .6em; flex-wrap: wrap; padding-top: .3em; }
+.ui .lobby-actions .hint { margin-right: auto; }
+/* A short window (a phone held sideways): one column that scrolls. */
+@media (max-width: 720px), (max-height: 460px) {
+  .ui .lobby-main { grid-template-columns: 1fr; }
+  .ui .chatlog { min-height: 6em; }
+}
+@media (max-height: 460px) {
+  .ui .field { grid-template-columns: auto 1fr; }
+  .menu-panel { width: min(20em, 52vw); }
+  .mi { min-height: 2.3em; padding: .3em .8em; }
+}
+
+/* ---- The admin panel (admin/panel.ts): full screen over the game, below its dialogs ---- */
+
+.dialog-layer.admin-layer { z-index: 28; place-items: stretch; background: rgba(0, 0, 0, .55); }
+.ui.admin-window { width: 100%; max-width: 78em; margin: 0 auto; height: 100%; max-height: 100%; font-size: clamp(12px, 1.9vmin, 16px); }
+.admin-window .admin-who { color: var(--ui-muted); font-weight: 400; font-size: .85em; }
+.admin-nav { display: flex; gap: .3em; padding: .5em 1em; border-bottom: 1px solid var(--ui-line); overflow-x: auto; flex: none; }
+.admin-nav button { flex: none; padding: .35em .9em; border-radius: 1.2em; border: 1px solid transparent; background: none; cursor: pointer; font-weight: 600; color: var(--ui-muted); }
+.admin-nav button:hover { background: var(--ui-hover); color: var(--ui-text); }
+.admin-nav button.on { background: var(--ui-accent); color: var(--ui-accent-ink); }
+.admin-main { display: flex; flex-direction: column; gap: 1em; }
+.admin-main section, .admin-main .card { background: var(--ui-raise); border: 1px solid var(--ui-line); border-radius: var(--ui-radius); padding: .9em 1em; }
+.admin-main h2 { font-size: .85em; margin: 0 0 .7em; text-transform: uppercase; letter-spacing: .1em; color: var(--ui-accent); }
+.admin-main .tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(11em, 1fr)); gap: .6em; }
+.admin-main .tile { background: var(--ui-raise); border: 1px solid var(--ui-line); border-radius: var(--ui-radius); padding: .6em .8em; }
+.admin-main .tile b { display: block; font-size: 1.6em; }
+.admin-main .tile span { color: var(--ui-muted); font-size: .8em; }
+.admin-main table { border-collapse: collapse; width: 100%; }
+.admin-main th, .admin-main td { text-align: left; padding: .4em .6em; border-bottom: 1px solid rgba(255, 255, 255, .06); vertical-align: top; }
+.admin-main th { color: var(--ui-muted); font-weight: 600; font-size: .8em; }
+.admin-main tr.click { cursor: pointer; }
+.admin-main tr.click:hover td { background: rgba(227, 163, 59, .12); }
+.admin-main .grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(22em, 100%), 1fr)); gap: 1em; }
+.admin-main .scroll { max-height: 26em; }
+.admin-main a { color: var(--ui-accent); }
+.ui code { background: rgba(0, 0, 0, .4); padding: .05em .35em; border-radius: .3em; }
+.ui label.f { display: grid; gap: .25em; color: var(--ui-muted); font-size: .9em; }
+.ui label.f > :is(input, select, textarea) { color: var(--ui-text); font-size: 1.1em; }
+.ui textarea { width: 100%; min-height: 5em; padding: .4em .6em; border-radius: calc(var(--ui-radius) * .8); border: 1px solid var(--ui-line); background: rgba(0, 0, 0, .4); color: var(--ui-text); resize: vertical; }
+.ui input[type=number], .ui input[type=datetime-local] { min-height: 2.2em; padding: .3em .6em; border-radius: calc(var(--ui-radius) * .8); border: 1px solid var(--ui-line); background: rgba(0, 0, 0, .4); color: var(--ui-text); }
+.ui .act { min-height: 2em; padding: .25em .85em; border-radius: var(--ui-radius); border: 1px solid var(--ui-line); background: var(--ui-raise); cursor: pointer; font-weight: 600; }
+.ui .act:hover { background: var(--ui-hover); }
+.ui .act.primary { background: var(--ui-accent); color: var(--ui-accent-ink); border-color: transparent; }
+.ui .act.danger { color: var(--ui-bad); border-color: rgba(224, 100, 76, .5); }
+.ui .muted { color: var(--ui-muted); }
+.ui .bad { color: var(--ui-bad); }
+.ui .ok { color: var(--ui-good); }
+.ui .warn { color: #f0b552; }
+.admin-form { min-width: min(22em, 80vw); }
+
+/* ---- Notices ---- */
+
+.toasts { position: fixed; right: max(1vmin, env(safe-area-inset-right)); bottom: 1vmin; z-index: 40; display: flex; flex-direction: column; gap: .4em; max-width: min(24em, 90vw); }
+.ui .toast { padding: .6em .9em; border-radius: var(--ui-radius); background: var(--ui-panel); border: 1px solid var(--ui-line); border-left: .3em solid var(--ui-accent);
+  box-shadow: 0 .5em 1.5em rgba(0, 0, 0, .5); }
+
+@media (prefers-reduced-motion: reduce) {
+  .menu-panel, .ui.window { animation: none; }
+}
+
+/* Options > Sound and Options > Controls (options.ts) */
+.ui .field.slider { grid-template-columns: minmax(6em, auto) 1fr 2.5em; }
+.ui .field.slider input[type=range] { width: 100%; accent-color: var(--ui-accent); }
+.ui .field.slider output { text-align: right; font-variant-numeric: tabular-nums; }
+.ui .controls .btn.key { min-width: 7em; }
+.ui .controls .btn.key.waiting { background: var(--ui-accent); color: var(--ui-accent-ink); }
+
+/* The bar over a playing replay (replays.ts), at the top so the HUD stays in view */
+.replay-bar { position: fixed; z-index: 11; left: 50%; top: max(1.5vmin, env(safe-area-inset-top)); transform: translateX(-50%);
+  width: min(46em, calc(100vw - 32px)); display: flex; flex-direction: column; gap: .4em; padding: .55em .8em; border-radius: var(--ui-radius);
+  background: rgba(14, 16, 20, .82); border: 1px solid var(--ui-line); backdrop-filter: blur(6px); opacity: .45; transition: opacity .2s; }
+.replay-bar:hover, .replay-bar:focus-within, body.handheld .replay-bar { opacity: 1; }
+body.menu-open .replay-bar { display: none; }
+.replay-bar input[type=range] { width: 100%; accent-color: var(--ui-accent); }
+.replay-bar .time, .replay-bar .speed { font-variant-numeric: tabular-nums; min-width: 3em; text-align: center; }
+.replay-bar .time { margin-left: auto; }
+.replay-bar .follow { font-size: .9em; }
+.replay-bar .warn:empty { display: none; }
+
+/* Online > Friends (online/friends.ts) */
+.ui .friends-list { display: flex; flex-direction: column; gap: .35em; min-width: min(32em, 80vw); }
+.ui .friend-row { display: flex; align-items: center; justify-content: space-between; gap: .8em; padding: .45em .6em;
+  border-radius: var(--ui-radius); background: rgba(255, 255, 255, .04); }
+.ui .friend-name { font-weight: 600; }
+.ui .friend-row.offline .friend-name { color: var(--ui-muted); }
+.ui .friend-row.playing .friend-name::before, .ui .friend-row.lobby .friend-name::before, .ui .friend-row.online .friend-name::before,
+.ui .friend-row.watching .friend-name::before { content: '● '; color: #6fcf7a; }
+.ui .friend-row.invite, .ui .friend-row.request { border: 1px solid var(--ui-accent); }
+.ui .friends .toolbar input { flex: 1; }
+.ui .replays h3 { margin: .3em 0 0; font-size: 1em; color: var(--ui-muted); }
+.ui .replays .scroll { max-height: 28vh; }
+body.replay .menu-fab { display: none; }
+
+/* ---- Phones and tablets (touch.ts) ----
+ * Held upright, a notice covers everything (menus and dialogs too) until the device is turned; a match waits.
+ * In landscape, see-through pixel controls sit over the camo either side of the panel during a match: drawn in
+ * solid colours with the whole control faded, so their stepped edges stay crisp like the game's pixels. */
+@media (orientation: portrait) {
+  body.handheld #rotate { display: flex; }
+  body.handheld canvas { visibility: hidden; }
+}
+#rotate { display: none; position: fixed; inset: 0; z-index: 100; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
+  padding: 24px; text-align: center; background: #10130f; color: var(--ui-muted); font: 15px/1.4 system-ui, -apple-system, sans-serif; }
+#rotate b { color: var(--ui-accent); font: 700 20px/1.2 "Courier New", monospace; letter-spacing: 2px; text-transform: uppercase; }
+#rotate span { max-width: 22em; }
+/* A pixel phone that turns on its side, in steps like a sprite. */
+.rotate-phone { position: relative; width: 48px; height: 84px; margin-bottom: 18px; background: var(--ui-text);
+  clip-path: polygon(6px 0, calc(100% - 6px) 0, calc(100% - 6px) 3px, calc(100% - 3px) 3px, calc(100% - 3px) 6px, 100% 6px,
+    100% calc(100% - 6px), calc(100% - 3px) calc(100% - 6px), calc(100% - 3px) calc(100% - 3px), calc(100% - 6px) calc(100% - 3px),
+    calc(100% - 6px) 100%, 6px 100%, 6px calc(100% - 3px), 3px calc(100% - 3px), 3px calc(100% - 6px), 0 calc(100% - 6px), 0 6px,
+    3px 6px, 3px 3px, 6px 3px);
+  animation: rotate-phone 2.4s steps(1) infinite; }
+.rotate-phone::before { content: ""; position: absolute; inset: 9px 6px 15px; background: #3d6b8f; }
+.rotate-phone::after { content: ""; position: absolute; left: 50%; bottom: 5px; width: 6px; height: 6px; margin-left: -3px; background: #10130f; }
+@keyframes rotate-phone {
+  0%, 35% { transform: rotate(0); }
+  40% { transform: rotate(-30deg); }
+  45% { transform: rotate(-60deg); }
+  50%, 85% { transform: rotate(-90deg); }
+  90% { transform: rotate(-45deg); }
+}
+
+.touch { --t: clamp(44px, 13vmin, 70px); --edge: #f2ead2; --fill: #262b21; display: none; font: 700 calc(var(--t) * .24) / 1 "Courier New", monospace;
+  letter-spacing: 1px; text-transform: uppercase; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+body.handheld.playing:not(.replay) .touch { display: block; }
+.touch-btn { display: none; place-items: center; position: absolute; padding: 0; border: 0; color: #fff; background: var(--fill);
+  box-shadow: inset 0 0 0 3px var(--edge); opacity: .5; touch-action: none; cursor: pointer; font: inherit; letter-spacing: inherit;
+  text-shadow: 1px 1px 0 #000; -webkit-tap-highlight-color: transparent;
+  clip-path: polygon(3px 0, calc(100% - 3px) 0, calc(100% - 3px) 3px, 100% 3px, 100% calc(100% - 3px), calc(100% - 3px) calc(100% - 3px),
+    calc(100% - 3px) 100%, 3px 100%, 3px calc(100% - 3px), 0 calc(100% - 3px), 0 3px, 3px 3px); }
+.touch-btn.down { opacity: .85; background: var(--ui-accent); color: var(--ui-accent-ink); text-shadow: none; }
+/* Round buttons: a stepped circle, with an edge drawn inside by a second, smaller one. */
+.touch-btn.fire, .touch-btn.b2, .touch-btn.b3, .touch-btn.turn, .touch-stick, .touch-knob {
+  --round: polygon(30% 0, 70% 0, 70% 7%, 84% 7%, 84% 16%, 93% 16%, 93% 30%, 100% 30%, 100% 70%, 93% 70%, 93% 84%, 84% 84%, 84% 93%,
+    70% 93%, 70% 100%, 30% 100%, 30% 93%, 16% 93%, 16% 84%, 7% 84%, 7% 70%, 0 70%, 0 30%, 7% 30%, 7% 16%, 16% 16%, 16% 7%, 30% 7%); }
+.touch-btn.fire, .touch-btn.b2, .touch-btn.b3, .touch-btn.turn { clip-path: var(--round); box-shadow: none; background: var(--edge); isolation: isolate; }
+.touch-btn.fire::before, .touch-btn.b2::before, .touch-btn.b3::before, .touch-btn.turn::before, .touch-stick::before, .touch-knob::before {
+  content: ""; position: absolute; inset: 4px; z-index: -1; background: var(--fill); clip-path: var(--round); }
+.touch-btn.fire::before { background: #8e2b1b; }
+.touch-btn.down::before { background: var(--ui-accent); }
+
+/* The right thumb's cluster: Fire biggest in the corner, the second and third buttons round it, the turret above. */
+.touch-right { position: fixed; right: max(14px, env(safe-area-inset-right)); bottom: max(14px, env(safe-area-inset-bottom));
+  width: calc(var(--t) * 3.5); height: calc(var(--t) * 2.7); z-index: 5; pointer-events: none; }
+.touch-right .touch-btn { pointer-events: auto; }
+.touch-btn.fire { right: 0; bottom: 0; width: calc(var(--t) * 1.45); height: calc(var(--t) * 1.45); font-size: calc(var(--t) * .28); }
+.touch-btn.b2 { right: calc(var(--t) * 1.6); bottom: calc(var(--t) * .05); width: var(--t); height: var(--t); }
+.touch-btn.b3 { right: calc(var(--t) * .22); bottom: calc(var(--t) * 1.6); width: var(--t); height: var(--t); }
+.touch-btn.turn { bottom: calc(var(--t) * 1.25); width: calc(var(--t) * .7); height: calc(var(--t) * .7); font-size: calc(var(--t) * .26); }
+.touch-btn.turn.right { right: calc(var(--t) * 1.3); }
+.touch-btn.turn.centre { right: calc(var(--t) * 2.05); font-size: calc(var(--t) * .2); }
+.touch-btn.turn.left { right: calc(var(--t) * 2.8); }
+
+/* Along the top: launch on the lift screen, dock while driving, pause offline, chat and the scores online. */
+.touch-top { position: fixed; top: max(6px, env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); z-index: 5; display: flex; gap: 6px; }
+.touch-top .touch-btn { position: static; padding: 0 calc(var(--t) * .2); height: calc(var(--t) * .62); min-width: calc(var(--t) * .9);
+  font-size: calc(var(--t) * .22); }
+
+/* The left thumb's stick comes to wherever it lands in this zone, and rests in the corner. */
+.touch-zone { display: none; position: fixed; left: 0; bottom: 0; width: 42vw; height: 72vh; z-index: 4; touch-action: none; }
+.touch-stick { position: absolute; left: max(14px, env(safe-area-inset-left)); bottom: max(14px, env(safe-area-inset-bottom));
+  width: calc(var(--t) * 2); height: calc(var(--t) * 2); opacity: .45; pointer-events: none; isolation: isolate; }
+.touch-stick.active { opacity: .7; }
+.touch-stick::before { inset: 0; background: var(--edge); }
+.touch-stick::after { content: ""; position: absolute; inset: 3px; z-index: -1; background: var(--fill); clip-path: var(--round); }
+.touch-knob { position: absolute; left: 30%; top: 30%; width: 40%; height: 40%; clip-path: var(--round); background: var(--edge); isolation: isolate; }
+.touch-knob::before { inset: 3px; background: #6b725f; }
+
+/* Only what the vehicle in play (or the lift screen, or watching) can use; pause offline, chat and scores online. */
+body[data-touch=bunker] .touch .for-bunker, body[data-touch=jeep] .touch .for-jeep, body[data-touch=tank] .touch .for-tank,
+body[data-touch=asv] .touch .for-asv, body[data-touch=heli] .touch .for-heli, body[data-touch=watch] .touch .for-watch,
+body[data-touch=idle] .touch .for-idle { display: grid; }
+body[data-touch=bunker] .touch-zone, body[data-touch=jeep] .touch-zone, body[data-touch=tank] .touch-zone,
+body[data-touch=asv] .touch-zone, body[data-touch=heli] .touch-zone { display: block; }
+body.online-game .touch .touch-btn.offline, body:not(.online-game) .touch .touch-btn.online { display: none; }
+/* The chat line goes to the top, clear of the on-screen keyboard; its label is a button that picks who it goes to. */
+body.handheld .chatline { top: max(8px, env(safe-area-inset-top)); bottom: auto; }
+body.handheld .chatline span { padding: 4px 8px; border: 1px solid #888; cursor: pointer; }

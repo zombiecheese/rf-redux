@@ -1,0 +1,75 @@
+/* The level editor's page: menu bar on top, tools on the left, the map in the middle, the side panel on the right. */
+body.editor-page { margin: 0; height: 100vh; overflow: hidden; background: #008080; display: flex; flex-direction: column; }
+.editor-menubar.menubar { position: static; flex: none; align-items: center; }
+.editor-menubar .spacer { flex: 1; }
+.editor-menubar .btn.test { min-width: 0; padding: 2px 10px; margin-right: 4px; font-weight: bold; }
+.editor { flex: 1; min-height: 0; display: grid; grid-template-columns: 120px 1fr 300px; gap: 3px; padding: 3px; }
+.toolbar { display: flex; flex-direction: column; gap: 2px; padding: 4px; overflow: auto; }
+.toolbar .tool, .toolbar .shape, .tabs .tab { background: var(--face); border: 0; text-align: left; padding: 4px 6px;
+  box-shadow: inset -1px -1px var(--dark), inset 1px 1px var(--light), inset -2px -2px var(--shadow), inset 2px 2px #dfdfdf; }
+.toolbar .tool.on, .toolbar .shape.on, .tabs .tab.on { box-shadow: inset 1px 1px var(--dark), inset -1px -1px var(--light), inset 2px 2px var(--shadow);
+  background: #d8d8d8; font-weight: bold; }
+.toolbar .tool .k { display: inline-block; width: 12px; color: var(--shadow); }
+.toolbar .shapes { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; }
+.toolbar .shape { text-align: center; padding: 3px 2px; }
+.toolbar .shape:disabled { color: var(--shadow); }
+.toolbar hr { width: 100%; border: 0; border-top: 1px solid var(--shadow); border-bottom: 1px solid var(--light); }
+.toolbar label.small { display: flex; flex-direction: column; gap: 2px; margin-top: 4px; }
+.stage { position: relative; min-width: 0; min-height: 0; background: #000;
+  box-shadow: inset 1px 1px #808080, inset -1px -1px #fff; }
+.mapview { position: absolute; inset: 0; width: 100%; height: calc(100% - 20px); cursor: crosshair; touch-action: none; }
+.minimap { position: absolute; right: 8px; bottom: 28px; width: 160px; height: 160px; border: 2px solid #c0c0c0; cursor: pointer; touch-action: none; }
+.statusbar { position: absolute; left: 0; right: 0; bottom: 0; height: 20px; line-height: 20px; padding: 0 6px; overflow: hidden; white-space: nowrap;
+  text-overflow: ellipsis; background: #c0c0c0; color: #000; font: 11px Tahoma, Arial, sans-serif; box-shadow: inset 1px 1px #808080, inset -1px -1px #fff; }
+.sidebar { display: flex; flex-direction: column; min-height: 0; padding: 4px; }
+.tabs { display: flex; gap: 2px; }
+.tabs .tab { flex: 1; text-align: center; }
+.tabs .tab.bad { color: #b00000; }
+.side-body { flex: 1; overflow: auto; padding: 8px 2px; }
+.side-body .hint, .w95 .hint { color: #404040; margin: 0 0 8px; }
+.tiles { display: grid; grid-template-columns: repeat(auto-fill, 36px); gap: 3px; }
+.objects { display: grid; grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); gap: 3px; }
+.swatch { background: #fff; border: 2px solid transparent; padding: 0; display: flex; flex-direction: column; align-items: center; cursor: pointer; }
+.swatch canvas { display: block; image-rendering: pixelated; }
+.objects .swatch { background: #406040; color: #fff; padding: 2px; }
+.objects .swatch span { font-size: 9px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.swatch.on { border-color: #000080; outline: 1px dotted #fff; outline-offset: -4px; }
+.dot { display: inline-block; width: 10px; height: 10px; border: 1px solid #000; margin-right: 2px; }
+.problem { text-align: left; background: #fff; border: 1px solid var(--shadow); padding: 4px 6px; cursor: pointer; }
+.problem.error b { color: #b00000; }
+.problem.warning b { color: #8a6000; }
+.settings textarea { font: inherit; resize: vertical; }
+.settings .field { grid-template-columns: 96px 1fr; }
+.w95 input.num { width: 44px; }
+.settings .field input.num { width: 90px; }
+.vehicles input.num { width: 34px; }
+.vehicles td, .vehicles th { padding: 1px 3px; }
+.drafts { display: flex; flex-direction: column; gap: 3px; max-height: 50vh; overflow: auto; min-width: 260px; }
+.draft { display: flex; gap: 6px; align-items: center; text-align: left; background: #fff; border: 1px solid var(--shadow); padding: 3px; }
+.draft.on { background: #000080; color: #fff; }
+.draft img { width: 48px; height: 48px; image-rendering: pixelated; background: #123; }
+.cols.open { min-width: min(600px, 90vw); }
+.toast { position: fixed; left: 50%; bottom: 40px; transform: translateX(-50%); z-index: 40; padding: 6px 12px; background: #ffffe1;
+  border: 1px solid #000; font: 12px Tahoma, Arial, sans-serif; color: #000; pointer-events: none; }
+/* While a test match runs, the game's display covers the editor. */
+canvas.testplay { position: fixed; inset: 0; z-index: 20; }
+body.testing .editor, body.testing .editor-menubar { visibility: hidden; }
+@media (max-width: 900px) { .editor { grid-template-columns: 96px 1fr 220px; } }
+.library .tab.on { box-shadow: inset 1px 1px #000, inset -1px -1px #fff; background: #dfdfdf; }
+.library .cols { min-width: min(640px, 90vw); }
+.library .drafts { max-height: 46vh; }
+.lib-detail { min-width: 220px; max-width: 300px; }
+.library .cols > fieldset { min-width: 0; }
+.lib-detail select, .lib-detail input[type=text] { max-width: 100%; min-width: 0; }
+.lib-detail .field { grid-template-columns: 56px minmax(0, 1fr); }
+.lib-detail .desc { white-space: pre-wrap; margin: 0; max-height: 120px; overflow: auto; }
+.lib-detail .bad { color: #a00000; }
+/* The picked map's preview (mappreview.ts), sunken like the Win95 list boxes. */
+.lib-detail .map-preview-frame { position: relative; display: grid; place-items: center; aspect-ratio: 1; background: #000;
+  border: 2px inset #fff; }
+.lib-detail .map-preview-picture { width: 100%; height: 100%; object-fit: contain; image-rendering: pixelated; display: block; }
+.lib-detail .map-preview-picture[hidden] { display: none; }
+.lib-detail .map-preview-frame.loading::after { content: 'Drawing the map…'; position: absolute; color: #c0c0c0; }
+.lib-detail .map-preview-frame.none::after { content: 'No preview'; position: absolute; color: #c0c0c0; }
+.library .row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.library .cols > fieldset { margin-right: 2px; }

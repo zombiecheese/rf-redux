@@ -1,0 +1,19 @@
+# Keeps every dependency surface current: npm workspaces, the Docker base image and
+# the CI actions. Security updates are raised as soon as an advisory lands; version updates weekly.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      dev-tooling:
+        patterns: ["vite", "vitest", "@vitest/*", "typescript", "@types/*"]
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly

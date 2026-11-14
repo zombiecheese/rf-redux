@@ -1,0 +1,938 @@
+[
+ {
+  "id": "rfmap101",
+  "name": "Driving School",
+  "level": 1,
+  "players": {
+   "min": 2,
+   "max": 2
+  }
+ },
+ {
+  "id": "rfmap102",
+  "name": "Garden Party",
+  "level": 1,
+  "players": {
+   "min": 2,
+   "max": 2
+  }
+ },
+ {
+  "id": "rfmap103",
+  "name": "Aloha Sailor",
+  "level": 2,
+  "players": {
+   "min": 2,
+   "max": 2
+  }
+ },
+ {
+  "id": "rfmap104",
+  "name": "Blown Up Good",
+  "level": 2,
+  "players": {
+   "min": 2,
+   "max": 2
+  }
+ },
+ {
+  "id": "rfmap105",
+  "name": "Broken Treaty",
+  "level": 2,
+  "players": {
+   "min": 2,
+   "max": 2
+  }
+ },
+ {
+  "id": "rfmap106",
+  "name": "Drag Race",
+  "level": 2,
+  "players": {
+   "min": 2,
+   "max": 2
+  }
+ },
+ {
+  "id": "rfmap107",
+  "name": "Escalation",
+  "level": 2,
+  "players": {
+   "min": 2,
+   "max": 2
+  }
+ },
+ {
+  "id": "rfmap108",
+  "name": "Head to Head",
+  "level": 2,
+  "players": {
+   "min": 2,
+   "max": 2
+  }
+ },
+ {
+  "id": "rfmap109",
+  "name": "Merry-Go-Round",
+  "level": 2,
+  "players": {
+   "min": 2,
+   "max": 2
+  }
+ },
+ {
+  "id": "rfmap110",
+  "name": "Much Ado About Flags",
+  "level": 2,
+  "players": {
+   "min": 2,
+   "max": 2
+  }
+ },
+ {
+  "id": "rfmap111",
+  "name": "Nutcracker",
+  "level": 2,
+  "players": {
+   "min": 2,
+   "max": 2
+  }
+ },
+ {
+  "id": "rfmap112",
+  "name": "Small World",
+  "level": 2,
+  "players": {
+   "min": 2,
+   "max": 2
+  }
+ },
+ {
+  "id": "rfmap113",
+  "name": "Tale Of Two Cities",
+  "level": 2,
+  "players": {
+   "min": 2,
+   "max": 2
+  }
+ },
+ {
+  "id": "rfmap114",
+  "name": "Two Islands",
+  "level": 2,
+  "players": {
+   "min": 2,
+   "max": 2
+  }
+ },
+ {
+  "id": "rfmap115",
+  "name": "Armed Expansion",
+  "level": 3,
+  "players": {
+   "min": 2,
+   "max": 2
+  }
+ },
+ {
+  "id": "rfmap116",
+  "name": "Craterland",
+  "level": 3,
+  "players": {
+   "min": 2,
+   "max": 2
+  }
+ },
+ {
+  "id": "rfmap117",
+  "name": "Dawn Crossing",
+  "level": 3,
+  "players": {
+   "min": 2,
+   "max": 2
+  }
+ },
+ {
+  "id": "rfmap118",
+  "name": "Frontal Assault",
+  "level": 3,
+  "players": {
+   "min": 2,
+   "max": 2
+  }
+ },
+ {
+  "id": "rfmap119",
+  "name": "Me and my Gun",
+  "level": 3,
+  "players": {
+   "min": 2,
+   "max": 2
+  }
+ },
+ {
+  "id": "rfmap120",
+  "name": "RECON",
+  "level": 3,
+  "players": {
+   "min": 2,
+   "max": 2
+  }
+ },
+ {
+  "id": "rfmap121",
+  "name": "Sharing Is Caring",
+  "level": 3,
+  "players": {
+   "min": 2,
+   "max": 2
+  }
+ },
+ {
+  "id": "rfmap122",
+  "name": "Woodchipper",
+  "level": 3,
+  "players": {
+   "min": 2,
+   "max": 2
+  }
+ },
+ {
+  "id": "rfmap123",
+  "name": "Worlds Collide",
+  "level": 3,
+  "players": {
+   "min": 2,
+   "max": 2
+  }
+ },
+ {
+  "id": "rfmap124",
+  "name": "Yin and Yang",
+  "level": 3,
+  "players": {
+   "min": 2,
+   "max": 2
+  }
+ },
+ {
+  "id": "rfmap125",
+  "name": "Devil's Island",
+  "level": 4,
+  "players": {
+   "min": 2,
+   "max": 2
+  }
+ },
+ {
+  "id": "rfmap126",
+  "name": "Dragon's Tooth",
+  "level": 4,
+  "players": {
+   "min": 2,
+   "max": 2
+  }
+ },
+ {
+  "id": "rfmap127",
+  "name": "El Rompero",
+  "level": 4,
+  "players": {
+   "min": 2,
+   "max": 2
+  }
+ },
+ {
+  "id": "rfmap128",
+  "name": "Fire Power",
+  "level": 4,
+  "players": {
+   "min": 2,
+   "max": 2
+  }
+ },
+ {
+  "id": "rfmap129",
+  "name": "Guns of Japan",
+  "level": 4,
+  "players": {
+   "min": 2,
+   "max": 2
+  }
+ },
+ {
+  "id": "rfmap130",
+  "name": "Oh So Prickly",
+  "level": 4,
+  "players": {
+   "min": 2,
+   "max": 2
+  }
+ },
+ {
+  "id": "rfmap131",
+  "name": "Sleeping Dogs",
+  "level": 4,
+  "players": {
+   "min": 2,
+   "max": 2
+  }
+ },
+ {
+  "id": "rfmap132",
+  "name": "Strike Force",
+  "level": 4,
+  "players": {
+   "min": 2,
+   "max": 2
+  }
+ },
+ {
+  "id": "rfmap133",
+  "name": "Superpowers",
+  "level": 4,
+  "players": {
+   "min": 2,
+   "max": 2
+  }
+ },
+ {
+  "id": "rfmap134",
+  "name": "Swiss Cheese",
+  "level": 4,
+  "players": {
+   "min": 2,
+   "max": 2
+  }
+ },
+ {
+  "id": "rfmap135",
+  "name": "Valkyries' Ride",
+  "level": 4,
+  "players": {
+   "min": 2,
+   "max": 2
+  }
+ },
+ {
+  "id": "rfmap136",
+  "name": "Cease Fire",
+  "level": 5,
+  "players": {
+   "min": 2,
+   "max": 2
+  }
+ },
+ {
+  "id": "rfmap137",
+  "name": "Child's Play",
+  "level": 5,
+  "players": {
+   "min": 2,
+   "max": 2
+  }
+ },
+ {
+  "id": "rfmap138",
+  "name": "Desparado",
+  "level": 5,
+  "players": {
+   "min": 2,
+   "max": 2
+  }
+ },
+ {
+  "id": "rfmap139",
+  "name": "Great Wall",
+  "level": 5,
+  "players": {
+   "min": 2,
+   "max": 2
+  }
+ },
+ {
+  "id": "rfmap140",
+  "name": "Hit and Run and Hit",
+  "level": 5,
+  "players": {
+   "min": 2,
+   "max": 2
+  }
+ },
+ {
+  "id": "rfmap141",
+  "name": "Island Hopping",
+  "level": 5,
+  "players": {
+   "min": 2,
+   "max": 2
+  }
+ },
+ {
+  "id": "rfmap142",
+  "name": "Joust For Fun",
+  "level": 5,
+  "players": {
+   "min": 2,
+   "max": 2
+  }
+ },
+ {
+  "id": "rfmap143",
+  "name": "Merry Isthmus",
+  "level": 5,
+  "players": {
+   "min": 2,
+   "max": 2
+  }
+ },
+ {
+  "id": "rfmap144",
+  "name": "Pound 'em Again",
+  "level": 5,
+  "players": {
+   "min": 2,
+   "max": 2
+  }
+ },
+ {
+  "id": "rfmap145",
+  "name": "Powder Keg",
+  "level": 5,
+  "players": {
+   "min": 2,
+   "max": 2
+  }
+ },
+ {
+  "id": "rfmap146",
+  "name": "Suicide Run",
+  "level": 5,
+  "players": {
+   "min": 2,
+   "max": 2
+  }
+ },
+ {
+  "id": "rfmap147",
+  "name": "Thunderstrike",
+  "level": 5,
+  "players": {
+   "min": 2,
+   "max": 2
+  }
+ },
+ {
+  "id": "rfmap148",
+  "name": "Two Fronts",
+  "level": 5,
+  "players": {
+   "min": 2,
+   "max": 2
+  }
+ },
+ {
+  "id": "rfmap149",
+  "name": "White Knuckles",
+  "level": 5,
+  "players": {
+   "min": 2,
+   "max": 2
+  }
+ },
+ {
+  "id": "rfmap150",
+  "name": "You'll Get Yours",
+  "level": 5,
+  "players": {
+   "min": 2,
+   "max": 2
+  }
+ },
+ {
+  "id": "rfmap151",
+  "name": "Baron's World",
+  "level": 6,
+  "players": {
+   "min": 2,
+   "max": 2
+  }
+ },
+ {
+  "id": "rfmap152",
+  "name": "Beachhead",
+  "level": 6,
+  "players": {
+   "min": 2,
+   "max": 2
+  }
+ },
+ {
+  "id": "rfmap153",
+  "name": "Heavy Shotput",
+  "level": 6,
+  "players": {
+   "min": 2,
+   "max": 2
+  }
+ },
+ {
+  "id": "rfmap154",
+  "name": "In Your Face",
+  "level": 6,
+  "players": {
+   "min": 2,
+   "max": 2
+  }
+ },
+ {
+  "id": "rfmap155",
+  "name": "Infinity Squared",
+  "level": 6,
+  "players": {
+   "min": 2,
+   "max": 2
+  }
+ },
+ {
+  "id": "rfmap156",
+  "name": "Infrastructure",
+  "level": 6,
+  "players": {
+   "min": 2,
+   "max": 2
+  }
+ },
+ {
+  "id": "rfmap157",
+  "name": "John's World",
+  "level": 6,
+  "players": {
+   "min": 2,
+   "max": 2
+  }
+ },
+ {
+  "id": "rfmap158",
+  "name": "No Man's Lake",
+  "level": 6,
+  "players": {
+   "min": 2,
+   "max": 2
+  }
+ },
+ {
+  "id": "rfmap159",
+  "name": "Otto's Funhouse",
+  "level": 6,
+  "players": {
+   "min": 2,
+   "max": 2
+  }
+ },
+ {
+  "id": "rfmap160",
+  "name": "Reshevsky Vs Fischer",
+  "level": 6,
+  "players": {
+   "min": 2,
+   "max": 2
+  }
+ },
+ {
+  "id": "rfmap161",
+  "name": "Shootout with the 1 Eyed Bandit",
+  "level": 6,
+  "players": {
+   "min": 2,
+   "max": 2
+  }
+ },
+ {
+  "id": "rfmap162",
+  "name": "Strike! 2",
+  "level": 6,
+  "players": {
+   "min": 2,
+   "max": 2
+  }
+ },
+ {
+  "id": "rfmap163",
+  "name": "Tea For Two",
+  "level": 6,
+  "players": {
+   "min": 2,
+   "max": 2
+  }
+ },
+ {
+  "id": "rfmap164",
+  "name": "The Whole",
+  "level": 6,
+  "players": {
+   "min": 2,
+   "max": 2
+  }
+ },
+ {
+  "id": "rfmap165",
+  "name": "Tijuana Taxi",
+  "level": 6,
+  "players": {
+   "min": 2,
+   "max": 2
+  }
+ },
+ {
+  "id": "rfmap166",
+  "name": "Achtung Baby",
+  "level": 7,
+  "players": {
+   "min": 2,
+   "max": 2
+  }
+ },
+ {
+  "id": "rfmap167",
+  "name": "Air Inferiority",
+  "level": 7,
+  "players": {
+   "min": 2,
+   "max": 2
+  }
+ },
+ {
+  "id": "rfmap168",
+  "name": "B-2 Stealth",
+  "level": 7,
+  "players": {
+   "min": 2,
+   "max": 2
+  }
+ },
+ {
+  "id": "rfmap169",
+  "name": "Bridgework Is Painful",
+  "level": 7,
+  "players": {
+   "min": 2,
+   "max": 2
+  }
+ },
+ {
+  "id": "rfmap170",
+  "name": "Coral  2",
+  "level": 7,
+  "players": {
+   "min": 2,
+   "max": 2
+  }
+ },
+ {
+  "id": "rfmap171",
+  "name": "Double Dutch Death",
+  "level": 7,
+  "players": {
+   "min": 2,
+   "max": 2
+  }
+ },
+ {
+  "id": "rfmap172",
+  "name": "Hey, Buddy",
+  "level": 7,
+  "players": {
+   "min": 2,
+   "max": 2
+  }
+ },
+ {
+  "id": "rfmap173",
+  "name": "Maze Duel",
+  "level": 7,
+  "players": {
+   "min": 2,
+   "max": 2
+  }
+ },
+ {
+  "id": "rfmap174",
+  "name": "My Kingdom For A Flag",
+  "level": 7,
+  "players": {
+   "min": 2,
+   "max": 2
+  }
+ },
+ {
+  "id": "rfmap175",
+  "name": "No Return",
+  "level": 7,
+  "players": {
+   "min": 2,
+   "max": 2
+  }
+ },
+ {
+  "id": "rfmap176",
+  "name": "Promoted or Dead",
+  "level": 7,
+  "players": {
+   "min": 2,
+   "max": 2
+  }
+ },
+ {
+  "id": "rfmap177",
+  "name": "Remorseless",
+  "level": 7,
+  "players": {
+   "min": 2,
+   "max": 2
+  }
+ },
+ {
+  "id": "rfmap178",
+  "name": "Splat",
+  "level": 7,
+  "players": {
+   "min": 2,
+   "max": 2
+  }
+ },
+ {
+  "id": "rfmap179",
+  "name": "The Swingers",
+  "level": 7,
+  "players": {
+   "min": 2,
+   "max": 2
+  }
+ },
+ {
+  "id": "rfmap180",
+  "name": "Another Spinout",
+  "level": 8,
+  "players": {
+   "min": 2,
+   "max": 2
+  }
+ },
+ {
+  "id": "rfmap181",
+  "name": "Gridlock on the I-5",
+  "level": 8,
+  "players": {
+   "min": 2,
+   "max": 2
+  }
+ },
+ {
+  "id": "rfmap182",
+  "name": "Happy Entrails",
+  "level": 8,
+  "players": {
+   "min": 2,
+   "max": 2
+  }
+ },
+ {
+  "id": "rfmap183",
+  "name": "It Came from the Desert",
+  "level": 8,
+  "players": {
+   "min": 2,
+   "max": 2
+  }
+ },
+ {
+  "id": "rfmap184",
+  "name": "Kick-S",
+  "level": 8,
+  "players": {
+   "min": 2,
+   "max": 2
+  }
+ },
+ {
+  "id": "rfmap185",
+  "name": "Midway Island Revisited",
+  "level": 8,
+  "players": {
+   "min": 2,
+   "max": 2
+  }
+ },
+ {
+  "id": "rfmap186",
+  "name": "Porkchop Bridge",
+  "level": 8,
+  "players": {
+   "min": 2,
+   "max": 2
+  }
+ },
+ {
+  "id": "rfmap187",
+  "name": "The Amoeba",
+  "level": 8,
+  "players": {
+   "min": 2,
+   "max": 2
+  }
+ },
+ {
+  "id": "rfmap188",
+  "name": "The Iron Fist",
+  "level": 8,
+  "players": {
+   "min": 2,
+   "max": 2
+  }
+ },
+ {
+  "id": "rfmap189",
+  "name": "Turret's Syndrome",
+  "level": 8,
+  "players": {
+   "min": 2,
+   "max": 2
+  }
+ },
+ {
+  "id": "rfmap190",
+  "name": "A Pack O' Lips Now",
+  "level": 9,
+  "players": {
+   "min": 2,
+   "max": 2
+  }
+ },
+ {
+  "id": "rfmap191",
+  "name": "Boris Spassky",
+  "level": 9,
+  "players": {
+   "min": 2,
+   "max": 2
+  }
+ },
+ {
+  "id": "rfmap192",
+  "name": "Bridges of Madman's County",
+  "level": 9,
+  "players": {
+   "min": 2,
+   "max": 2
+  }
+ },
+ {
+  "id": "rfmap193",
+  "name": "Circuit Board",
+  "level": 9,
+  "players": {
+   "min": 2,
+   "max": 2
+  }
+ },
+ {
+  "id": "rfmap194",
+  "name": "Deep, Damp, & Lost",
+  "level": 9,
+  "players": {
+   "min": 2,
+   "max": 2
+  }
+ },
+ {
+  "id": "rfmap195",
+  "name": "Doomsday2",
+  "level": 9,
+  "players": {
+   "min": 2,
+   "max": 2
+  }
+ },
+ {
+  "id": "rfmap196",
+  "name": "Enemy Lines",
+  "level": 9,
+  "players": {
+   "min": 2,
+   "max": 2
+  }
+ },
+ {
+  "id": "rfmap197",
+  "name": "Moatly Crew",
+  "level": 9,
+  "players": {
+   "min": 2,
+   "max": 2
+  }
+ },
+ {
+  "id": "rfmap198",
+  "name": "Northern Exposure",
+  "level": 9,
+  "players": {
+   "min": 2,
+   "max": 2
+  }
+ },
+ {
+  "id": "rfmap199",
+  "name": "Play Nice",
+  "level": 9,
+  "players": {
+   "min": 2,
+   "max": 2
+  }
+ },
+ {
+  "id": "rfmap200",
+  "name": "Saddam's Oil War",
+  "level": 9,
+  "players": {
+   "min": 2,
+   "max": 2
+  }
+ },
+ {
+  "id": "rfmap201",
+  "name": "Stay Dry",
+  "level": 9,
+  "players": {
+   "min": 2,
+   "max": 2
+  }
+ },
+ {
+  "id": "rfmap202",
+  "name": "Stripes",
+  "level": 9,
+  "players": {
+   "min": 2,
+   "max": 2
+  }
+ },
+ {
+  "id": "rfmap203",
+  "name": "Tiptoe Through the Turrets",
+  "level": 9,
+  "players": {
+   "min": 2,
+   "max": 2
+  }
+ },
+ {
+  "id": "rfmap204",
+  "name": "Water World",
+  "level": 9,
+  "players": {
+   "min": 2,
+   "max": 2
+  }
+ }
+]

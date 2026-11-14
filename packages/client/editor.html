@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Return Fire: Redux Level Editor</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <style>
+      html, body { margin: 0; height: 100%; color: #ddd; font: 14px system-ui, sans-serif; }
+      #status { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); color: #fff; }
+      #desktop-only { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px;
+        padding: 24px; text-align: center; background: #10130f; color: #a39f8f; font: 15px/1.4 system-ui, -apple-system, sans-serif; }
+      #desktop-only[hidden] { display: none; }
+      #desktop-only b { color: #e3a33b; font: 700 20px/1.2 "Courier New", monospace; letter-spacing: 2px; text-transform: uppercase; }
+      #desktop-only a { color: #ece7d8; }
+      #error { position: fixed; inset: 0; display: none; place-items: center; padding: 24px; text-align: center; background: #111; color: #ddd; }
+    </style>
+  </head>
+  <body>
+    <div id="status"></div>
+    <div id="error"></div>
+    <div id="desktop-only" hidden><b>Desktop only</b><span>The level editor needs a mouse and a keyboard, so it is not available on phones and tablets.</span><a href="./">Back to the game</a></div>
+    <script type="module" src="/src/editor/main.ts"></script>
+  </body>
+</html>

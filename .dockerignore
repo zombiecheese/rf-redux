@@ -1,0 +1,17 @@
+# Never send original game data or anything converted from it into an image build.
+**/node_modules
+**/dist
+data
+assets/*
+!assets/art
+original
+decomp
+*.RFM
+*.rfm
+*.CAR
+*.RFA
+*.SDT
+*.stm
+*.iso
+.git
+.env

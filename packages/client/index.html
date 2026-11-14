@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
+    <meta name="screen-orientation" content="landscape" />
+    <title>Return Fire: Redux</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <style>
+      html, body { margin: 0; height: 100%; background: #000; color: #ddd; font: 14px system-ui, sans-serif; overflow: hidden; }
+      canvas { display: block; touch-action: none; }
+      /* Phones and tablets: the rotate notice and the touch controls are styled in src/ui.css. */
+      #rotate, .touch { display: none; }
+      #error { position: fixed; inset: 0; display: none; place-items: center; padding: 24px; text-align: center; }
+      #status { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); color: #aaa; pointer-events: none; }
+
+      /* The chat line over an online match (online/overlay.ts); the menus and the lobby are in src/ui.css. */
+      .chatline { position: fixed; left: 50%; bottom: 8%; transform: translateX(-50%); width: min(560px, 90vw); z-index: 25; display: flex; gap: 6px;
+        align-items: center; padding: 4px 6px; background: rgba(0,0,0,.75); color: #fff; font: 14px "Courier New", monospace; }
+      .chatline[hidden] { display: none; }
+      .chatline input { flex: 1; background: transparent; border: 0; border-bottom: 1px solid #888; color: #fff; font: inherit; outline: none; }
+
+    </style>
+  </head>
+  <body>
+    <div id="status"></div>
+    <div id="rotate" role="alert"><div class="rotate-phone" aria-hidden="true"></div><b>Turn your device sideways</b><span>Return Fire: Redux plays in landscape only. The game waits until you turn it.</span></div>
+    <div id="error"></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

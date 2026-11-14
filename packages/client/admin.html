@@ -1,0 +1,10 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Return Fire: Redux Admin</title>
+    <!-- The admin panel lives in the game page now (src/admin/panel.ts), in the game's own look: /admin/<section> opens it there. -->
+    <script>location.replace('/?admin=' + encodeURIComponent(location.pathname.split('/')[2] || ''));</script>
+  </head>
+  <body></body>
+</html>

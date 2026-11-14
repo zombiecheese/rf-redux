@@ -1,0 +1,10 @@
+# Working on Return Fire: Redux
+
+- npm workspaces: `packages/sim` (shared deterministic game logic, TypeScript, Vitest), `packages/net` (lockstep frames and JSON messages shared by server and client), `packages/client` (Vite; a software rasteriser in `raster.ts` reproduces the original cel renderer at 320 × 240; also `editor.html` and `admin.html`).
+- `packages/server`: Node game server (serves the client, the art pack and the optional `/generated/` extras; lockstep matches, accounts, lobbies, chat, map library and the admin API on SQLite via `node:sqlite`).
+- Docs: `docs/` (assets, deploy, online, level-editor, music, map-format). Update them, and the README, with any change they describe, and note user-facing changes under `[Unreleased]` in `CHANGELOG.md`.
+- `npm test`, `npm run typecheck`, `npm run dev`, `npm run build && npm start`.
+- Art, sounds, models and maps are the project's own, built by `npm run art` (`tools/build-art.mjs`, sources in `tools/art/`) into `assets/art/pack/`, which is committed. The game runs from it with no import of the original. `assets/generated/` is an optional, git-ignored extras folder (soundfont, `.mid` overrides).
+- Deploys as a Docker Compose stack (`docker-compose.yml`, `docs/deploy.md`); one image, built from `packages/` and the art pack. It must hold nothing from the original beyond the two things named below.
+- The sim uses integer fixed-point maths that mirrors the original (tile = 2^21 units, pixel = 2^16, 64 headings). Never introduce floats into sim state; the server and every client must stay bit-identical.
+- Never commit original game files, anything converted from them, or decompiler output. Two things from the original are in the repository: its model measurements and number tables (`tools/art/models/`, built into `assets/art/pack/*.json`), and its 104 two-player map layouts (`assets/art/pack/maps/`). Nothing else from it may be added.

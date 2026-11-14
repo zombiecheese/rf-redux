@@ -1,0 +1,20 @@
+{
+  "name": "@rfw/server",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "vite build",
+    "start": "node --disable-warning=ExperimentalWarning dist/main.js",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@rfw/net": "0.2.0",
+    "@rfw/sim": "0.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.5",
+    "vite": "^8.3.5",
+    "vitest": "^5.0.5"
+  }
+}

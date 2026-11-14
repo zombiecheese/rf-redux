@@ -1,0 +1,50 @@
+# The Return Fire: Redux stack from the published images, with no build and no source checkout. Each GitHub release
+# attaches a copy of this file named docker-compose.yml with RF_VERSION pinned to that release. In a folder with it,
+# the release's env.example (copied to .env and filled in) and Caddyfile:
+#   docker login ghcr.io        # only while the package is private: a GitHub token with read:packages
+#   docker compose up -d
+# From a checkout, use: docker compose -f docker-compose.images.yml up -d
+# See docs/deploy.md.
+
+services:
+  # The game server: the game with its art, sounds and maps, multiplayer, accounts, lobbies and the admin panel.
+  web:
+    image: ghcr.io/zombiecheese/rf-redux:${RF_VERSION:-latest}
+    ports:
+      - "${RF_PORT:-8080}:8080"
+    environment:
+      # The owner account is made from these on the first start (see .env.example).
+      OWNER_NAME: ${RF_OWNER_NAME:?Set RF_OWNER_NAME in .env (see .env.example)}
+      OWNER_EMAIL: ${RF_OWNER_EMAIL:?Set RF_OWNER_EMAIL in .env (see .env.example)}
+      OWNER_PASSWORD: ${RF_OWNER_PASSWORD:?Set RF_OWNER_PASSWORD in .env (see .env.example)}
+      TRUST_PROXY: ${RF_TRUST_PROXY:-0}
+      BACKUP_HOURS: ${RF_BACKUP_HOURS:-24}
+      BACKUP_KEEP: ${RF_BACKUP_KEEP:-7}
+      METRICS_TOKEN: ${RF_METRICS_TOKEN:-}
+    volumes:
+      - data:/data
+    restart: unless-stopped
+
+  # Optional HTTPS front end (docker compose --profile https ...): gets a certificate for RF_DOMAIN and proxies
+  # the site and its WebSocket to web.
+  caddy:
+    image: caddy:2-alpine
+    profiles: [https]
+    depends_on:
+      - web
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      RF_DOMAIN: ${RF_DOMAIN:-localhost}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    restart: unless-stopped
+
+volumes:
+  data:
+  caddy_data:
+  caddy_config:

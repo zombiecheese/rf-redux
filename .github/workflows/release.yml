@@ -1,0 +1,92 @@
+name: Release
+
+# Pushing a version tag (git tag v0.2.0 && git push origin v0.2.0) builds the game server image, pushes it to the
+# GitHub Container Registry and publishes a GitHub release with the notes from CHANGELOG.md. A new package starts
+# out private; the owner can make it public in its settings. The image holds the art pack, which includes the
+# original's measurements and two-player map layouts (assets/art/README.md).
+
+on:
+  push:
+    tags: ['v*.*.*']
+
+permissions:
+  contents: write
+  packages: write
+
+env:
+  REGISTRY: ghcr.io
+  WEB_IMAGE: ghcr.io/${{ github.repository_owner }}/rf-redux
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # The tag, package.json and CHANGELOG.md must agree before anything is published.
+      - name: Check the version
+        id: version
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          node -e '
+            const v = process.argv[1];
+            for (const f of ["package.json", "packages/sim/package.json", "packages/net/package.json", "packages/client/package.json", "packages/server/package.json"]) {
+              const p = require("./" + f);
+              if (p.version !== v) { console.error(`${f} is ${p.version}, the tag is ${v}`); process.exit(1); }
+            }' "$version"
+          awk -v v="$version" '
+            $0 ~ "^## \\[" v "\\]" { on = 1; next }
+            on && /^## \[/ { exit }
+            on && /^\[[^]]*\]: / { exit }
+            on { print }' CHANGELOG.md > release-notes.md
+          if ! grep -q '[^[:space:]]' release-notes.md; then echo "CHANGELOG.md has no section for $version"; exit 1; fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "minor=${version%.*}" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push the game server image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ env.WEB_IMAGE }}:${{ steps.version.outputs.version }}
+            ${{ env.WEB_IMAGE }}:${{ steps.version.outputs.minor }}
+            ${{ env.WEB_IMAGE }}:latest
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.version=${{ steps.version.outputs.version }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.title=Return Fire: Redux
+            org.opencontainers.image.description=Return Fire: Redux game server
+
+      # The release carries the files a host needs to run the published images: the compose file (pinned to
+      # this version), the .env template and the Caddyfile. 
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          mkdir dist
+          sed "s/RF_VERSION:-latest/RF_VERSION:-$VERSION/" docker-compose.images.yml > dist/docker-compose.yml
+          # GitHub renames asset files that start with a dot, so the template ships as env.example.
+          cp .env.example dist/env.example
+          cp Caddyfile dist/
+          {
+            cat release-notes.md
+            echo
+            echo "## Image"
+            echo
+            echo "- \`$WEB_IMAGE:$VERSION\`"
+            echo
+            echo "To run them, download \`docker-compose.yml\`, \`env.example\` and \`Caddyfile\` below into one folder and follow [Deploying from a release](${{ github.server_url }}/${{ github.repository }}/blob/v$VERSION/docs/deploy.md#deploying-from-a-release)."
+          } > dist-notes.md
+          gh release create "$GITHUB_REF_NAME" --title "Return Fire: Redux $VERSION" --notes-file dist-notes.md \
+            dist/docker-compose.yml dist/env.example dist/Caddyfile

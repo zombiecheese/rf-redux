@@ -1,0 +1,21 @@
+{
+  "name": "rf-redux",
+  "version": "0.2.0",
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev -w @rfw/client",
+    "build": "npm run build -w @rfw/client && npm run build -w @rfw/server",
+    "test": "npm test -w @rfw/sim -w @rfw/net -w @rfw/client -w @rfw/server",
+    "typecheck": "tsc -p packages/sim && tsc -p packages/net && tsc -p packages/client && tsc -p packages/server",
+    "start": "npm start -w @rfw/server",
+    "asset-inventory": "node tools/asset-inventory.mjs",
+    "art": "node tools/build-art.mjs",
+    "art-sheet": "node tools/art-sheet.mjs"
+  },
+  "devDependencies": {
+    "typescript": "5.6.3"
+  }
+}
