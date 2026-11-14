@@ -8,7 +8,7 @@ The aim is a like-for-like remake: the same look (a software renderer reproduces
 
 ## Status
 
-The latest release is [v0.4.0](https://github.com/zombiecheese/rf-redux/releases/tag/v0.4.0) (2026-11-14); what changed in each release, and what is waiting for the next one, is in [CHANGELOG.md](CHANGELOG.md). Version 1.0.0 is kept for when the game no longer uses anything from the original.
+The latest release is [v0.5.1](https://github.com/zombiecheese/rf-redux/releases/tag/v0.5.1) (2026-11-14); what changed in each release, and what is waiting for the next one, is in [CHANGELOG.md](CHANGELOG.md). Version 1.0.0 is kept for when the game no longer uses anything from the original.
 
 Still to come: two-player maps of the project's own.
 
@@ -16,11 +16,11 @@ Still to come: two-player maps of the project's own.
 
 **Playing**
 
-- Training (you against the computer, one full-screen view) and Split Screen on one keyboard in split screen (desktop only). On a map with three or four bases both ask for the team layout (2v2, 2v1v1, 3v1 and so on, or everyone for themselves), and the computer plays every base without a player.
+- Local Play: Training (you against the computer, one full-screen view) and Split Screen (two players on one keyboard, desktop only). On a map with three or four bases both ask for the team layout (2v2, 2v1v1, 3v1 and so on, or everyone for themselves), and the computer plays every base without a player.
 - The 104 original two-player maps, and sixteen 3- and 4-base maps made from pieces of them on islands shaped like the originals', mirror-symmetric so every base gets the same layout ([docs/map-format.md](docs/map-format.md)).
 - Capture the flag: a base is out when an enemy jeep takes its flag home or it has no jeeps left. Home is the jeep's own base or any teammate's still in the match. The last team standing wins, and a player whose base is out watches a teammate.
 - An optional handicap, offline and in lobbies, helps the smaller side of an uneven match: extra vehicles in proportion, and a flag that must be captured three times (one base against two).
-- The front end: the Zombiecheese Productions splash and fanfare, a title screen with the remake's own widescreen art under an on-screen menu (mouse, keyboard and touch), the Player Selector, the Level Selector by level 1–9 with a preview of each map, the Hall of Fame, the pause screen, and a win scene where the camera rises over the winner's base under fireworks.
+- The front end: the Zombiecheese Productions splash and fanfare, a title screen with the remake's own widescreen art under an on-screen menu (mouse, keyboard and touch), the Player Selector, the Level Selector by level 1–9 with a preview of each map, the Hall of Fame, the pause screen, and the end of the match over the winner's base under fireworks: in the classic view the camera rises over it, and in the modern view the drone makes a last pass while the computer vision types out its assessment before the feed cuts to SIGNAL LOST.
 
 **The battlefield, as in the original**
 
@@ -57,7 +57,7 @@ Still to come: two-player maps of the project's own.
 **Replays, options and music**
 
 - Every match is recorded in the browser (the last 20, plus any you star) and plays back at ¼× to 8× with pause, ten-second jumps, a timeline and a choice of player to follow. Replays save as `.rfwreplay.json` files or, signed in, to your account.
-- Options: rebind every vehicle key for either half of the keyboard, master, effects and music volume, built-in or sampled instruments for the band, retro or modern visuals, how the picture is scaled, and Swap Sides. Names, settings and the Hall of Fame are kept in the browser, and settings follow a signed-in account.
+- Options: rebind every vehicle key for either half of the keyboard, master, effects and music volume, built-in or sampled instruments for the band, the view (modern or classic), how the picture is scaled, and Swap Sides. Day or night is picked per match, not in Options. Names, settings and the Hall of Fame are kept in the browser, and settings follow a signed-in account.
 - Music chosen the way the original's music director chose it, for each vehicle, the bunker, deaths, the flag, the win and the menus ([docs/music.md](docs/music.md)). The retro view plays MIDI band arrangements of public-domain music on an MT-32-style synthesiser, or, with Options > Sound and Music > Instruments > Sampled, from the GeneralUser GS SoundFont (a 32 MB download the first time, then kept by the browser). The modern view has its own soundtrack: original hardcore, beatdown and metalcore instrumentals, with a breakdown in every piece, played on the synthesiser's guitar amp, bass and metal kit. Switching the view switches the music at once.
 
 **The picture, and phones and tablets**

@@ -14,7 +14,7 @@ The site's owner decides whether sign-ups are open, invite-only or closed.
 
 Everything is under **Online** in the main menu.
 
-![The Online menu](images/online-menu.png)
+![The Online menu](images/online-menu.jpg)
 
 *The Online menu, signed in.*
 
@@ -46,9 +46,9 @@ The lobby's owner picks:
 
 *Host a Game: name the lobby, choose who can join and the teams, and pick a map from the list with its preview.*
 
-![A lobby with two seats, the map, settings and chat](images/lobby.png)
+![A lobby for a four-base map with seats, settings, the view picker and chat](images/lobby.png)
 
-*A lobby. Each base has a seat card, the code and invite link are at the top, and chat is on the right.*
+*A lobby for a four-base map. The seats, the match settings and the host's view pick are on the left; the map and chat are on the right, and the code and invite link are in the title bar.*
 
 When every player is ready, the owner starts the match. Others can watch as spectators. After the match the results show and the lobby is ready for a rematch.
 

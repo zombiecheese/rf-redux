@@ -62,7 +62,7 @@ Then open http://localhost:8080.
 - **Local Play > Training** starts a match against the computer.
 - **H** in a match lists every key.
 
-![The title screen with the main menu](images/title-menu.png)
+![The title screen with the main menu](images/title-menu.jpg)
 
 *What you should see once the splash has played.*
 
