@@ -527,26 +527,26 @@ function keysPage(): HTMLElement {
     row('Leave the game', 'Esc'),
     row('Skip the splash or the win scene', 'Any key')));
   return el('div', { class: 'stack' }, grid,
-    el('p', {}, 'In Training, online and in the editor\'s test play either side\'s keys work. Options > Controls rebinds any vehicle key for either hand, and Swap Sides gives Brown the right-hand keys. No game key opens the chat, and while a menu or the chat line is open your vehicle takes no keys. Offline the match waits while a menu is open; online it carries on.'),
+    el('p', {}, 'In Training, online and in the editor\'s test play either side\'s keys work. Options > Controls > Vehicle Keys rebinds any vehicle key for either hand, and Options > Controls > Swap Sides gives Brown the right-hand keys. No game key opens the chat, and while a menu or the chat line is open your vehicle takes no keys. Offline the match waits while a menu is open; online it carries on.'),
     h('Phones and tablets'),
     el('p', {}, 'Hold the device sideways: upright, the game waits. The stick comes to wherever your left thumb lands, Fire is in the right corner with the vehicle\'s own buttons round it (Tyres and Flag, AA, Mine, Ahead and Swap, the turret or strafe), and the top row docks while driving, pauses offline and opens the chat and scores online. On the lift screen tap a bay to choose it and tap it again to launch. When you are out, P1 to P4 pick who to watch. Phones and tablets play solo: no split screen and no level editor.'));
 }
 
 function viewsPage(): HTMLElement {
   return el('div', { class: 'stack' },
-    el('p', {}, 'Pick the view when you start a game, or switch at any time, even mid-match, with Options > Visuals. Both show the same part of the map, so classic and modern players can share an online match.'),
+    el('p', {}, 'Pick the view when you start a game, or switch at any time, even mid-match, with Options > View > Visuals. Both show the same part of the map, so classic and modern players can share an online match.'),
     h('Classic'),
-    el('p', {}, 'The original\'s look: a 320 × 240 picture with the tilted 3D camera, scaled to the window with square pixels, with the cockpit panel, bars and radar. Options > CRT Look adds subtle scanlines and glow; Options > Picture picks Fill or whole pixels only. The bars beside the picture are camouflage in your colour.'),
+    el('p', {}, 'The original\'s look: a 320 × 240 picture with the tilted 3D camera, scaled to the window with square pixels, with the cockpit panel, bars and radar. Options > View > CRT Look adds subtle scanlines and glow; Options > View > Picture picks Fill or whole pixels only. The bars beside the picture are camouflage in your colour.'),
     h('Modern'),
     ul(
       'The same game drawn in 3D at 1280 × 720 with toy-soldier models, sunlight and shadows, an animated sea, smoke, fire and debris, a 3D bunker cutaway and a 3D laughing skull. It needs WebGL; without it the game stays classic.',
-      'Drone feed: the picture looks like a surveillance drone\'s, with grain, a scan line and stream errors when something blows up nearby. Options > Camera switches to a clean picture.',
+      'Drone feed: the picture looks like a surveillance drone\'s, with grain, a scan line and stream errors when something blows up nearby. Options > View > Camera switches to a clean picture.',
       'Computer-vision HUD: tracking boxes with integrity on your vehicle (with its fuel and ammunition), friends, enemy vehicles, gun towers, flag buildings and drones, a tactical plot for the radar, and messages as read-outs.',
       'Flag arrows: at the edges of the picture, in each rival\'s colour, arrows point to its flag buildings (any of them may hide the flag), to a flag lying in the open, and home while your jeep carries one.',
-      'Day or night (Options > Lighting): night is dark, lit by headlights, fires and the buildings\' windows and lamps.',
-      'Thermal camera: a white-hot picture that sees in the dark. Switch it with the thermal button beside the menu button, Options > Thermal or its key (see Keys).',
+      'Day or night (Options > View > Lighting): night is dark, lit by headlights, fires and the buildings\' windows and lamps.',
+      'Thermal camera: a white-hot picture that sees in the dark. Switch it with the thermal button beside the menu button, Options > View > Thermal or its key (see Keys).',
     ),
-    el('p', {}, 'Online the lobby\'s host can set the visuals and the lighting for everyone, or leave both to each player\'s own Options. Replays play back the way their match was seen.'));
+    el('p', {}, 'Online the lobby\'s host can set the visuals and the lighting for everyone (the lobby\'s Multiplayer view), or leave both to each player\'s own Options. Replays play back the way their match was seen.'));
 }
 
 function onlinePage(): HTMLElement {
@@ -568,7 +568,7 @@ function morePage(): HTMLElement {
     h('Level Editor'),
     el('p', {}, 'Title > Level Editor (on a computer) paints land and water with automatic coastlines, lays bridges, places buildings and up to four bases, mirrors or turns your edits for a fair map, checks it for problems and test plays it against the computer. Maps save in your browser, export as files and play from the Level Selector\'s Add-Ons. Signed in, save them to your library as private, unlisted or public; public maps can be searched, liked and played in lobbies.'),
     h('Sound and music'),
-    el('p', {}, 'The music follows the action as the original\'s did: a piece for each vehicle, the bunker, the flag, deaths and the win. The classic view plays a military band of public-domain marches on the built-in synthesiser, or sampled from the GeneralUser GS SoundFont with Options > Instruments > Sampled (32 MB the first time, then kept by your browser). The modern view has its own hardcore and metalcore soundtrack. Options > Sound sets the master, effects and music volume, Options > Music switches the music off, and the mute key silences everything.'),
+    el('p', {}, 'The music follows the action as the original\'s did: a piece for each vehicle, the bunker, the flag, deaths and the win. The classic view plays a military band of public-domain marches on the built-in synthesiser, or sampled from the GeneralUser GS SoundFont with Options > Sound and Music > Instruments > Sampled (32 MB the first time, then kept by your browser). The modern view has its own hardcore and metalcore soundtrack. Options > Sound and Music sets the master, effects and music volume and switches the music off, and the mute key silences everything.'),
     h('Your settings'),
     el('p', {}, 'Names, options, keys and the Hall of Fame are kept in this browser; signed in, your settings follow your account. Help > System Info shows what this browser and server offer the game.'));
 }

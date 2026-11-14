@@ -16,7 +16,7 @@ Each release's section below becomes its GitHub release notes (`.github/workflow
 
 ### Removed
 
-- The jukebox (Options > Jukebox), with its player for single pieces and its loader for a SoundFont file of your own. Options > Instruments still plays the site's SoundFont.
+- The jukebox, with its player for single pieces and its loader for a SoundFont file of your own. Sampled instruments still play the site's SoundFont.
 
 ## [0.4.0] - 2026-11-14
 
