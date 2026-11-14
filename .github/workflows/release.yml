@@ -80,7 +80,8 @@ jobs:
           cp .env.example dist/env.example
           cp Caddyfile dist/
           {
-            cat release-notes.md
+            # Links to files in the repository work in CHANGELOG.md but not on a release page: point them at this tag.
+            sed -E "s#\]\(([^):\#]+)(\#[^)]*)?\)#](${{ github.server_url }}/${{ github.repository }}/blob/v$VERSION/\1\2)#g" release-notes.md
             echo
             echo "## Image"
             echo
