@@ -18,6 +18,7 @@ A player whose base is out stays in the match as a watcher. Their view starts on
 - The last team with a base in the match wins.
 - If the last bases go out at the same moment, the match is a draw.
 - A match stops after two hours. The team with the most jeeps left then wins, and equal counts make it a draw.
+- The win plays out over the winner's base. In the classic view the camera rises over it under fireworks. In the modern view the drone makes a last pass as fireworks go up in the winner's colour, the computer vision types out its assessment (the winner, the bases neutralised and how long it took), and the feed breaks up to SIGNAL LOST.
 
 ## The flag
 
@@ -32,7 +33,7 @@ You drive one vehicle at a time, launched from the lift in your bunker. Each map
 
 ![The lift screen with the four vehicle bays](images/lift-screen.png)
 
-*The bunker's lift screen, where you pick a vehicle. The number is how many of that vehicle you have left.*
+*The bunker's lift screen in the classic view, where you pick a vehicle. The number is how many of that vehicle you have left.*
 
 | Vehicle | Good at | Watch out for |
 | --- | --- | --- |

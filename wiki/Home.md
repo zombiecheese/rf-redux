@@ -4,13 +4,13 @@
 
 It keeps the original's look, handling and rules, and adds online play for one to four players, computer opponents, accounts and lobbies, chat, replays and a web level editor.
 
-![The title screen with the main menu](images/title-menu.png)
+![The title screen with the main menu](images/title-menu.jpg)
 
-*The title screen and main menu.*
+*The title screen and main menu in the modern style. The Style toggle swaps it, and the whole game, to the classic pixel look.*
 
-![A tank firing near an enemy gate, with the cockpit panel below](images/tank.png)
+![A tank in the modern view, with the drone overlay, a flag arrow and the tactical plot](images/modern-tank.jpg)
 
-*A match: your vehicle in the middle, the cockpit panel with radar, fuel and ammunition below.*
+*A match in the modern view: your tank in the middle with its fuel and shells, an arrow to where the enemy flag may be, and the tactical plot for radar.*
 
 ## Start here
 
@@ -30,7 +30,7 @@ It keeps the original's look, handling and rules, and adds online play for one t
 - **Players:** one to four per match, with the computer playing any base nobody takes.
 - **Maps:** 104 two-player maps, sixteen maps for three and four bases, and any map made in the level editor.
 - **Where it runs:** any current desktop browser with a keyboard. Phones and tablets play solo, in landscape, with on-screen controls.
-- **How it looks:** the original's 320 × 240 pixel picture with a military band score, or a modern 3D view with day and night lighting and its own hardcore and metalcore soundtrack (Options > View > Visuals).
+- **How it looks:** a modern 3D view, seen as a surveillance drone's feed, with its own hardcore and metalcore soundtrack (the default), or the original's 320 × 240 pixel picture with a military band score. **Style** on the main menu switches between them. Matches are played by day or by night.
 - **What it needs:** nothing but the game itself. The art, sounds, music and maps are all included.
 
 The latest version is on the [Releases page](https://github.com/zombiecheese/rf-redux/releases), and the list of changes is in the [changelog](https://github.com/zombiecheese/rf-redux/blob/main/CHANGELOG.md).

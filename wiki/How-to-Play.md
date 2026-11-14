@@ -17,6 +17,10 @@ The title screen shows the menu after the splash. Any key or a tap brings it bac
 
 Training and Split Screen open the **Player Selector** (names, the difficulty, 1 to 9, the time of day, Day or Night, and the view: Classic or Modern, each with a preview), laid out like an online lobby's match settings, then the **Level Selector**, which lists the maps by level 1 to 9 with a preview of each. On a map with three or four bases you are also asked for the team layout.
 
+![The Player Selector with names, difficulty, time of day and the view](images/player-selector.jpg)
+
+*The Player Selector for Training: names, the difficulty, Day or Night, and the view.*
+
 ![The Level Selector with levels, maps and a map preview](images/level-selector.png)
 
 *The Level Selector: levels on the left, that level's maps, and a preview of the picked map with each base marked.*
@@ -28,13 +32,17 @@ Training and Split Screen open the **Player Selector** (names, the difficulty, 1
 3. Drive back onto your own base and press **R** to go back into the bunker.
 4. Launch a jeep, drive it over the flag to pick it up, and bring it home.
 
+![The bunker in the modern view, with four vehicle bays around the lift](images/modern-bunker.png)
+
+*The bunker in the modern view. The four bays hold the helicopter, tank, ASV and jeep, each with how many are left. Tap or click a bay to pick it, and again to launch.*
+
 ![The lift screen in the bunker with four vehicle bays](images/lift-screen.png)
 
-*The lift screen. The four bays hold the helicopter, tank, ASV and jeep, and the panel shows how many of the picked vehicle are left.*
+*The same lift screen in the classic view, where the panel shows how many of the picked vehicle are left.*
 
 ![A tank beside its lift pad and a tower](images/home-base.png)
 
-*Just launched: a tank beside its base's lift pad. Drive back onto the pad and press R to dock.*
+*Just launched, in the classic view: a tank beside its base's lift pad. Drive back onto the pad and press R to dock.*
 
 ## Controls
 
@@ -68,7 +76,7 @@ With one player (Training, online and the editor's test play) either half of the
 
 | Key | Does |
 | --- | --- |
-| H | Help Topics |
+| H | Help Topics, in pages: How to Play, Keys, Views, Online and More. **Help** in the menu also has System Info and About |
 | N | New Game |
 | P | Pause or resume (not online) |
 | Alt+R | Restart |
@@ -144,6 +152,14 @@ Replays save as `.rfwreplay.json` files or, signed in, to your account.
 - **Instruments:** Built-in (the default) or Sampled, which plays the retro band from real instrument samples (the GeneralUser GS SoundFont). The first time you pick Sampled the game downloads it (32 MB); after that your browser keeps it. The modern soundtrack keeps its own guitars and drums either way.
 - **Visuals** (also **Style** on the main menu, which swaps the title picture too): Modern (the default: the game in 3D at 1280 × 720, with lighting, shadows and effects, a 3D bunker and skull, and modern messages and scoreboard) or Classic (the original's 320 × 240 pixel picture with a subtle CRT look). The game remembers your pick. You can switch during a match; the game plays the same either way. The modern view is a surveillance drone's feed: grain, a lens, stream errors when something blows up nearby (worst when you are hit), and an overlay of the clock, altitude and grid. In a modern match at night, the **THERMAL** button beside the menu button, or its key (**G** left hand, **I** right hand, changed in Options > Controls > Vehicle Keys), switches to a white-hot thermal camera that sees in the dark; each match starts with it off, and by day there is no thermal camera. Arrows at the edges in each rival's colour point to its flag buildings (any of them may hide the flag), to a flag lying in the open, and home while your jeep carries one.
 - **Time of day** (on the Player Selector, or the host's pick online; not in Options): Day or Night. Night is dark: the vehicles have headlights, explosions light up the ground, and street lamps, watchtowers and windows are lit. The lights are not clean discs: beams carry grime and scratches, and lamps throw the bars of their cages and flicker.
+![Night in the modern view: a tank's headlights on dark ground](images/modern-night.jpg)
+
+*A night match in the modern view: only the headlights, lamps and fires light the ground. THERMAL, top left, is off.*
+
+![The same spot through the thermal camera](images/modern-thermal.jpg)
+
+*The same spot with the thermal camera on: the tank runs white-hot against the cool ground.*
+
 - **Picture:** how the picture is scaled.
 - **Swap Sides:** gives player 1 the right-hand keys.
 
