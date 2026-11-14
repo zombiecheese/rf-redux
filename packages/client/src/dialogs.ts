@@ -536,15 +536,15 @@ function viewsPage(): HTMLElement {
   return el('div', { class: 'stack' },
     el('p', {}, 'Pick the view when you start a game, or switch at any time, even mid-match, with Options > View > Visuals. Both show the same part of the map, so classic and modern players can share an online match.'),
     h('Classic'),
-    el('p', {}, 'The original\'s look: a 320 × 240 picture with the tilted 3D camera, scaled to the window with square pixels, with the cockpit panel, bars and radar. Options > View > CRT Look adds subtle scanlines and glow; Options > View > Picture picks Fill or whole pixels only. The bars beside the picture are camouflage in your colour.'),
+    el('p', {}, 'The original\'s look: a 320 × 240 picture with the tilted 3D camera, scaled to the window with square pixels, with the cockpit panel, bars and radar. Its subtle CRT scanlines and glow are part of the look. Options > View > Picture picks Fill or whole pixels only. The bars beside the picture are camouflage in your colour.'),
     h('Modern'),
     ul(
       'The same game drawn in 3D at 1280 × 720 with toy-soldier models, sunlight and shadows, an animated sea, smoke, fire and debris, a 3D bunker cutaway and a 3D laughing skull. It needs WebGL; without it the game stays classic.',
-      'Drone feed: the picture looks like a surveillance drone\'s, with grain, a scan line and stream errors when something blows up nearby. Options > View > Camera switches to a clean picture.',
+      'Drone feed: the picture is a surveillance drone\'s, with grain, a scan line and stream errors when something blows up nearby.',
       'Computer-vision HUD: tracking boxes with integrity on your vehicle (with its fuel and ammunition), friends, enemy vehicles, gun towers, flag buildings and drones, a tactical plot for the radar, and messages as read-outs.',
       'Flag arrows: at the edges of the picture, in each rival\'s colour, arrows point to its flag buildings (any of them may hide the flag), to a flag lying in the open, and home while your jeep carries one.',
       'Day or night (Options > View > Lighting): night is dark, lit by headlights, fires and the buildings\' windows and lamps.',
-      'Thermal camera: a white-hot picture that sees in the dark. Switch it with the thermal button beside the menu button, Options > View > Thermal or its key (see Keys).',
+      'Thermal camera: in a match, switch the drone to a white-hot thermal picture that sees in the dark, with the thermal button beside the menu button or its key (see Keys).',
     ),
     el('p', {}, 'Online the lobby\'s host can set the visuals and the lighting for everyone (the lobby\'s Multiplayer view), or leave both to each player\'s own Options. Replays play back the way their match was seen.'));
 }
@@ -590,7 +590,7 @@ export async function systemInfo(server: ServerInfo, s: Settings): Promise<void>
     ['Version', `Return Fire: Redux ${VERSION}`],
     ['Game data', `The game's own, built in${artSprites ? ` (${artSprites} sprites)` : ''}: no import needed`],
     ['Online', server.online ? `Game server found${server.account ? `, signed in as ${server.account}` : ', not signed in'}` : 'No game server (solo and two-player only)'],
-    ['View', `${s.visuals === 'modern' && webgl ? 'Modern' : 'Classic'}${s.visuals === 'modern' && webgl ? `, ${s.lighting}, ${s.camera === 'clean' ? 'clean camera' : 'drone feed'}${s.thermal ? ', thermal' : ''}` : ''}`],
+    ['View', `${s.visuals === 'modern' && webgl ? 'Modern' : 'Classic'}${s.visuals === 'modern' && webgl ? ` (drone feed, ${s.lighting})` : ' (CRT pixels)'}`],
     ['Modern view', webgl ? 'Available (WebGL)' : 'Not available: this browser has no WebGL'],
     ['Instruments', server.soundfont ? (s.instruments === 'sampled' ? 'Sampled (GeneralUser GS)' : 'Built-in synthesiser (sampled available)') : 'Built-in synthesiser (no SoundFont on this server)'],
     ['Audio', 'AudioContext' in window ? 'Web Audio' : 'None: the game plays silent'],
