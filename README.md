@@ -57,13 +57,13 @@ Still to come: two-player maps of the project's own.
 **Replays, options and music**
 
 - Every match is recorded in the browser (the last 20, plus any you star) and plays back at ¼× to 8× with pause, ten-second jumps, a timeline and a choice of player to follow. Replays save as `.rfwreplay.json` files or, signed in, to your account.
-- Options: rebind every vehicle key for either half of the keyboard, master, effects and music volume, built-in or sampled instruments for the band, retro or modern visuals, day or night lighting for the modern view, a subtle CRT look (on by default), how the picture is scaled, and Swap Sides. Names, settings and the Hall of Fame are kept in the browser, and settings follow a signed-in account.
+- Options: rebind every vehicle key for either half of the keyboard, master, effects and music volume, built-in or sampled instruments for the band, retro or modern visuals, day or night lighting for the modern view, how the picture is scaled, and Swap Sides. Names, settings and the Hall of Fame are kept in the browser, and settings follow a signed-in account.
 - Music chosen the way the original's music director chose it, for each vehicle, the bunker, deaths, the flag, the win and the menus ([docs/music.md](docs/music.md)). The retro view plays MIDI band arrangements of public-domain music on an MT-32-style synthesiser, or, with Options > Instruments > Sampled, from the GeneralUser GS SoundFont (a 32 MB download the first time, then kept by the browser). The modern view has its own soundtrack: original hardcore, beatdown and metalcore instrumentals, with a breakdown in every piece, played on the synthesiser's guitar amp, bass and metal kit. Switching the view switches the music at once.
 
 **The picture, and phones and tablets**
 
-- The 320 × 240 picture fills the browser at 4:3 with square pixels. The bars left over are pixel camouflage in the watching player's colour.
-- Options > Visuals switches to a modern view, at any time, even during a match: the same game drawn in 3D at 1280 × 720 (16:9) with low-poly toy-soldier models, sunlight and shadows, an animated sea, glowing explosions, smoke and debris, and a HUD that reads like a machine-vision analysis of the feed: tracking boxes with integrity on vehicles, gun towers and flag buildings, your fuel and ammunition beside your own vehicle, and a tactical plot for the radar. The bunker is a 3D cutaway of the hill with the vehicles parked in their bays and the lift carrying them up, the skull is a 3D skull in the rival's helmet, and messages, chat and the scoreboard use the menus' style too. It has its own hardcore and metalcore soundtrack. Options > Lighting picks day, or a dark night with headlights, glowing fire, and lit windows and lamps on the buildings. The picture looks like a surveillance drone's feed (Options > Camera turns that off), and Options > Thermal (or I, or the IR button) switches to a white-hot thermal camera that sees in the dark. The camera follows and zooms as the retro one does, so both show the same part of the map across, and retro and modern players can share an online match. It needs WebGL; without it the game stays retro. `/modern-gallery.html` in the dev server shows every modern model.
+- The 320 × 240 picture fills the browser at 4:3 with square pixels, with a subtle CRT look. The bars left over are pixel camouflage in the watching player's colour.
+- Options > Visuals switches to a modern view, at any time, even during a match: the same game drawn in 3D at 1280 × 720 (16:9) with low-poly toy-soldier models, sunlight and shadows, an animated sea, glowing explosions, smoke and debris, and a HUD that reads like a machine-vision analysis of the feed: tracking boxes with integrity on vehicles, gun towers and flag buildings, your fuel and ammunition beside your own vehicle, and a tactical plot for the radar. The bunker is a 3D cutaway of the hill with the vehicles parked in their bays and the lift carrying them up, the skull is a 3D skull in the rival's helmet, and messages, chat and the scoreboard use the menus' style too. It has its own hardcore and metalcore soundtrack. Options > Lighting picks day, or a dark night with headlights, glowing fire, and lit windows and lamps on the buildings. The picture is a surveillance drone's feed, and in a night match the THERMAL toggle beside the menu button (or its key, G or I, rebindable in Options > Controls) switches to a white-hot thermal camera that sees in the dark; each match starts with it off, and by day there is none. Colour-coded arrows at the edges point to where each rival's flag may be. The camera follows and zooms as the retro one does, so both show the same part of the map across, and retro and modern players can share an online match. It needs WebGL; without it the game stays retro. `/modern-gallery.html` in the dev server shows every modern model.
 - Phones and tablets play solo, in landscape, with on-screen controls ([Touch controls](#touch-controls)). Held upright they show a "turn your device sideways" notice and the match waits.
 
 ## Getting started
@@ -96,6 +96,7 @@ Help > Controls and Keys (H) in the game lists every key; it is built from the s
 | Tank turret (both together centre it) | Q / E | [ / ] |
 | Go back into the bunker (on your base) | R | Backspace |
 | Launch jeep, tank, ASV, helicopter | 1 2 3 4, or drive keys and fire on the lift screen | 7 8 9 0 |
+| Thermal camera on / off (modern view, at night) | G | I |
 
 These are the original's keys; Options > Controls rebinds any of them for either half (Controls and Keys always shows
 the keys in use). A key the other half, a shortcut, chat or the menus use cannot be taken.
@@ -113,7 +114,6 @@ for the menus, or touch on phones and tablets; there is no gamepad support.
 | L | Hall of Fame |
 | M | Open the menu (or the ☰ button over a match; offline the match waits while it is open) |
 | V | Sound off / on |
-| I | Thermal camera on / off (modern view) |
 | Alt+3 | Swap Sides |
 | Esc | Leave the game (any key skips the splash or the win scene) |
 | T | Online: open the chat line (Tab picks everyone, your team or one player; Enter sends; Esc closes) |

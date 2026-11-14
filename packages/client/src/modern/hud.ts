@@ -131,6 +131,7 @@ export function drawModernHud(g: CanvasRenderingContext2D, m: Match, rect: Moder
   g.shadowBlur = 2;
   for (const t of lagged(player, tracks)) box(g, rect, t, project, m.tick);
   g.restore();
+  if (v) guides(g, m, rect, v, team, teamOf, project);
 
   const scale = Math.min(1, rect.w / 900);
   g.save();
@@ -138,6 +139,87 @@ export function drawModernHud(g: CanvasRenderingContext2D, m: Match, rect: Moder
   g.scale(scale, scale);
   const r = v && RADAR[v.kind];
   if (v && r) radar(g, m, v, r, rect.w / scale - 26, rect.h / scale - 26, team, teamOf);
+  g.restore();
+}
+
+/**
+ * Arrows at the edge of the view towards where the flags may be, in each rival base's colour: every standing flag
+ * building of a rival (which one hides the flag is not given away), a rival flag once it lies in the open, and the
+ * way home while the player's jeep carries one. What is already in view has its tracking box instead.
+ */
+function guides(
+  g: CanvasRenderingContext2D, m: Match, rect: ModernRect, v: Vehicle, team: number, teamOf: (base: number) => number, project: Projector,
+): void {
+  const w = m.world;
+  const goals: { x: number; y: number; css: string; label: string; strong: boolean }[] = [];
+  const carrying = m.flags.find((f) => f.carrier === v.player);
+  if (carrying) {
+    const home = w.bases[v.base]?.start;
+    if (home) goals.push({ x: home.tx * 32 + 16, y: home.ty * 32 + 16, css: TEAMS[v.base]?.css ?? OWN, label: 'HOME', strong: true });
+  } else {
+    for (const f of m.flags) {
+      if (teamOf(f.base) === team || f.carrier >= 0) continue;
+      const css = TEAMS[f.base]?.css ?? HOSTILE;
+      if (f.revealed) {
+        goals.push({ x: f.x / ONE, y: f.y / ONE, css, label: 'ENEMY FLAG', strong: true });
+        continue;
+      }
+      for (const s of w.bases[f.base]?.flagSites ?? []) {
+        const i = s.ty * GRID + s.tx;
+        const bid = w.building[i];
+        if (bid !== BUILDING.FLAG && bid !== BUILDING.DMG_FLAG) continue;
+        goals.push({ x: s.tx * 32 + 16, y: s.ty * 32 + 16, css, label: 'POSSIBLE FLAG', strong: false });
+      }
+    }
+  }
+  const vx = v.x / ONE;
+  const vy = v.y / ONE;
+  const pad = 46;
+  const cx = rect.x + rect.w / 2;
+  const cy = rect.y + rect.h / 2;
+  const near = goals.map((t) => ({ ...t, d: Math.hypot(t.x - vx, t.y - vy) })).sort((a, b) => a.d - b.d).slice(0, 6);
+  g.save();
+  g.font = CV_FONT;
+  g.textBaseline = 'middle';
+  g.shadowColor = 'rgba(0, 0, 0, 0.7)';
+  g.shadowBlur = 2;
+  for (const t of near) {
+    const p = project(t.x, t.y, 0);
+    if (p && p.x > rect.x + pad && p.x < rect.x + rect.w - pad && p.y > rect.y + pad && p.y < rect.y + rect.h - pad) continue;
+    // Point the way it lies on the map (north up), from the middle of the view to its edge.
+    const a = Math.atan2(t.y - vy, t.x - vx);
+    const dx = Math.cos(a);
+    const dy = Math.sin(a);
+    const k = Math.min((rect.w / 2 - pad) / Math.max(1e-6, Math.abs(dx)), (rect.h / 2 - pad) / Math.max(1e-6, Math.abs(dy)));
+    const ax = cx + dx * k;
+    const ay = cy + dy * k;
+    g.save();
+    g.translate(ax, ay);
+    g.rotate(a);
+    g.fillStyle = t.css;
+    g.strokeStyle = 'rgba(0, 0, 0, 0.6)';
+    g.lineWidth = 1;
+    g.beginPath();
+    g.moveTo(14, 0);
+    g.lineTo(-6, -9);
+    g.lineTo(-2, 0);
+    g.lineTo(-6, 9);
+    g.closePath();
+    g.globalAlpha = t.strong ? 1 : 0.8 + 0.2 * Math.sin(m.tick * 0.2);
+    g.fill();
+    g.stroke();
+    g.restore();
+    // Its label beside the arrow, on the side towards the middle.
+    const text = `${t.label} ${Math.round(t.d / 3.2)}M`;
+    const tw = g.measureText(text).width;
+    const lx = Math.max(rect.x + 6, Math.min(rect.x + rect.w - tw - 14, ax - dx * 26 - tw / 2 - 4));
+    const ly = Math.max(rect.y + 10, Math.min(rect.y + rect.h - 10, ay - dy * 22));
+    g.fillStyle = 'rgba(6, 10, 12, 0.6)';
+    g.fillRect(lx, ly - 7, tw + 8, 14);
+    g.fillStyle = t.css;
+    g.textAlign = 'left';
+    g.fillText(text, lx + 4, ly);
+  }
   g.restore();
 }
 
@@ -474,46 +556,76 @@ export function dimView(g: CanvasRenderingContext2D, rect: ModernRect, level: nu
   g.fillRect(rect.x, rect.y, rect.w, rect.h);
 }
 
-/** A short note in a chip at the top left of a view ("Get the flag home!", "Watching ..."). */
+const MONO = 'ui-monospace, "SFMono-Regular", Menlo, Consolas, "Liberation Mono", monospace';
+const INK = '#ecf2e8';
+const AMBER = '#ffc44a';
+
+/**
+ * A computer-vision read-out frame: dark glass, a thin off-white outline with brighter corner ticks, and a small tag
+ * at its top left (STATUS, EVENT...), as the analysis labels what it shows.
+ */
+function readout(g: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, tag: string, css = INK): void {
+  g.fillStyle = 'rgba(6, 10, 12, 0.66)';
+  g.fillRect(x, y, w, h);
+  g.strokeStyle = 'rgba(236, 242, 232, 0.35)';
+  g.lineWidth = 1;
+  g.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
+  const l = Math.min(10, w / 4, h / 2);
+  g.strokeStyle = css;
+  g.lineWidth = 1.5;
+  g.beginPath();
+  for (const [cx, cy, dx, dy] of [[x, y, 1, 1], [x + w, y, -1, 1], [x, y + h, 1, -1], [x + w, y + h, -1, -1]] as const) {
+    g.moveTo(cx, cy + dy * l);
+    g.lineTo(cx, cy);
+    g.lineTo(cx + dx * l, cy);
+  }
+  g.stroke();
+  if (tag) {
+    g.save();
+    g.font = `700 9px ${MONO}`;
+    g.textBaseline = 'middle';
+    g.textAlign = 'left';
+    const tw = g.measureText(tag).width + 8;
+    g.fillStyle = css;
+    g.fillRect(x + l + 4, y - 5, tw, 10);
+    g.fillStyle = '#0b0f10';
+    g.fillText(tag, x + l + 8, y);
+    g.restore();
+  }
+}
+
+/** A short note at the top left of a view ("Get the flag home!", "Watching ..."), below the page's buttons. */
 export function drawNote(g: CanvasRenderingContext2D, rect: ModernRect, text: string): void {
   const scale = Math.min(1, rect.w / 900);
   g.save();
-  g.font = `700 ${Math.round(15 * scale)}px ${FONT}`;
-  const w = g.measureText(text).width + 28 * scale;
+  g.font = `700 ${Math.round(14 * scale)}px ${MONO}`;
+  const t = text.toUpperCase();
+  const w = g.measureText(t).width + 28 * scale;
   const h = 30 * scale;
   const x = rect.x + 20 * scale;
-  const y = rect.y + 18 * scale;
-  rounded(g, x, y, w, h, h / 2);
-  g.fillStyle = PANEL;
-  g.fill();
-  g.strokeStyle = ACCENT;
-  g.lineWidth = 1.5;
-  g.stroke();
-  g.fillStyle = '#ffd58a';
+  const y = rect.y + 64 * scale;
+  readout(g, x, y, w, h, 'STATUS', AMBER);
+  g.fillStyle = AMBER;
   g.textBaseline = 'middle';
-  g.fillText(text, x + 14 * scale, y + h / 2 + 1);
+  g.fillText(t, x + 14 * scale, y + h / 2 + 1);
   g.restore();
 }
 
 /** The latest match messages, newest last, stacked at the top middle. */
 export function drawLog(g: CanvasRenderingContext2D, lines: readonly string[], width: number): void {
   g.save();
-  g.font = `600 15px ${FONT}`;
+  g.font = `600 13px ${MONO}`;
   g.textAlign = 'center';
   g.textBaseline = 'middle';
   lines.forEach((text, i) => {
-    const w = Math.min(width - 40, g.measureText(text).width + 32);
-    const h = 30;
+    const t = text.toUpperCase();
+    const w = Math.min(width - 40, g.measureText(t).width + 32);
+    const h = 28;
     const x = (width - w) / 2;
-    const y = 18 + i * 36;
-    rounded(g, x, y, w, h, 10);
-    g.fillStyle = PANEL;
-    g.fill();
-    g.strokeStyle = LINE;
-    g.lineWidth = 1;
-    g.stroke();
-    g.fillStyle = TEXT;
-    g.fillText(text, width / 2, y + h / 2 + 1, w - 24);
+    const y = 22 + i * 38;
+    readout(g, x, y, w, h, i === lines.length - 1 ? 'EVENT' : '');
+    g.fillStyle = INK;
+    g.fillText(t, width / 2, y + h / 2 + 1, w - 24);
   });
   g.restore();
 }
@@ -521,19 +633,16 @@ export function drawLog(g: CanvasRenderingContext2D, lines: readonly string[], w
 /** A big centred message: who won, or the server's pause. */
 export function drawBanner(g: CanvasRenderingContext2D, text: string, width: number, y: number, size = 44): void {
   g.save();
-  g.font = `800 ${size}px ${FONT}`;
+  const s = Math.round(size * 0.8);
+  g.font = `800 ${s}px ${MONO}`;
   g.textAlign = 'center';
   g.textBaseline = 'middle';
-  const w = g.measureText(text).width + size * 1.6;
-  const h = size * 1.9;
-  rounded(g, (width - w) / 2, y - h / 2, w, h, 18);
-  g.fillStyle = PANEL;
-  g.fill();
-  g.strokeStyle = ACCENT;
-  g.lineWidth = 2;
-  g.stroke();
-  g.fillStyle = TEXT;
-  g.fillText(text, width / 2, y + 2);
+  const t = text.toUpperCase();
+  const w = g.measureText(t).width + s * 1.6;
+  const h = s * 2;
+  readout(g, (width - w) / 2, y - h / 2, w, h, 'ANALYSIS', AMBER);
+  g.fillStyle = INK;
+  g.fillText(t, width / 2, y + 2);
   g.restore();
 }
 
@@ -543,19 +652,17 @@ export interface TextRun {
   css: string;
 }
 
-/** Chat lines in a glass panel at the top left, under the view's note. */
+/** Chat lines in a read-out frame at the top left, under the view's note. */
 export function drawChatLines(g: CanvasRenderingContext2D, rect: ModernRect, lines: readonly TextRun[][]): void {
   if (!lines.length) return;
   const scale = Math.min(1, rect.w / 900);
   g.save();
-  g.font = `500 ${Math.round(14 * scale)}px ${FONT}`;
+  g.font = `500 ${Math.round(13 * scale)}px ${MONO}`;
   const lh = 22 * scale;
   const w = Math.min(rect.w - 40 * scale, 520 * scale);
   const x = rect.x + 20 * scale;
   const y = rect.y + 58 * scale;
-  rounded(g, x, y, w, lines.length * lh + 14 * scale, 10);
-  g.fillStyle = 'rgba(16, 19, 15, 0.6)';
-  g.fill();
+  readout(g, x, y, w, lines.length * lh + 14 * scale, 'COMMS');
   g.textBaseline = 'middle';
   lines.forEach((runs, i) => {
     let cx = x + 12 * scale;
@@ -571,7 +678,7 @@ export function drawChatLines(g: CanvasRenderingContext2D, rect: ModernRect, lin
   g.restore();
 }
 
-/** The scoreboard as a glass table in the middle of the screen. */
+/** The scoreboard as a read-out table in the middle of the screen. */
 export function drawScoreTable(g: CanvasRenderingContext2D, width: number, head: readonly string[], rows: readonly { cells: string[]; css: string }[]): void {
   g.save();
   const cols = [24, 64, 330, 400, 470];
@@ -580,14 +687,11 @@ export function drawScoreTable(g: CanvasRenderingContext2D, width: number, head:
   const h = 56 + rows.length * rh;
   const x = (width - w) / 2;
   const y = 90;
-  rounded(g, x, y, w, h, 16);
-  g.fillStyle = 'rgba(16, 19, 15, 0.86)';
-  g.fill();
-  g.strokeStyle = LINE;
-  g.lineWidth = 1;
-  g.stroke();
+  readout(g, x, y, w, h, 'SCORES');
+  g.fillStyle = 'rgba(6, 10, 12, 0.3)';
+  g.fillRect(x, y, w, h);
   g.textBaseline = 'middle';
-  g.font = `700 12px ${FONT}`;
+  g.font = `700 12px ${MONO}`;
   g.fillStyle = MUTED;
   head.forEach((t, i) => g.fillText(t.toUpperCase(), x + cols[i]!, y + 26));
   rows.forEach((r, k) => {
@@ -595,7 +699,7 @@ export function drawScoreTable(g: CanvasRenderingContext2D, width: number, head:
     g.fillStyle = 'rgba(255,255,255,0.08)';
     g.fillRect(x + 16, ry - 4, w - 32, 1);
     r.cells.forEach((t, i) => {
-      g.font = `${i === 1 ? 700 : 500} 15px ${FONT}`;
+      g.font = `${i === 1 ? 700 : 500} 14px ${MONO}`;
       g.fillStyle = i <= 1 ? r.css : TEXT;
       g.fillText(t, x + cols[i]!, ry + rh / 2 - 2, (cols[i + 1] ?? w - 16) - cols[i]! - 10);
     });
@@ -613,6 +717,8 @@ export interface Feed {
   lines: readonly string[];
   /** For the clock and the blinking REC. */
   now: Date;
+  /** Nothing of the page's sits over the picture (the win scene): all four corner brackets. */
+  full?: boolean;
 }
 
 const FEED_FONT = '600 13px ui-monospace, "SFMono-Regular", Menlo, Consolas, "Liberation Mono", monospace';
@@ -636,6 +742,8 @@ export function drawFeed(g: CanvasRenderingContext2D, rect: ModernRect, f: Feed)
   const l = 30;
   g.beginPath();
   for (const [x, y, dx, dy] of [[m, m, 1, 1], [w - m, m, -1, 1], [m, h - m, 1, -1], [w - m, h - m, -1, -1]] as const) {
+    // The page's menu and thermal buttons sit in the picture's top left corner, in place of its bracket.
+    if (!f.full && rect.x === 0 && rect.y === 0 && dx > 0 && dy > 0) continue;
     g.moveTo(x, y + dy * l);
     g.lineTo(x, y);
     g.lineTo(x + dx * l, y);
@@ -664,5 +772,108 @@ export function drawFeed(g: CanvasRenderingContext2D, rect: ModernRect, f: Feed)
   // Read-outs down the left edge, clear of the note at the top and the gauges at the bottom.
   g.textAlign = 'left';
   f.lines.forEach((t, i) => g.fillText(t, m + 8, h / 2 - (f.lines.length * 18) / 2 + i * 18));
+  g.restore();
+}
+
+/** What the win scene's analysis says, and how far through it is. */
+export interface Verdict {
+  /** The winner's name, in its colour. */
+  name: string;
+  css: string;
+  /** ms since the scene began. */
+  t: number;
+  /** The read-out lines under the verdict (bases out, time, captures...). */
+  lines: readonly string[];
+  /** The winning base on screen, to box, or null. */
+  target: { x: number; y: number; w: number; h: number } | null;
+  /** 0-1: the feed cutting out at the end. */
+  lost: number;
+}
+
+/** Text typed out a character every few ms from `from`, with a block cursor while it types. */
+function typed(text: string, t: number, from: number, every = 38): string {
+  const n = Math.floor((t - from) / every);
+  if (n <= 0) return '';
+  return n >= text.length ? text : `${text.slice(0, n)}\u2588`;
+}
+
+/**
+ * The win scene's computer-vision analysis over the drone's last pass: a lock on the winning base, then the verdict
+ * typed out in a read-out, and SIGNAL LOST as the feed cuts.
+ */
+export function drawVerdict(g: CanvasRenderingContext2D, width: number, height: number, v: Verdict): void {
+  g.save();
+  g.textBaseline = 'middle';
+  // The lock: a box that closes in on the base, then holds with its tag.
+  if (v.target && v.lost < 0.6) {
+    const close = Math.min(1, Math.max(0, (v.t - 300) / 700));
+    const grow = 1 + (1 - close) * 1.6;
+    const w = v.target.w * grow;
+    const h = v.target.h * grow;
+    const x = v.target.x - w / 2;
+    const y = v.target.y - h / 2;
+    if (close > 0 || Math.floor(v.t / 120) % 2) {
+      g.strokeStyle = v.css;
+      g.lineWidth = 2;
+      const l = Math.min(18, w / 4);
+      g.beginPath();
+      for (const [cx, cy, dx, dy] of [[x, y, 1, 1], [x + w, y, -1, 1], [x, y + h, 1, -1], [x + w, y + h, -1, -1]] as const) {
+        g.moveTo(cx, cy + dy * l);
+        g.lineTo(cx, cy);
+        g.lineTo(cx + dx * l, cy);
+      }
+      g.stroke();
+      if (close >= 1) {
+        g.font = `700 12px ${MONO}`;
+        g.textAlign = 'left';
+        const tag = `VICTOR // ${v.name.toUpperCase()}  CONF ${(97 + ((v.t / 997) % 1) * 2.9).toFixed(1)}%`;
+        const tw = g.measureText(tag).width + 12;
+        g.fillStyle = v.css;
+        g.fillRect(x, y - 20, tw, 18);
+        g.fillStyle = '#0b0f10';
+        g.fillText(tag, x + 6, y - 10);
+      }
+    }
+  }
+  // The verdict, at the bottom middle.
+  if (v.t > 1200 && v.lost < 1) {
+    const head = 'MISSION ASSESSMENT';
+    const big = `${v.name} wins`.toUpperCase();
+    g.font = `800 40px ${MONO}`;
+    const bw = g.measureText(big).width;
+    g.font = `600 14px ${MONO}`;
+    const lw = Math.max(...v.lines.map((l) => g.measureText(l).width), g.measureText(head).width);
+    const w = Math.min(width - 60, Math.max(bw, lw) + 64);
+    const h = 86 + v.lines.length * 22;
+    const x = (width - w) / 2;
+    const y = height - h - 60;
+    g.globalAlpha = 1 - v.lost;
+    readout(g, x, y, w, h, 'ANALYSIS', v.css);
+    g.textAlign = 'left';
+    g.font = `600 13px ${MONO}`;
+    g.fillStyle = INK;
+    g.fillText(typed(head, v.t, 1400, 30), x + 24, y + 22);
+    g.font = `800 40px ${MONO}`;
+    g.fillStyle = v.css;
+    g.fillText(typed(big, v.t, 2000, 70), x + 24, y + 54, w - 48);
+    g.font = `600 14px ${MONO}`;
+    g.fillStyle = INK;
+    v.lines.forEach((l, i) => g.fillText(typed(l, v.t, 3000 + i * 700, 22), x + 24, y + 92 + i * 22, w - 48));
+    g.globalAlpha = 1;
+  }
+  // The feed cutting out.
+  if (v.lost > 0.5) {
+    g.fillStyle = `rgba(0, 0, 0, ${Math.min(0.85, (v.lost - 0.5) * 1.7)})`;
+    g.fillRect(0, 0, width, height);
+    if (Math.floor(v.t / 260) % 4 !== 3) {
+      g.font = `800 30px ${MONO}`;
+      g.textAlign = 'center';
+      const t = 'SIGNAL LOST';
+      const w = g.measureText(t).width + 60;
+      readout(g, (width - w) / 2, height / 2 - 34, w, 68, 'UAV-1', AMBER);
+      g.fillStyle = AMBER;
+      g.fillText(t, width / 2, height / 2 + 1);
+    }
+  }
   g.restore();
 }

@@ -266,6 +266,26 @@ export class Fx {
     }
   }
 
+  /** A firework over the winner's base: a flash high up and a shell of sparks in a colour that fall and fade. */
+  firework(x: number, y: number, z: number, colour: [number, number, number], scale = 1): void {
+    const n = Math.round(46 * scale);
+    for (let i = 0; i < n; i++) {
+      // Even over a sphere, so the shell reads as round from the drone's height.
+      const u = rand(-1, 1);
+      const a = Math.random() * Math.PI * 2;
+      const r = Math.sqrt(1 - u * u);
+      const s = rand(52, 70) * scale;
+      const white = Math.random() < 0.2;
+      this.hot.push({
+        x, y, z, vx: Math.cos(a) * r * s, vy: Math.sin(a) * r * s, vz: u * s + 12, age: 0, life: rand(1.1, 1.7),
+        size0: rand(3, 4.5) * scale, size1: 0.6, r: white ? 1 : colour[0], g: white ? 1 : colour[1], b: white ? 1 : colour[2],
+        alpha: 1, drag: 0.9, rise: 0, gravity: GRAVITY * 0.18,
+      });
+    }
+    this.puff(x, y, z, 2, 2.4, [0.3, 0.3, 0.32], 8 * scale, 22 * scale);
+    this.flash(x, y, z, 4 * scale);
+  }
+
   smokeAt(x: number, y: number, z: number): void {
     this.puff(x, y, z, 2, 1.5, [0.85, 0.85, 0.82], 3, 10);
   }

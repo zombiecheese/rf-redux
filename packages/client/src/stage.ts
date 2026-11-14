@@ -92,10 +92,10 @@ export class Stage {
 
   /**
    * Draws `source` with the brightness from `level(elapsed)` each frame for `ms`; skip ends it early. Resolves
-   * false if something else took the screen meanwhile.
+   * false if something else took the screen meanwhile. smooth draws a picture that is not pixel art (the modern view).
    */
   private animate(source: () => Picture, ms: number,
-    level: (t: number) => number, skip?: AbortSignal): Promise<boolean> {
+    level: (t: number) => number, skip?: AbortSignal, smooth = false): Promise<boolean> {
     this.still = null;
     const mine = ++this.owner;
     return new Promise((resolve) => {
@@ -104,10 +104,10 @@ export class Stage {
         if (mine !== this.owner) return resolve(false);
         const t = now - start;
         if (skip?.aborted || t >= ms) {
-          this.display.present(source(), level(ms));
+          this.display.present(source(), level(ms), smooth);
           return resolve(true);
         }
-        this.display.present(source(), level(t));
+        this.display.present(source(), level(t), smooth);
         requestAnimationFrame(frame);
       };
       requestAnimationFrame(frame);
@@ -117,20 +117,20 @@ export class Stage {
   /**
    * Plays a code-drawn animation of w x h pixels (draw is given the ms since it began) until ms, or until skip,
    * fading in over its first fadeIn ms and out over its last fadeOut. Resolves false if something else took the
-   * screen meanwhile.
+   * screen meanwhile. smooth: as for animate.
    */
   animation(w: number, h: number, draw: (ctx: OffscreenCanvasRenderingContext2D, ms: number) => void, ms: number,
-    fadeIn: number, fadeOut: number, skip?: AbortSignal): Promise<boolean> {
+    fadeIn: number, fadeOut: number, skip?: AbortSignal, smooth = false): Promise<boolean> {
     const canvas = new OffscreenCanvas(w, h);
     const ctx = canvas.getContext('2d')!;
     return this.animate(() => canvas, ms, (t) => {
       draw(ctx, t);
       return Math.min(fadeIn ? t / fadeIn : 1, fadeOut ? (ms - t) / fadeOut : 1, 1);
-    }, skip);
+    }, skip, smooth);
   }
 
   /** Fades whatever picture is given (the last game frame) to black. */
-  fadeOut(img: Picture, ms: number, skip?: AbortSignal): Promise<boolean> {
-    return this.animate(() => img, ms, (e) => 1 - e / ms, skip);
+  fadeOut(img: Picture, ms: number, skip?: AbortSignal, smooth = false): Promise<boolean> {
+    return this.animate(() => img, ms, (e) => 1 - e / ms, skip, smooth);
   }
 }
