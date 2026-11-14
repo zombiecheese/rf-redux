@@ -15,7 +15,7 @@ The title screen shows the menu after the splash. Any key or a tap brings it bac
 | **Level Editor** | Make your own maps (desktop only). See [[Level Editor]] |
 | **Options** | Controls, sound, picture and Swap Sides |
 
-Training and Two Players open the **Player Selector** (names and the computer's skill, 1 to 9), then the **Level Selector**, which lists the maps by level 1 to 9 with a preview of each. On a map with three or four bases you are also asked for the team layout.
+Training and Two Players open the **Player Selector** (names, the computer's skill, 1 to 9, and the view: Classic or Modern, each with a preview), then the **Level Selector**, which lists the maps by level 1 to 9 with a preview of each. On a map with three or four bases you are also asked for the team layout.
 
 ![The Level Selector with levels, maps and a map preview](images/level-selector.png)
 

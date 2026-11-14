@@ -9,7 +9,8 @@ Each release's section below becomes its GitHub release notes (`.github/workflow
 - The modern view looks like a surveillance drone's feed: a slightly washed, cool picture with film grain, a soft lens rim and colour fringes, a rolling scan line, stream errors when something is destroyed nearby, much stronger when your own vehicle is hit (torn rows, broken and misplaced macroblocks, split colours), and an overlay with corner brackets, the clock, REC and altitude and grid read-outs. Options > Camera switches it to a clean picture.
 - A thermal camera for the modern view (Options > Thermal, the I key, or the IR button beside the menu button): a white-hot picture where vehicles, soldiers and drones run hot, wrecks warm, buildings and ground cool and the sea cold, so it sees through the dark.
 
-- An online lobby's owner can set the visuals (classic or modern) and the lighting (day or night) for every player, or leave both to each player's own Options.
+- Starting a game offline (Training or Two Players) picks the view, Classic or Modern, on the Player Selector, each with a preview of it in play; Options > Visuals still switches it at any time.
+- An online lobby's owner can set the visuals (classic or modern) and the lighting (day or night) for every player, or leave both to each player's own Options. The lobby's Visuals choices show the same previews.
 
 ### Changed
 

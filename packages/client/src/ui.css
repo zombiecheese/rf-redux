@@ -428,3 +428,18 @@ body.online-game .touch .touch-btn.offline, body:not(.online-game) .touch .touch
 /* The chat line goes to the top, clear of the on-screen keyboard; its label is a button that picks who it goes to. */
 body.handheld .chatline { top: max(8px, env(safe-area-inset-top)); bottom: auto; }
 body.handheld .chatline span { padding: 4px 8px; border: 1px solid #888; cursor: pointer; }
+
+/* Classic or modern, with a picture of each (the Player Selector, the lobby's Visuals). */
+.ui .view-picker { display: grid; grid-template-columns: repeat(auto-fit, minmax(9.5em, 12em)); gap: .6em; }
+.ui .view-card { display: flex; flex-direction: column; align-items: stretch; gap: .25em; padding: .4em; text-align: left; border: 1px solid var(--ui-line);
+  border-radius: var(--ui-radius); background: var(--ui-raise); color: var(--ui-text); cursor: pointer; font: inherit; }
+.ui .view-card:hover:not(:disabled) { background: var(--ui-hover); }
+.ui .view-card.picked { border-color: var(--ui-accent); box-shadow: 0 0 0 1px var(--ui-accent) inset; }
+.ui .view-card:disabled { opacity: .45; cursor: not-allowed; }
+.ui .view-card img { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: calc(var(--ui-radius) * .6); background: #000; }
+.ui .view-card .view-both { display: grid; grid-template-columns: 1fr 1fr; aspect-ratio: 4 / 3; overflow: hidden; border-radius: calc(var(--ui-radius) * .6); }
+.ui .view-card .view-both img { height: 100%; aspect-ratio: auto; border-radius: 0; }
+.ui .view-card .view-both img:first-child { image-rendering: pixelated; }
+.ui .view-card img[src*="classic"] { image-rendering: pixelated; }
+.ui .view-card small { color: var(--ui-muted); }
+.ui .view-picker.view-shown { grid-template-columns: minmax(9.5em, 14em); pointer-events: none; }
