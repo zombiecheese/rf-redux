@@ -4,11 +4,14 @@ Each release's section below becomes its GitHub release notes (`.github/workflow
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-14
+
+The modern view as a drone feed, with a thermal camera and vehicle lights.
+
 ### Added
 
 - The modern view looks like a surveillance drone's feed: a slightly washed, cool picture with film grain, a soft lens rim and colour fringes, a rolling scan line, stream errors when something is destroyed nearby, much stronger when your own vehicle is hit (torn rows, broken and misplaced macroblocks, split colours), and an overlay with corner brackets, the clock, REC and altitude and grid read-outs. Options > Camera switches it to a clean picture.
 - A thermal camera for the modern view (Options > Thermal, the I key, or the IR button beside the menu button): a white-hot picture where vehicles, soldiers and drones run hot, wrecks warm, buildings and ground cool and the sea cold, so it sees through the dark.
-
 - Starting a game offline (Training or Two Players) picks the view, Classic or Modern, on the Player Selector, each with a preview of it in play; Options > Visuals still switches it at any time.
 - An online lobby's owner can set the visuals (classic or modern) and the lighting (day or night) for every player, or leave both to each player's own Options. The lobby's Visuals choices show the same previews.
 
@@ -66,6 +69,7 @@ The first release: a browser remake of Return Fire (1995) that plays like the or
 
 - A Docker Compose stack with one image, `ghcr.io/zombiecheese/rf-redux`, published for every version tag together with a compose file, an `.env` template and a Caddyfile for HTTPS ([docs/deploy.md](docs/deploy.md)).
 
-[Unreleased]: https://github.com/zombiecheese/rf-redux/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/zombiecheese/rf-redux/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/zombiecheese/rf-redux/releases/tag/v0.4.0
 [0.3.0]: https://github.com/zombiecheese/rf-redux/releases/tag/v0.3.0
 [0.2.0]: https://github.com/zombiecheese/rf-redux/releases/tag/v0.2.0
