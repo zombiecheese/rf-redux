@@ -40,11 +40,10 @@ import { drawView } from './view.js';
 import { MODERN_H, MODERN_W, modernAvailable, modernLayout, type ModernRect } from './modern/layout.js';
 import type { ModernRenderer, ModernScreen } from './modern/renderer.js';
 import type { ModernFinale } from './modern/finale.js';
-import { bunkerBayAt, dimView, drawBanner, drawBunkerPanel, drawChatLines, drawLog, drawFeed, drawModernHud, drawName, drawNote, drawScoreTable } from './modern/hud.js';
+import { giveUpModern, loadModern, modernFailed, modernLoaded } from './modern/load.js';
+import { bunkerBayAt, dimView, drawBanner, drawLinkUp, drawBunkerPanel, drawChatLines, drawLog, drawFeed, drawModernHud, drawName, drawNote, drawScoreTable } from './modern/hud.js';
 import { TEAMS } from './paint.js';
 
-/** The modern renderer's module, fetched (with three.js) the first time the modern view is picked. */
-let modernModule: Promise<typeof import('./modern/renderer.js')> | null = null;
 
 // Launch keys pick, in order: jeep, tank, ASV, helicopter.
 const LAUNCH_ORDER: VehicleKind[] = ['jeep', 'tank', 'asv', 'heli'];
@@ -227,6 +226,8 @@ export class Game {
     const order = [...world.bases.map((b) => b.id).filter((b) => b === home), ...world.bases.map((b) => b.id).filter((b) => b !== home)];
     const replayer = this.o.replay ? new ReplayPlayer(this.o.replay, assets.defs, assets.shore) : null;
     const replay = this.o.replay;
+    // The modern renderer's code is fetched now, if it is not here yet, so the match can open in it.
+    if (wanted() === 'modern' && modernAvailable()) void loadModern();
     let match: Match = replayer
       ? replayer.match
       : start
@@ -336,6 +337,8 @@ export class Game {
     let modern: ModernRenderer | null = null;
     /** Modern: where each view went on the last picture, for taps on the bunker. */
     let modernRects: ModernRect[] | null = null;
+    /** Modern: the link-up screen, drawn while the modern renderer is still loading. */
+    let linkUp: OffscreenCanvas | null = null;
     // The modern renderer outlives the match when it is handed to the win scene, which disposes of it.
     signal.addEventListener('abort', () => {
       if (!this.finale?.modern) modern?.dispose();
@@ -740,8 +743,23 @@ export class Game {
       }
       // A handheld held upright shows the rotate notice instead, and the match waits.
       const upright = this.o.handheld && isPortrait();
+      // A modern match is drawn in the modern view from its first picture: once its code is here the renderer is made
+      // at once, and until then the link-up screen shows (never the classic picture) and an offline match waits.
+      if (wanted() === 'modern' && !modern && modernAvailable() && !modernFailed()) {
+        const mod = modernLoaded();
+        if (!mod) void loadModern();
+        else if (!signal.aborted) {
+          try {
+            modern = new mod.ModernRenderer(assets);
+          } catch (err) {
+            console.error('The modern view could not start:', err);
+            giveUpModern();
+          }
+        }
+      }
+      const linking = wanted() === 'modern' && !modern && modernAvailable() && !modernFailed();
       const rate = replayer ? speed : 1;
-      acc = upright && !online ? 0 : Math.min(acc + (now - last) * rate, 250 * rate);
+      acc = (upright || linking) && !online ? 0 : Math.min(acc + (now - last) * rate, 250 * rate);
       last = now;
       if (replayer) {
         replayKeys();
@@ -778,12 +796,12 @@ export class Game {
           acc -= TICK_MS;
         }
       }
-      // The modern view draws once its code has loaded (and only where there is WebGL); until then, retro.
-      if (wanted() === 'modern' && !modern && modernAvailable()) {
-        modernModule ??= import('./modern/renderer.js');
-        void modernModule.then((mod) => {
-          if (!modern && !signal.aborted) modern = new mod.ModernRenderer(assets);
-        });
+      if (linking) {
+        linkUp ??= new OffscreenCanvas(MODERN_W, MODERN_H);
+        drawLinkUp(linkUp.getContext('2d')! as unknown as CanvasRenderingContext2D, MODERN_W, MODERN_H, now);
+        display.present(linkUp, 1, true);
+        this.raf = requestAnimationFrame(loop);
+        return;
       }
       const useModern = wanted() === 'modern' && !!modern;
       frame.setClip(0, 0, SCREEN_W, SCREEN_H);

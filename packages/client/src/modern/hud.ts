@@ -877,3 +877,37 @@ export function drawVerdict(g: CanvasRenderingContext2D, width: number, height: 
   }
   g.restore();
 }
+
+/**
+ * The modern view's link-up screen, shown while its renderer is still loading as a match starts: a dark feed with
+ * static, the corner brackets and a CV read-out, so a modern match never opens on the classic picture.
+ */
+export function drawLinkUp(g: CanvasRenderingContext2D, width: number, height: number, ms: number): void {
+  g.save();
+  g.fillStyle = '#05080a';
+  g.fillRect(0, 0, width, height);
+  // Faint static bands drifting down the picture.
+  let seed = (Math.floor(ms / 60) * 2654435761) >>> 0;
+  const rand = () => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296);
+  for (let i = 0; i < 28; i++) {
+    const y = rand() * height;
+    g.fillStyle = `rgba(236, 242, 232, ${0.02 + rand() * 0.05})`;
+    g.fillRect(0, y, width, 1 + rand() * 3);
+  }
+  const roll = ((ms / 9) % (height + 120)) - 60;
+  g.fillStyle = 'rgba(236, 242, 232, 0.035)';
+  g.fillRect(0, roll, width, 60);
+  drawFeed(g, { x: 0, y: 0, w: width, h: height }, { name: 'UAV-1', mode: 'NO SIGNAL', lines: [], now: new Date() });
+  const dots = '.'.repeat(1 + (Math.floor(ms / 400) % 3)).padEnd(3, ' ');
+  const s = 28;
+  g.font = `800 ${s}px ${MONO}`;
+  g.textAlign = 'center';
+  g.textBaseline = 'middle';
+  const t = `ACQUIRING DRONE FEED${dots}`;
+  const w = g.measureText('ACQUIRING DRONE FEED...').width + s * 1.6;
+  const h = s * 2;
+  readout(g, (width - w) / 2, height / 2 - h / 2, w, h, 'SYS', AMBER);
+  g.fillStyle = INK;
+  g.fillText(t, width / 2, height / 2 + 2);
+  g.restore();
+}

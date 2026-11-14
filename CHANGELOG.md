@@ -4,6 +4,10 @@ Each release's section below becomes its GitHub release notes (`.github/workflow
 
 ## [Unreleased]
 
+### Fixed
+
+- A match in the modern view no longer flashes up in the classic view for its first moments while the 3D renderer loads. The renderer's code is fetched while still in the menus (when your view is Modern, or the host picked Modern in an online lobby), and if it is not quite ready the match opens on a modern ACQUIRING DRONE FEED screen and an offline match waits for it.
+
 ## [0.5.1] - 2026-11-14
 
 The modern look everywhere: Modern by default with a new title, day or night as a match option, a lobby that fits the screen, a modern level editor, flag guide arrows, a modern end of match, spectating when out, and a rewritten Help and About.

@@ -10,6 +10,8 @@ import { type LobbyLighting, type LobbyVisuals,
 import { loadCommon, loadMap } from '../assets.js';
 import { dialog, el, field, finish, notice, radio, skinClass, viewPicker, type ViewChoice } from '../dialogs.js';
 import { MapPreview } from '../mappreview.js';
+import { modernAvailable } from '../modern/layout.js';
+import { loadModern } from '../modern/load.js';
 import { TEAMS as COLOURS } from '../paint.js';
 import { formatTime } from '../scores.js';
 import { api, ApiError } from './api.js';
@@ -462,6 +464,8 @@ export class LobbyWindow {
   }
 
   private render(l: LobbyInfo | null): void {
+    // The host picked the modern view: its renderer's code is fetched while the lobby fills, ready for the start.
+    if (l?.visuals === 'modern' && modernAvailable()) void loadModern();
     if (!l) {
       this.layer.hidden = true;
       return;
