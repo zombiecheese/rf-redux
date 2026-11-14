@@ -13,7 +13,8 @@
     "start": "npm start -w @rfw/server",
     "asset-inventory": "node tools/asset-inventory.mjs",
     "art": "node tools/build-art.mjs",
-    "art-sheet": "node tools/art-sheet.mjs"
+    "art-sheet": "node tools/art-sheet.mjs",
+    "soundfont": "node tools/soundfont/fetch.mjs"
   },
   "devDependencies": {
     "typescript": "7.0.2"
