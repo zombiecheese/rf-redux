@@ -56,6 +56,8 @@ export class MapView {
   scale = 0.5;
   private match: Match | null = null;
   private builtFor = -1;
+  /** The document the world was built from: a newly opened map starts at the same version as an untouched one. */
+  private builtDoc: EditorDoc | null = null;
   private assets: GameAssets | null = null;
   private readonly names: ReadonlySet<string>;
 
@@ -72,12 +74,13 @@ export class MapView {
 
   private world(): Match {
     const d = this.doc();
-    if (this.match && this.builtFor === d.version) return this.match;
+    if (this.match && this.builtDoc === d && this.builtFor === d.version) return this.match;
     const map = drawable(d.toMap(), this.names);
     const world = buildWorld(map, this.data.defs, this.data.shore);
     this.match = createMatch(world, map, map.bases.map((b) => ({ base: b.id, team: b.id })), 1);
     this.assets = { ...this.data, map };
     this.builtFor = d.version;
+    this.builtDoc = d;
     return this.match;
   }
 
@@ -344,6 +347,7 @@ export class Minimap {
   private readonly ctx = this.canvas.getContext('2d')!;
   private image: ImageData | null = null;
   private builtFor = -1;
+  private builtDoc: EditorDoc | null = null;
 
   constructor(private readonly colours: [number, number, number][], private readonly doc: () => EditorDoc) {
     this.canvas.className = 'minimap';
@@ -358,7 +362,7 @@ export class Minimap {
 
   render(view: MapView): void {
     const d = this.doc();
-    if (this.builtFor !== d.version || !this.image || this.image.width !== d.width || this.image.height !== d.height) {
+    if (this.builtDoc !== d || this.builtFor !== d.version || !this.image || this.image.width !== d.width || this.image.height !== d.height) {
       const img = new ImageData(d.width, d.height);
       for (let i = 0; i < d.width * d.height; i++) {
         const [r, g, b] = this.colours[d.terrain[i]! & 127]!;
@@ -367,6 +371,7 @@ export class Minimap {
       }
       this.image = img;
       this.builtFor = d.version;
+      this.builtDoc = d;
     }
     const size = this.canvas.clientWidth;
     const dpr = devicePixelRatio || 1;

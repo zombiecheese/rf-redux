@@ -6,11 +6,12 @@ Each release's section below becomes its GitHub release notes (`.github/workflow
 
 ### Added
 
-- A [wiki](https://github.com/zombiecheese/rf-redux/wiki) for players and hosts: installing, deploying, running a site, how to play, the rules, online play, the level editor and troubleshooting.
+- A [wiki](https://github.com/zombiecheese/rf-redux/wiki) for players and hosts: installing, deploying, running a site, how to play, the rules, online play, the level editor and troubleshooting, with screenshots.
 
 ### Fixed
 
 - Links to files in the repository now work in a release's notes.
+- Level editor: a map opened straight after the editor starts is now drawn. The view kept showing the empty map until the first edit.
 
 ## [0.2.0] - 2026-11-14
 
