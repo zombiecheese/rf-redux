@@ -51,7 +51,7 @@ Still to come: two-player maps of the project's own.
 
 **Level editor** ([docs/level-editor.md](docs/level-editor.md))
 
-- At `/editor.html` (Level Editor in the main menu, desktop only): paint land and water with automatic coastlines, lay bridges, place buildings and up to four bases, mirror or turn edits for fair maps, check the map for problems and test play it against bots.
+- At `/editor.html` (Level Editor in the main menu, desktop browsers only): paint land and water with automatic coastlines, lay bridges, place buildings and up to four bases, mirror or turn edits for fair maps, check the map for problems and test play it against bots. A Preview switch shows the map as it is edited in the classic view, the modern view or the modern view at night.
 - Maps save in the browser, export and import as `.rfw.json` files, and play from the Level Selector's Add-Ons. Signed in, they also save to your library as private, unlisted or public, with revisions; public maps can be searched, liked, reported and played in lobbies.
 
 **Replays, options and music**

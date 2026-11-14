@@ -1,12 +1,17 @@
-// The editor's view of the map, drawn by the game's own renderer (view.ts) into a frame sized to the window: the
-// game's tilted camera, or the same camera looking straight down. Grid, bases, flag sites, notes, problems and the
-// tool's preview are drawn over it at screen resolution so they stay sharp.
+// The editor's view of the map, drawn by one of the game's own renderers into a frame sized to the window: the
+// classic software renderer (view.ts) with its CRT look, or the modern 3D view (modern/renderer.ts) as the drone's
+// feed, by day or at night. Either way the camera is the game's tilted one, or the same camera looking straight
+// down. Grid, bases, flag sites, notes, problems and the tool's preview are drawn over it at screen resolution so
+// they stay sharp and line up in every look, since both renderers project from the same camera.
 
-import { GRID, buildWorld, createMatch, type MapPoint, type MapProblem, type Match } from '@rfw/sim';
+import { GRID, buildWorld, createMatch, type MapPoint, type MapProblem, type Match, type World } from '@rfw/sim';
 import type { GameAssets, GameData } from '../assets.js';
-import { Camera, type ViewRect } from '../camera.js';
+import { Camera, FOCAL, type ViewRect } from '../camera.js';
 import { drawable } from '../mappreview.js';
 import { TEAMS } from '../paint.js';
+import { CrtLook } from '../display.js';
+import { modernAvailable } from '../modern/layout.js';
+import type { ModernRenderer } from '../modern/renderer.js';
 import { Frame } from '../raster.js';
 import { drawView } from '../view.js';
 import type { EditorDoc } from './doc.js';
@@ -15,8 +20,18 @@ const TILE = 32;
 /** The view pitch in 256ths of a turn: the game's camera at rest, or straight down. */
 const PITCH = { tilted: 32, top: 64 } as const;
 export type ViewMode = keyof typeof PITCH;
+/**
+ * The modern camera cannot look exactly straight down (its "up" would be along its line of sight), so its top-down
+ * view leans a hair off vertical; the overlay uses the same camera, so it still lines up.
+ */
+const MODERN_TOP_PITCH = 63.5;
+/** How the map is drawn: the classic view, or the modern view by day or at night. */
+export type Look = 'classic' | 'modern' | 'night';
+const MODERN_W = 1280;
+const MODERN_H = 720;
+/** The minimap's picture of the map, in pixels (drawn at 168 CSS pixels, so sharp on a 2x screen). */
+const MINIMAP_PICTURE = 336;
 export const BASE_CSS = TEAMS.map((t) => t.css);
-const FOCAL = 300;
 
 /** A small square of a base's colour, for lists. */
 export function dot(colour: string): HTMLElement {
@@ -60,10 +75,60 @@ export class MapView {
   private builtDoc: EditorDoc | null = null;
   private assets: GameAssets | null = null;
   private readonly names: ReadonlySet<string>;
+  /** Which renderer draws the map. Modern and night fall back to classic until three.js has loaded, or without WebGL. */
+  look: Look = 'classic';
+  private readonly crt = new CrtLook();
+  private modern: ModernRenderer | null = null;
+  private modernLoad: Promise<void> | null = null;
+  /**
+   * The world the modern renderer was given. Each edit builds a new world; its contents are copied into this one so
+   * the renderer updates only the tiles and buildings that changed, as it does in a match, instead of starting over.
+   */
+  private shownWorld: World | null = null;
+  private shownDoc: EditorDoc | null = null;
+  /** Night preview only: extra moonlight so the whole map can be read (matches and test play never have it). */
+  moonlight = true;
+  /** Called when the modern view has loaded (or failed to), to draw again. */
+  onLoad: () => void = () => {};
 
   constructor(private readonly data: GameData, private readonly doc: () => EditorDoc) {
     this.names = new Set(data.defs.map((d) => d.name));
     this.canvas.className = 'mapview';
+  }
+
+  /** Whether the modern view can be drawn here (it needs WebGL). */
+  static get modernAvailable(): boolean {
+    return modernAvailable();
+  }
+
+  /** The look actually on screen: modern only once its renderer is ready. */
+  get shownLook(): Look {
+    return this.look !== 'classic' && this.modern ? this.look : 'classic';
+  }
+
+  /** True while the modern view is wanted but still loading. */
+  get loading(): boolean {
+    return this.look !== 'classic' && !this.modern && modernAvailable();
+  }
+
+  /** The modern view animates (the sea, the drone's feed), so it is drawn every frame. */
+  get animated(): boolean {
+    return this.shownLook !== 'classic';
+  }
+
+  setLook(look: Look): void {
+    this.look = look === 'classic' || modernAvailable() ? look : 'classic';
+    if (this.look !== 'classic' && !this.modern && !this.modernLoad) {
+      this.modernLoad = import('../modern/renderer.js').then((mod) => {
+        this.modern = new mod.ModernRenderer({ ...this.data, map: this.doc().toMap() });
+      }).catch(() => {
+        this.look = 'classic';
+      }).finally(() => this.onLoad());
+    }
+  }
+
+  private pitch(): number {
+    return this.mode === 'top' && this.shownLook !== 'classic' ? MODERN_TOP_PITCH : PITCH[this.mode];
   }
 
   /** Map-to-world offset: a small map sits in the middle of the 128 x 128 world, as the game lays it out. */
@@ -131,7 +196,7 @@ export class MapView {
     Object.assign(this.cam.view, view);
     const o = this.offset;
     // The height giving this scale at the centre: FOCAL / (FOCAL + z) = scale.
-    this.cam.fix(this.x + o.x * TILE, this.y + o.y * TILE, FOCAL / this.scale - FOCAL, PITCH[this.mode]);
+    this.cam.fix(this.x + o.x * TILE, this.y + o.y * TILE, FOCAL / this.scale - FOCAL, this.pitch());
     this.cam.begin();
   }
 
@@ -165,17 +230,94 @@ export class MapView {
       this.canvas.height = ch;
     }
     const match = this.world();
+    this.adoptShown(match);
     this.setup();
-    this.frame.setClip(0, 0, this.frame.w, this.frame.h);
-    drawView(this.frame, this.cam, match, this.assets!, 0);
-    this.lowCtx.putImageData(new ImageData(new Uint8ClampedArray(this.frame.px.buffer), this.frame.w, this.frame.h), 0, 0);
     const ctx = this.ctx;
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.imageSmoothingEnabled = false;
+    const w = this.frame.w * this.pixel;
+    const h = this.frame.h * this.pixel;
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.fillStyle = '#000';
     ctx.fillRect(0, 0, cw, ch);
-    ctx.drawImage(this.low, 0, 0, this.frame.w * this.pixel, this.frame.h * this.pixel);
+    if (this.shownLook !== 'classic' && this.modern) {
+      this.drawModern(match, w * dpr, h * dpr);
+    } else {
+      this.frame.setClip(0, 0, this.frame.w, this.frame.h);
+      drawView(this.frame, this.cam, match, this.assets!, 0);
+      this.lowCtx.putImageData(new ImageData(new Uint8ClampedArray(this.frame.px.buffer), this.frame.w, this.frame.h), 0, 0);
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(this.low, 0, 0, w * dpr, h * dpr);
+      // The classic view is always seen through the CRT, as in the game: where each frame line is two or more
+      // screen pixels tall, so the lines can be told apart.
+      if (this.pixel * dpr >= 2) this.crt.draw(ctx, this.low, 0, 0, Math.round(w * dpr), Math.round(h * dpr), this.frame.h);
+    }
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     this.drawOverlay(overlay);
+  }
+
+  /** Keeps one world for the modern renderer per document: a new build's contents are copied into it. */
+  private adoptShown(built: Match): void {
+    if (this.shownLook === 'classic') return;
+    const d = this.doc();
+    if (this.shownDoc !== d || !this.shownWorld) {
+      this.shownWorld = built.world;
+      this.shownDoc = d;
+    } else if (built.world !== this.shownWorld) {
+      adopt(this.shownWorld, built.world);
+      built.world = this.shownWorld;
+    }
+  }
+
+  /**
+   * The whole map straight down in the look being previewed, size x size pixels, for the minimap and the drafts'
+   * thumbnails. It covers map pixels 0 to the longer side on both axes, so a tile maps to the same place as on the
+   * minimap. Null until the world is built.
+   */
+  snapshot(size: number): HTMLCanvasElement | null {
+    const d = this.doc();
+    const match = this.world();
+    this.adoptShown(match);
+    const span = Math.max(d.width, d.height) * TILE;
+    const scale = size / span;
+    const o = this.offset;
+    const cam = new Camera({ x: 0, y: 0, w: size, h: size, dx: 0, dy: 0, boxW: size, boxH: size });
+    const modern = this.shownLook !== 'classic' ? this.modern : null;
+    cam.fix(span / 2 + o.x * TILE, span / 2 + o.y * TILE, FOCAL / scale - FOCAL, modern ? MODERN_TOP_PITCH : PITCH.top);
+    cam.begin();
+    const out = document.createElement('canvas');
+    out.width = size;
+    out.height = size;
+    const g = out.getContext('2d')!;
+    if (modern) {
+      const rect = { x: 0, y: 0, w: Math.min(size, MODERN_H), h: Math.min(size, MODERN_H) };
+      modern.draw(match, [{ cam, rect, viewer: 0, skip: false }], { wrecks: [], splats: [] });
+      g.drawImage(modern.canvas, 0, 0, rect.w, rect.h, 0, 0, size, size);
+    } else {
+      const frame = new Frame(size, size);
+      frame.setClip(0, 0, size, size);
+      drawView(frame, cam, match, this.assets!, 0);
+      g.putImageData(new ImageData(new Uint8ClampedArray(frame.px.buffer), size, size), 0, 0);
+    }
+    return out;
+  }
+
+  /**
+   * The modern view: the renderer draws the same camera into a part of its 1280 x 720 screen with the view's own
+   * shape, always as the drone's feed (the modern view's look), by day or at night, and that part is scaled up here.
+   */
+  private drawModern(built: Match, w: number, h: number): void {
+    const modern = this.modern!;
+    const aspect = this.frame.w / this.frame.h;
+    const rect = aspect > MODERN_W / MODERN_H
+      ? { x: 0, y: 0, w: MODERN_W, h: Math.max(1, Math.round(MODERN_W / aspect)) }
+      : { x: 0, y: 0, w: Math.max(1, Math.round(MODERN_H * aspect)), h: MODERN_H };
+    modern.setNight(this.look === 'night');
+    modern.setMoonlight(this.look === 'night' && this.moonlight ? 1 : 0);
+    modern.setLook(true, false);
+    modern.draw(built, [{ cam: this.cam, rect, viewer: 0, skip: false }], { wrecks: [], splats: [] });
+    const ctx = this.ctx;
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(modern.canvas, rect.x, rect.y, rect.w, rect.h, 0, 0, Math.round(w), Math.round(h));
   }
 
   private quad(x: number, y: number, w = 1, h = 1, inset = 0): { x: number; y: number }[] | null {
@@ -341,13 +483,27 @@ export class MapView {
   }
 }
 
+/** Copies a newly built world's contents into the one already on screen, keeping its arrays. */
+function adopt(into: World, from: World): void {
+  const a = into as unknown as Record<string, unknown>;
+  for (const [k, v] of Object.entries(from)) {
+    const old = a[k];
+    if (ArrayBuffer.isView(v) && ArrayBuffer.isView(old) && (old as Uint8Array).length === (v as Uint8Array).length) (old as Uint8Array).set(v as Uint8Array);
+    else a[k] = v;
+  }
+}
+
 /** The whole map in miniature: a pixel or more per tile, buildings dark, bases in their colours, and the view. */
 export class Minimap {
   readonly canvas = document.createElement('canvas');
   private readonly ctx = this.canvas.getContext('2d')!;
+  /** The map in the previewed look (MapView.snapshot), redrawn a moment after edits stop, or null for flat colours. */
+  private picture: HTMLCanvasElement | null = null;
   private image: ImageData | null = null;
   private builtFor = -1;
   private builtDoc: EditorDoc | null = null;
+  private builtLook = '';
+  private due = 0;
 
   constructor(private readonly colours: [number, number, number][], private readonly doc: () => EditorDoc) {
     this.canvas.className = 'minimap';
@@ -360,18 +516,36 @@ export class Minimap {
     return { x: Math.floor(sx / k), y: Math.floor(sy / k) };
   }
 
-  render(view: MapView): void {
+  /** Whether the picture is waiting to be redrawn. */
+  get waiting(): boolean {
+    return this.due > 0;
+  }
+
+  /** busy: an edit is under way (a drag), so the picture waits for it to end. */
+  render(view: MapView, busy = false): void {
     const d = this.doc();
-    if (this.builtDoc !== d || this.builtFor !== d.version || !this.image || this.image.width !== d.width || this.image.height !== d.height) {
-      const img = new ImageData(d.width, d.height);
-      for (let i = 0; i < d.width * d.height; i++) {
-        const [r, g, b] = this.colours[d.terrain[i]! & 127]!;
-        const dark = d.objects.has(i) ? 0.45 : 1;
-        img.data.set([r * dark, g * dark, b * dark, 255], i * 4);
+    const look = view.shownLook;
+    const stale = this.builtDoc !== d || this.builtFor !== d.version || this.builtLook !== look;
+    if (stale || !this.image || this.image.width !== d.width || this.image.height !== d.height) {
+      // Flat colours at once, so the minimap never lags an edit; the proper picture follows when things settle.
+      if (this.builtDoc !== d || this.builtFor !== d.version || !this.image) {
+        const img = new ImageData(d.width, d.height);
+        for (let i = 0; i < d.width * d.height; i++) {
+          const [r, g, b] = this.colours[d.terrain[i]! & 127]!;
+          const dark = d.objects.has(i) ? 0.45 : 1;
+          img.data.set([r * dark, g * dark, b * dark, 255], i * 4);
+        }
+        this.image = img;
       }
-      this.image = img;
+      if (this.builtDoc !== d || this.builtLook !== look) this.picture = null;
       this.builtFor = d.version;
       this.builtDoc = d;
+      this.builtLook = look;
+      this.due = performance.now() + (this.picture ? 600 : 0);
+    }
+    if (this.due && !busy && performance.now() >= this.due) {
+      this.due = 0;
+      this.picture = view.snapshot(MINIMAP_PICTURE);
     }
     const size = this.canvas.clientWidth;
     const dpr = devicePixelRatio || 1;
@@ -384,13 +558,22 @@ export class Minimap {
     ctx.fillStyle = '#123';
     ctx.fillRect(0, 0, size, size);
     const k = size / Math.max(d.width, d.height);
-    const tmp = new OffscreenCanvas(d.width, d.height);
-    tmp.getContext('2d')!.putImageData(this.image, 0, 0);
-    ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(tmp, 0, 0, d.width * k, d.height * k);
+    if (this.picture && !this.due) {
+      ctx.imageSmoothingEnabled = true;
+      ctx.drawImage(this.picture, 0, 0, size, size);
+    } else {
+      const tmp = new OffscreenCanvas(d.width, d.height);
+      tmp.getContext('2d')!.putImageData(this.image!, 0, 0);
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(tmp, 0, 0, d.width * k, d.height * k);
+    }
     d.bases.forEach((b, i) => {
       ctx.fillStyle = BASE_CSS[i]!;
-      ctx.fillRect((b.start.x - 1) * k, (b.start.y - 1) * k, Math.max(3, 3 * k), Math.max(3, 3 * k));
+      ctx.strokeStyle = '#000';
+      ctx.lineWidth = 1;
+      const s = Math.max(4, 3 * k);
+      ctx.fillRect((b.start.x + 0.5) * k - s / 2, (b.start.y + 0.5) * k - s / 2, s, s);
+      ctx.strokeRect((b.start.x + 0.5) * k - s / 2, (b.start.y + 0.5) * k - s / 2, s, s);
     });
     const c = view.viewCorners();
     if (c.every(Boolean)) {

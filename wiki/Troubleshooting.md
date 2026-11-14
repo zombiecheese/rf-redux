@@ -25,7 +25,9 @@ docker compose up -d --no-build
 
 **I cannot pause online.** That is by design: an online match is shared, so no player can stop it.
 
-**Split Screen or the Level Editor is missing.** Both are desktop only. Phones and tablets play solo.
+**Split Screen is missing, or the Level Editor is greyed out.** Both are desktop only. Phones and tablets play solo, and the editor needs a desktop browser with a mouse and keyboard.
+
+**The editor's Modern and Night previews are greyed out.** They need WebGL. Turn on hardware acceleration in the browser's settings, or use Classic.
 
 **My phone shows "turn your device sideways".** The game plays in landscape. The match waits until you turn it.
 

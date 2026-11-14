@@ -132,6 +132,8 @@ export class ModernRenderer {
   private readonly boxes: (Box | null)[];
   private bunker: BunkerScene | null = null;
   private night = false;
+  /** Extra moonlight at night, for the level editor (setMoonlight). */
+  private moon = 0;
   private readonly sky = new THREE.HemisphereLight(0xcfe8ff, 0x8a6a48, 1.25);
   /** Headlights for the vehicles at night: a fixed few, so turning them on and off never rebuilds the shaders. */
   private readonly heads: THREE.SpotLight[] = [];
@@ -473,14 +475,29 @@ export class ModernRenderer {
     this.night = night;
     this.sky.color.setHex(night ? 0x26345c : 0xcfe8ff);
     this.sky.groundColor.setHex(night ? 0x0a0806 : 0x8a6a48);
-    this.sky.intensity = night ? 0.22 : 1.25;
     this.glow.value = night ? 1 : 0;
     this.sun.color.setHex(night ? 0x8ea4e8 : 0xfff2dc);
-    this.sun.intensity = night ? 0.28 : 2.6;
+    this.moonlit();
     this.background();
     const w = this.ground?.water.uniforms;
     if (w) this.waterLight(w);
     this.bunker?.setNight(night);
+  }
+
+  /**
+   * Extra moonlight at night (0 none, as in a match, to 1): the level editor's Night preview uses it so the whole
+   * map can be read while laying it out. Matches never set it.
+   */
+  setMoonlight(level: number): void {
+    const m = Math.max(0, Math.min(1, level));
+    if (m === this.moon) return;
+    this.moon = m;
+    this.moonlit();
+  }
+
+  private moonlit(): void {
+    this.sky.intensity = this.night ? 0.22 + 0.75 * this.moon : 1.25;
+    this.sun.intensity = this.night ? 0.28 + 0.9 * this.moon : 2.6;
   }
 
   private waterLight(u: Record<string, THREE.IUniform>): void {

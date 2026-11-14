@@ -1,25 +1,56 @@
 # Level editor
 
-The editor is a second page of the client, `editor.html` (Level Editor in the game's main menu). It draws the
-map with the game's own renderer and tiles, so a map looks the same in the editor as in a match. It writes maps in
-the rfw-map format, version 2 ([map-format.md](map-format.md)).
+The editor is a second page of the client, `editor.html` (Level Editor in the game's main menu), dressed in the
+same dark theme as the game's menus and lobby (`ui.css`, with the editor's own layout in `editor/editor.css`). It
+draws the map with the game's own renderers and tiles while you edit, so a map looks the same in the editor as in a
+match, in either view. It writes maps in the rfw-map format, version 2 ([map-format.md](map-format.md)).
 
-It is desktop only: it needs a mouse and a keyboard. Phones and tablets (the same check that keeps them to one
-player) do not get it in the game's menu, and `editor.html` opened on one shows a "Desktop only" notice instead.
+It is desktop only: it needs a mouse and a keyboard. On phones and tablets (the same check that keeps them to one
+player, `isHandheld` in `display.ts`) the game's menu shows Level Editor greyed out with "Desktop only", and
+`editor.html` opened on one shows a "Desktop only" card with a way back to the game instead of loading. A desktop
+window smaller than 1000 × 560 is asked to grow, since the panels would leave no room for the map.
 
 ## Layout
 
-- **Tools** (left), each with a key: Select (S), Land (L), Shallows (W), Deep water (D), Tile (T), Bridge (R),
+- **Top bar**: the File, Edit, View, Map and Help menus; the map's name and whether it is saved (in this browser,
+  and its library revision); undo and redo; the **Preview** switch (Classic, Modern, Night; V cycles); the
+  **Camera** switch (Top down, Game camera; Tab); Test Play; and a way back to the game.
+- **Tools** (left, grouped as Terrain, Objects, Bases and Arrange), each with an icon and a key: Select (S), Land (L), Shallows (W), Deep water (D), Tile (T), Bridge (R),
   Building (B), Erase (E), Base start (A), Flag site (F), Note (N), Move view (H). Painting tools take a shape:
   brush (1, 2, 3, 5 or 7 tiles across), line, box or fill.
 - **Symmetry**: off, mirror left to right, mirror top to bottom, mirror both ways, half turn, or quarter turn
   (square maps). Every edit is repeated on the mirrored tiles; buildings are turned to match (a north-facing bunker
   becomes a south-facing one) and owned by the matching base, so base 1's turret mirrors as base 2's. Map > Make
   Symmetric copies the first half (or quarter) of the map onto the rest.
-- **View** (middle): top down, or the game's tilted camera (Tab). The wheel zooms, a right-drag or Space + drag
-  pans, 0 fits the whole map. The minimap jumps on click.
+- **View** (middle): top down, or the game's tilted camera (Tab). The wheel or the + and − buttons zoom, a
+  right-drag or Space + drag pans, 0 (or the fit button) fits the whole map. The minimap jumps on click. A read-out
+  in the corner gives the tile under the pointer (its terrain, building by its plain name, base lift or flag site),
+  the map's size and the zoom. The minimap shows the map in the look being previewed: flat colours at once, then a
+  small top-down render of it once the editing has settled.
 - **Side panel** (right): the palette for the current tool, the Map tab (name, description, size, players,
   vehicles per map and per base, random mines, attack drones, music) and the Problems tab.
+
+## Preview: Classic, Modern and Night
+
+The Preview switch picks which of the game's renderers draws the map, and every tool works the same in each:
+
+- **Classic**: the software renderer (`view.ts`) at the chosen pixel size (View > Classic Pixel Size), seen
+  through the CRT look of the classic view (`CrtLook` in `display.ts`) wherever each frame line is two or more
+  screen pixels tall.
+- **Modern**: the modern 3D view (`modern/renderer.ts`), always as the drone's feed, by day.
+- **Night**: the modern view in a night match, with the buildings' lights near the view lit. The **Moonlight**
+  pill over the map raises the moon so the map can be seen while editing; turn it off to see how dark the match
+  will be. Matches are never moonlit this way.
+
+The modern view is loaded the first time it is picked (the pill at the top says so meanwhile) and needs WebGL;
+without it the two modern choices are greyed out. Both renderers stand the camera in the same place, so the grid,
+bases, flag sites, notes, problems and the tool's preview are drawn over either one and line up. The modern
+camera cannot look exactly straight down, so its top-down view leans a fraction of a degree. Each edit builds the
+world again and copies it into the one the modern renderer already has, so it redraws only what changed. The
+modern view animates (the sea, the feed's grain), so it is drawn every frame while you work; after five seconds
+with no input it drops to four frames a second, and to one while the window is in the background. The classic
+view is drawn only when something changes. The preview, the camera and Moonlight are remembered in the browser
+(`rfw-editor-view`). Draft thumbnails are drawn in the previewed look too.
 
 ## Painting ground
 
@@ -43,9 +74,19 @@ building the flag can be hidden in (one is picked at random when the match start
 The Problems tab lists everything `checkMap` finds, and the map view outlines the tiles involved (red for errors,
 amber for warnings). Errors (a lift in the water, a missing flag site, a base with no jeeps, which would be out at the start, a bridge
 end without its partner...) stop a map being test played; warnings (a jeep can't reach a flag, two buildings on one tile...) don't.
+Clicking a problem goes to it, and J / Shift+J step to the next and previous one. Where the fix is obvious the
+problem has a button for it (`fixFor` in `editor/guide.ts`): place a base or a flag site (picks the tool), remove
+the building on a lift or flag site, put land under a lift in the water, clear round a boxed-in lift, use the
+default jeeps, or remove a doubled or misplaced flag site. A fix is one undo step and ignores symmetry.
 
-Test Play (P) starts a solo match on the map from a base you pick, with the computer playing the others at the
-skill you choose, with the game's keys (README, Controls). P pauses and Esc comes back to the editor where you
+A **Getting started** checklist sits over the map until the map is playable: paint some land, place two or more
+base starts, give each base a flag site, clear the errors, and test play it. Each step ticks itself off as the map
+gets there, and clicking one picks its tool or tab. × hides it for good (`rfw-editor-guide`); Help > Getting
+Started brings it back. Holding **K** shows every key over the map; letting go hides it.
+
+Test Play (P, or the button in the top bar) starts a solo match on the map from a base you pick, with the
+computer playing the others at the skill you choose, with the game's keys (README, Controls), in the view being
+previewed: classic, modern, or modern at night. P pauses and Esc comes back to the editor where you
 were; the editor's own keys wait until then. ? (Shift+/) lists the editor's keys.
 
 ## Saving
@@ -113,6 +154,7 @@ refused in shared maps' names and descriptions (on top of the chat filter). Ever
 | `packages/client/src/editor/tools.ts` | What each tool does, with symmetry; copy, paste and Make Symmetric. |
 | `packages/client/src/editor/canvas.ts` | The map view (the game's renderer plus overlays) and the minimap. |
 | `packages/client/src/editor/tiles.ts` | Learns from the game data: tile colours, which tile each becomes when mirrored, the building palette. |
+| `packages/client/src/editor/guide.ts` | The key list and the hold-K cheat sheet, the getting-started checklist, and the Problems tab's fixes. |
 | `packages/client/src/editor/main.ts` | The page: menus, tools, panels, keys, files, drafts and test play. |
 | `packages/client/src/editor/library.ts` | Save to Library and the Shared Maps browser. |
 | `packages/client/src/mappreview.ts` | Map previews for the Level Selector, the lobby's map picker, the lobby and Shared Maps. |
