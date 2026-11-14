@@ -17,6 +17,7 @@ import { drawMark, type Splat, type Wreck as MarkWreck } from '../effects.js';
 import { TEAMS } from '../paint.js';
 import { building, gateLeaf, lightOf, lookOf, towerGun, type Box } from './buildings.js';
 import { Fx } from './fx.js';
+import { LAMP_REACH, LampMap, lampLight, type Lamp } from './lampmap.js';
 import { LIGHT_TIME, LookPass, THERMAL, grainLights, heatFragment } from './look.js';
 import { BunkerScene, SkullScene } from './screens.js';
 import { Ground, TILE } from './ground.js';
@@ -36,7 +37,14 @@ const TURRET_BUILDINGS = new Set([TOWER, LARGE_TOWER]);
 /** The sun: low in the south-west, behind and left of the camera, as the retro shadows fall. */
 const SUN = new THREE.Vector3(-0.42, 1, 0.55).normalize();
 const SHADOW_SPAN = 340;
-const HEADLIGHTS = 6;
+/** The sun's shadow map's across and up directions (at right angles to SUN), for keeping its texels on the ground. */
+const SUN_SIDE = new THREE.Vector3(0, 1, 0).cross(SUN).normalize();
+const SUN_UP = SUN.clone().cross(SUN_SIDE).normalize();
+/**
+ * One headlight for each player's vehicle (four at most). Every light that throws shadows is a texture the lit
+ * materials read, so they are kept few: the buildings' lamps are all in one texture (lampmap.ts).
+ */
+const HEADLIGHTS = 4;
 /**
  * Each vehicle's lights at night: the jeep's warm headlamps, the tank's wide dim work lights, the ASV's narrow
  * blue-white beam reaching far, and the helicopter's searchlight on the ground just ahead.
@@ -47,10 +55,6 @@ const BEAMS: Record<VehicleKind, { power: number; colour: number; angle: number;
   asv: { power: 700, colour: 0xd6e4ff, angle: 0.28, soft: 0.4, reach: 110, height: 8 },
   heli: { power: 800, colour: 0xffffff, angle: 0.2, soft: 0.3, reach: 35, height: 40 },
 };
-/** Building lights lit at night: the ones nearest what the views look at. */
-const LAMPS = 8;
-
-type Lamp = { x: number; y: number; z: number; power: number; colour: number };
 
 /** A full-view screen drawn in a view instead of (or, for the skull, over) the playfield. */
 export type ModernScreen =
@@ -137,7 +141,10 @@ export class ModernRenderer {
   private readonly sky = new THREE.HemisphereLight(0xcfe8ff, 0x8a6a48, 1.25);
   /** Headlights for the vehicles at night: a fixed few, so turning them on and off never rebuilds the shaders. */
   private readonly heads: THREE.SpotLight[] = [];
-  private readonly lamps: THREE.PointLight[] = [];
+  /** Every building's lamp at night, with its light and shadows worked out on the map. */
+  private readonly lampMap = new LampMap();
+  /** Where the buildings have changed since the lamps' light was last worked out (pixels), or all of it. */
+  private lampsStale: { x0: number; y0: number; x1: number; y1: number } | 'all' | null = 'all';
   /** Each chunk's building lights, kept with its geometry. */
   private readonly chunkLamps: Lamp[][] = Array.from({ length: CHUNKS * CHUNKS }, () => []);
   /** How much windows and lamps glow: 0 by day, 1 at night. */
@@ -168,16 +175,21 @@ export class ModernRenderer {
 
     this.scene.background = new THREE.Color(0x0c2a40);
     this.scene.add(this.sky);
-    for (let i = 0; i < LAMPS; i++) {
-      const l = new THREE.PointLight(0xffd090, 0, 150, 1.5);
-      this.lamps.push(l);
-      this.scene.add(l);
-    }
     this.teach(this.material, 0);
     this.teach(this.hot, 1);
     this.teach(this.charred, 0.55);
     for (let i = 0; i < HEADLIGHTS; i++) {
       const l = new THREE.SpotLight(0xfff0c8, 0, 260, 0.5, 0.65, 1.2);
+      // Headlights throw shadows too, drawn once a frame while they are on (not again for a second split-screen view).
+      l.castShadow = true;
+      l.shadow.autoUpdate = false;
+      l.shadow.mapSize.set(512, 512);
+      l.shadow.bias = -0.002;
+      l.shadow.normalBias = 0.5;
+      l.shadow.radius = 2;
+      l.shadow.camera.near = 3;
+      l.shadow.camera.updateProjectionMatrix();
+      l.shadow.needsUpdate = true;
       this.heads.push(l);
       this.scene.add(l, l.target);
     }
@@ -214,6 +226,7 @@ export class ModernRenderer {
         .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n  totalEmissiveRadiance += vec3(1.0, 0.78, 0.42) * vGlow * nightGlow * 1.6;')
         .replace('#include <dithering_fragment>', `#include <dithering_fragment>\n${heatFragment(heat, true)}`);
       grainLights(shader);
+      lampLight(shader, this.lampMap.texture, this.glow);
     };
   }
 
@@ -354,7 +367,7 @@ export class ModernRenderer {
     this.syncChunks(m.world);
     this.syncDynamic(m, extras, views.filter((v) => !v.skip).map((v) => v.cam), dt);
     this.aimHeadlights(m);
-    this.lightBuildings(views);
+    this.lightBuildings();
     this.fx.step(dt);
 
     const ctx = this.canvas.getContext('2d')!;
@@ -440,10 +453,17 @@ export class ModernRenderer {
     c3.updateMatrixWorld();
     // Points are sized in game pixels: on screen a point's size is size * f / depth.
     this.fx.setScale(f);
-    // The shadow box follows what this view looks at.
-    this.sun.target.position.set(pose.x, 0, pose.y - 40);
-    this.sun.position.copy(this.sun.target.position).addScaledVector(SUN, 800);
+    // The shadow box follows what this view looks at, in whole steps of its shadow map's texels across the sun's
+    // view, so shadows stay put on the ground as the camera moves instead of crawling and shimmering at the edges.
+    const texel = (2 * SHADOW_SPAN) / this.sun.shadow.mapSize.x;
+    const at = SUN_SIDE.clone().multiplyScalar(Math.round((pose.x * SUN_SIDE.x + (pose.y - 40) * SUN_SIDE.z) / texel) * texel)
+      .addScaledVector(SUN_UP, Math.round((pose.x * SUN_UP.x + (pose.y - 40) * SUN_UP.z) / texel) * texel);
+    // Back onto the ground along the sun's direction: moving a point along it moves nothing in the shadow map.
+    at.addScaledVector(SUN, -at.y / SUN.y);
+    this.sun.target.position.copy(at);
+    this.sun.position.copy(at).addScaledVector(SUN, 800);
     this.sun.target.updateMatrixWorld();
+    this.sun.updateMatrixWorld();
   }
 
   /**
@@ -508,52 +528,44 @@ export class ModernRenderer {
     (u.glint!.value as THREE.Color).setRGB(this.night ? 0.3 : 1, this.night ? 0.36 : 0.97, this.night ? 0.5 : 0.88);
   }
 
-  /** At night, lights the buildings nearest what each view looks at (shared out between split-screen views). */
-  private lightBuildings(views: readonly ModernView[]): void {
-    let used = 0;
-    if (this.night) {
-      const field = views.filter((v) => !v.skip);
-      const each = field.length ? Math.floor(LAMPS / field.length) : 0;
-      const taken = new Set<Lamp>();
-      for (const v of field) {
-        const pose = v.cam.pose();
-        const near: { lamp: Lamp; d: number }[] = [];
-        const ccx = Math.floor(pose.x / TILE / CHUNK);
-        const ccy = Math.floor(pose.y / TILE / CHUNK);
-        for (let cy = Math.max(0, ccy - 1); cy <= Math.min(CHUNKS - 1, ccy + 1); cy++) {
-          for (let cx = Math.max(0, ccx - 1); cx <= Math.min(CHUNKS - 1, ccx + 1); cx++) {
-            for (const lamp of this.chunkLamps[cy * CHUNKS + cx]!) {
-              if (!taken.has(lamp)) near.push({ lamp, d: (lamp.x - pose.x) ** 2 + (lamp.y - pose.y - 40) ** 2 });
-            }
-          }
-        }
-        near.sort((a, b) => a.d - b.d);
-        for (const { lamp } of near.slice(0, each)) {
-          const l = this.lamps[used++]!;
-          taken.add(lamp);
-          l.position.set(lamp.x, lamp.z, lamp.y);
-          l.color.setHex(lamp.colour);
-          l.intensity = lamp.power;
-        }
-      }
-    }
-    for (; used < LAMPS; used++) this.lamps[used]!.intensity = 0;
+  /**
+   * At night every building's lamp is lit: their light and shadows are worked out again wherever the buildings have
+   * changed (a building knocked down, or the level editor's edits), and only then, as the lamps never move.
+   */
+  private lightBuildings(): void {
+    if (!this.night || !this.world || !this.lampsStale) return;
+    const area = this.lampsStale === 'all' ? undefined : this.lampsStale;
+    this.lampMap.bake(this.world, this.boxes, this.chunkLamps.flat(), area);
+    this.lampsStale = null;
+  }
+
+  /** The buildings changed over this rectangle (pixels): the lamps' light there needs working out again. */
+  private staleLamps(x0: number, y0: number, x1: number, y1: number): void {
+    if (this.lampsStale === 'all') return;
+    const r = LAMP_REACH;
+    const s = this.lampsStale;
+    this.lampsStale = s
+      ? { x0: Math.min(s.x0, x0 - r), y0: Math.min(s.y0, y0 - r), x1: Math.max(s.x1, x1 + r), y1: Math.max(s.y1, y1 + r) }
+      : { x0: x0 - r, y0: y0 - r, x1: x1 + r, y1: y1 + r };
   }
 
   /** Points each vehicle's headlights (at night) ahead of it. */
   private aimHeadlights(m: Match): void {
-    let i = 0;
+    const lit = new Array<boolean>(HEADLIGHTS).fill(false);
     if (this.night) {
       for (const p of m.players) {
         const v = p.vehicle;
+        // Each player's vehicle has its own headlight, so its beam's pattern stays its own.
+        const i = p.id;
         if (!v || i >= HEADLIGHTS || v.z < -8 * 65536) continue;
+        lit[i] = true;
         const a = radians(v.heading);
         const fx = Math.sin(a);
         const fz = -Math.cos(a);
         const x = v.x / 65536;
         const y = v.y / 65536;
         const z = Math.max(0, v.z / 65536);
-        const l = this.heads[i++]!;
+        const l = this.heads[i]!;
         const b = BEAMS[v.kind];
         l.intensity = b.power;
         l.color.setHex(b.colour);
@@ -563,9 +575,11 @@ export class ModernRenderer {
         l.position.set(x + fx * 10, z + b.height, y + fz * 10);
         l.target.position.set(x + fx * b.reach, 0, y + fz * b.reach);
         l.target.updateMatrixWorld();
+        l.updateMatrixWorld();
+        l.shadow.needsUpdate = !this.thermal;
       }
     }
-    for (; i < HEADLIGHTS; i++) this.heads[i]!.intensity = 0;
+    for (let i = 0; i < HEADLIGHTS; i++) if (!lit[i]) this.heads[i]!.intensity = 0;
   }
 
   /** A point of the bunker (its own units: across from the shaft, up from its top) on the modern screen in a view. */
@@ -590,7 +604,7 @@ export class ModernRenderer {
       this.statics.remove(this.ground.group);
       this.ground.dispose();
     }
-    this.ground = new Ground(this.assets, world, SUN, this.gl.capabilities.maxTextureSize >= 8192);
+    this.ground = new Ground(this.assets, world, SUN, this.gl.capabilities.maxTextureSize >= 8192, (shader) => lampLight(shader, this.lampMap.texture, this.glow));
     this.statics.add(this.ground.group);
     this.waterLight(this.ground.water.uniforms);
     for (let i = 0; i < this.chunks.length; i++) {
@@ -601,7 +615,9 @@ export class ModernRenderer {
       }
       this.chunks[i] = null;
       this.chunkKeys[i] = '';
+      this.chunkLamps[i] = [];
     }
+    this.lampsStale = 'all';
     this.fx.clear();
     for (const rig of this.rigs.values()) this.dynamic.remove(rig.root);
     this.rigs.clear();
@@ -637,6 +653,7 @@ export class ModernRenderer {
             if (g) geos.push(g);
           }
         }
+        this.staleLamps(cx * CHUNK * TILE, cy * CHUNK * TILE, (cx + 1) * CHUNK * TILE, (cy + 1) * CHUNK * TILE);
         if (!geos.length) continue;
         const merged = mergeGeometries(geos, false);
         for (const g of geos) g.dispose();
@@ -670,7 +687,9 @@ export class ModernRenderer {
     else kit = building(def, def.name, this.boxes[bid] ?? null, i);
     if (!kit) return null;
     const lamp = bid === BROKEN_BRIDGE ? null : lightOf(def.name, this.boxes[bid] ?? null);
-    if (lamp) lamps.push({ ...lamp, x: lamp.x + ox, y: lamp.y + oy });
+    // Not every house has its lamp on: a street of them, every door lit, would be as bright as day.
+    const home = lookOf(def.name) === 'house' && ((Math.imul(i, 2654435761) >>> 16) & 3) !== 0;
+    if (lamp && !home) lamps.push({ ...lamp, x: lamp.x + ox, y: lamp.y + oy });
     const g = kit.build(owner < 0 ? NEUTRAL : this.paints[owner] ?? NEUTRAL);
     g.translate(ox, 0, oy);
     return g;

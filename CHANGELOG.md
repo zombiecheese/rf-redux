@@ -4,9 +4,15 @@ Each release's section below becomes its GitHub release notes (`.github/workflow
 
 ## [Unreleased]
 
+### Changed
+
+- At night in the modern view every building lamp is lit, not just the few nearest the camera, and lamps and vehicle headlights cast shadows: buildings and trees block lamp light, and buildings, trees and vehicles block headlights, instead of the light shining through them. Lamps hang just clear of their own walls (over the door, or under a watchtower's floor) rather than inside the next building, and about one house in four has its lamp on.
+
 ### Fixed
 
 - A match in the modern view no longer flashes up in the classic view for its first moments while the 3D renderer loads. The renderer's code is fetched while still in the menus (when your view is Modern, or the host picked Modern in an online lobby), and if it is not quite ready the match opens on a modern ACQUIRING DRONE FEED screen and an offline match waits for it.
+- Night lights in the modern view no longer shift as the camera or a vehicle moves: each lamp keeps its own pattern and flicker, lamps no longer switch on and off or jump from building to building, and a headlight's pattern no longer turns as the camera tilts.
+- Moonlight and sunlight shadows no longer crawl and shimmer as the camera follows a vehicle.
 
 ## [0.5.1] - 2026-11-14
 

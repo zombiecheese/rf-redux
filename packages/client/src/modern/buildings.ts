@@ -305,7 +305,8 @@ export function building(def: BuildingDef & { name?: string }, name: string, box
       k.box(cx, cy, h - 7, 13, 13, 1.2, WOOD);
       k.box(cx, cy, h - 5.8, 13, 13, 1.6, WOOD_DARK);
       k.roof(cx, cy, h - 1.5, 14, 14, 4, 'team');
-      k.box(cx, cy, h - 4.2, 2, 2, 1.6, 'lamp');
+      // The lamp hangs under the front of the floor, where it lights the ground round the tower (lightOf).
+      k.box(cx, cy + 6.2, h - 8.6, 1.8, 1.4, 1.4, 'lamp');
       break;
     }
     case 'rubble': {
@@ -381,19 +382,29 @@ function halfTube(r: number, len: number): THREE.BufferGeometry {
 
 export { METAL, GUNMETAL };
 
-/** Where a lit building's light at night stands (its lamp, or in front of its windows), and how bright it is. */
+/**
+ * Where a lit building's light at night stands (its lamp, or over its door), and how bright it is. Each light sits
+ * just clear of its own walls, as a real lamp is fixed to them, so it throws true shadows: the building it hangs on
+ * shades what is behind it, and a light never shines out from inside a wall.
+ */
 export function lightOf(name: string, box: Box | null): { x: number; y: number; z: number; power: number; colour: number } | null {
   const look = lookOf(name);
   const b = box ?? { x0: -16, x1: 16, y0: -16, y1: 16, h: 12, ox: 0, oy: 0, oz: 0 };
   const cx = (b.x0 + b.x1) / 2 + b.ox;
   const cy = (b.y0 + b.y1) / 2 + b.oy;
-  const front = b.y1 + b.oy + 10;
+  // Over the door: out from the middle of the front wall (the side the name faces; houses' walls stand 1 inside
+  // their footprint), a little way clear of it.
+  const turn = facing(name);
+  const fx = Math.sin(turn);
+  const fy = -Math.cos(turn);
+  const reach = (Math.abs(fx) > 0.5 ? (b.x1 - b.x0) : (b.y1 - b.y0)) / 2 + 4;
+  const door = (z: number) => ({ x: cx + fx * reach, y: cy + fy * reach, z });
   switch (look) {
-    case 'light': return { x: cx + 12, y: cy - 13.5, z: 12, power: 2600, colour: 0xffd890 };
-    case 'watchtower': return { x: cx, y: cy, z: b.h - 5, power: 1800, colour: 0xffc070 };
-    case 'house': case 'outpost': return { x: cx, y: front, z: 8, power: 900, colour: 0xffc070 };
-    case 'hq': case 'factory': case 'hospital': return { x: cx, y: front, z: 10, power: 1400, colour: 0xffd090 };
-    case 'fuel': case 'prison': case 'gate': return { x: cx, y: cy, z: b.h + 6, power: 1400, colour: 0xffe0a8 };
+    case 'light': return { x: cx + 12, y: cy - 13.5, z: 12.5, power: 2600, colour: 0xffd890 };
+    case 'watchtower': return { x: cx, y: cy + 7.2, z: b.h - 9, power: 1800, colour: 0xffc070 };
+    case 'house': case 'outpost': return { ...door(8), power: 650, colour: 0xffc070 };
+    case 'hq': case 'factory': case 'hospital': case 'fuel': return { ...door(10), power: 1400, colour: 0xffd090 };
+    case 'prison': case 'gate': return { x: cx, y: cy, z: b.h + 6, power: 1400, colour: 0xffe0a8 };
     default: return null;
   }
 }
