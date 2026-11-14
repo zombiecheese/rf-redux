@@ -22,11 +22,11 @@ export interface Settings {
   swapSides: boolean;
   /** How the picture is scaled: fill the window, or whole-number scales only. */
   scale: 'sharp' | 'integer';
-  /** Options > Music. */
+  /** Options > Sound and Music > Music. */
   music: boolean;
-  /** Options > Sound: master, effects and music volume, 0-100, and the mute switch (V). */
+  /** Options > Sound and Music > Volume: master, effects and music volume, 0-100, and the mute switch (V). */
   volume: Volume;
-  /** Options > Controls: keys the player has changed from the original layout, per half of the keyboard. */
+  /** Options > Controls > Vehicle Keys: keys the player has changed from the original layout, per half of the keyboard. */
   keys: Partial<Record<Half, Partial<Bindings>>>;
   /** Options > View > Visuals (online, the host picks): the retro 320 x 240 picture, or the modern 3D view at 1280 x 720. */
   visuals: 'retro' | 'modern';

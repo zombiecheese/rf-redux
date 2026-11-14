@@ -7,7 +7,11 @@ import { defineConfig, type Plugin, type ViteDevServer } from 'vite';
 // them from assets/; a production build leaves them out, and the game server serves them from ASSETS_DIR.
 // Each page is its own entry: the game (index.html), the level editor (editor.html) and the admin panel (admin.html).
 // In development the API and the game WebSocket go to the game server on port 8080 (npm start in another terminal).
+/** The game's version, shown in About and System Info. */
+const version = (JSON.parse(readFileSync(resolve(import.meta.dirname, '../../package.json'), 'utf8')) as { version: string }).version;
+
 export default defineConfig(({ command }) => ({
+  define: { __APP_VERSION__: JSON.stringify(version) },
   publicDir: command === 'serve' ? '../../assets' : false,
   plugins: [generatedMaps(), artPack()],
   server: {

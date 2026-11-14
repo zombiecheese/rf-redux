@@ -146,7 +146,7 @@ function syncLook(): void {
   thermalState.textContent = thermal ? 'ON' : 'OFF';
   thermalKey.textContent = thermalKeys();
   thermalButton.setAttribute('aria-pressed', String(thermal));
-  thermalButton.title = `Thermal camera ${thermal ? 'on' : 'off'} (${thermalKeys()}; change the key in Options > Controls)`;
+  thermalButton.title = `Thermal camera ${thermal ? 'on' : 'off'} (${thermalKeys()}; change the key in Options > Controls > Vehicle Keys)`;
 }
 
 // ---- Profile (profiles card) ---------------------------------------------------------------------------------
@@ -889,13 +889,13 @@ function controlItems(): MenuEntry[] {
 
 function helpItems(): MenuEntry[] {
   return [
-    { label: 'Controls and Keys', key: shortcutName('help'), action: () => void overGame(helpTopics) },
-    { label: 'System Info', action: () => void overGame(systemInfo) },
+    { label: 'Help Topics', hint: 'How to play, views, online and every key', key: shortcutName('help'), action: () => void overGame(helpTopics) },
+    { label: 'System Info', hint: 'Version, browser and server', action: () => void overGame(() => systemInfo({ online: onlineReady, soundfont: siteFont, account: signedIn() ? net.you!.name : undefined }, settings)) },
     { label: 'About', action: () => void overGame(about) },
   ];
 }
 
-/** The thermal camera on or off in a modern match (its key, set in Options > Controls, or the THERMAL button). */
+/** The thermal camera on or off in a modern match (its key, set in Options > Controls > Vehicle Keys, or the THERMAL button). */
 function toggleThermal(): void {
   if (!game?.night) return;
   thermal = !thermal;

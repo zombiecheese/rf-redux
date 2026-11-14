@@ -151,6 +151,19 @@ body.replay .thermal-fab { display: none; }
 .ui .grid td.none { color: var(--ui-muted); text-align: center; padding: 1em; }
 .ui .grid tr.picked td { background: rgba(227, 163, 59, .2); }
 .ui .grid.help th { color: var(--ui-accent); }
+/* Help Topics: pages behind pill tabs, one size for all of them. */
+.ui.window:has(.help-book) { max-width: min(52em, 100%); }
+.ui .help-book { width: 100%; min-width: 0; }
+.ui .help-page { height: 52vh; padding-right: .4em; overflow-x: hidden; }
+.ui .help-page > [hidden] { display: none; }
+.ui .help-head { margin: .4em 0 0; font-size: 1em; color: var(--ui-accent); }
+.ui .help-list { margin: 0; padding-left: 1.2em; display: flex; flex-direction: column; gap: .45em; }
+.ui .help-page p { max-width: none; }
+.ui .grid.help { white-space: normal; }
+.ui .grid.help td:not(:first-child) { white-space: nowrap; }
+.ui .grid.sysinfo td { white-space: normal; word-break: break-word; }
+.ui .about p { max-width: 60ch; }
+.ui .about a { color: var(--ui-accent); }
 
 .ui .toolbar { display: flex; flex-wrap: wrap; gap: .5em; align-items: center; }
 .ui .toolbar input[type=search] { flex: 1 1 10em; }

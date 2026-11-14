@@ -30,7 +30,7 @@ instrumentals, chosen by the same director (see "The modern soundtrack" below).
   built-in timbres. **Options > Sound and Music > Instruments** switches the band between **Built-in** (the default) and **Sampled**,
   which plays it from the site's SoundFont at `/generated/music/soundfont.sf2`. The browser fetches it the first time
   Sampled is picked and keeps it in its cache, so later visits start at once; the choice follows a signed-in account.
-  The modern soundtrack always plays its own rig. **Options > Jukebox** can also load any `.sf2` file for one visit.
+  The modern soundtrack always plays its own rig.
 - **The SoundFont that ships**: [GeneralUser GS](https://www.schristiancollins.com/generaluser) 2.0.3 by S. Christian
   Collins (32 MB). Its licence (`tools/soundfont/GeneralUser-GS-LICENSE.txt`) allows using it, changing it and
   shipping it with software, free or commercial. It is not kept in git: the Docker image fetches it at build time
@@ -40,8 +40,8 @@ instrumentals, chosen by the same director (see "The modern soundtrack" below).
   (FluidR3_GM is MIT-licensed, but at about 140 MB it is a long download for a browser).
 - **Replacing a piece**: put a MIDI file at `assets/generated/music/<name>.mid`, where `<name>` is one of the file
   names below. Name its sections with marker events to match the start and loop points the director uses.
-- **Options > Music** switches the music off and on (as the original's menu did); **Options > Sound** sets the
-  master, effects and music volume (V mutes everything); **Options > Jukebox** plays any piece.
+- **Options > Sound and Music > Music** switches the music off and on (as the original's menu did); **Options > Sound
+  and Music > Volume** sets the master, effects and music volume (V mutes everything).
 
 ## The pieces, and why each is in the public domain
 

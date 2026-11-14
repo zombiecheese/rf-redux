@@ -29,6 +29,16 @@ Each release's section below becomes its GitHub release notes (`.github/workflow
 - Replays play back as their match was seen (classic or modern, day or night), whatever the viewer's own Options say; the replay records it. Older replays play the viewer's way.
 - Turning the thermal camera on or off (or changing any other option) during an online match whose host set the visuals no longer swaps the soundtrack to the player's own.
 
+### Changed
+
+- Help Topics (H) is rewritten for the game as it is now, in pages: How to Play (the goal, each vehicle's buttons, game types, computer skill), Keys (every key, and the touch controls), Views (classic and modern, the drone feed, the computer-vision HUD, flag arrows, day and night, the thermal camera, and the host's choice online), Online, and More (replays, the level editor, sound and music, settings).
+- About says what the game is today: its version, that it needs no copy of the original and imports nothing, what comes from the original (its measurements and the 104 two-player map layouts), the music and the SoundFont's credit, and a link to the source.
+- System Info shows the version, whether a game server and an account are there, the view in use and whether this browser can show the modern view, and whether sampled instruments are on offer.
+
+### Removed
+
+- The jukebox, with its player for single pieces and its loader for a SoundFont file of your own. Sampled instruments still play the site's SoundFont.
+
 ## [0.4.0] - 2026-11-14
 
 The modern view as a drone feed, with a thermal camera and vehicle lights.

@@ -10,7 +10,7 @@
 // the SoundFont.
 
 import { TICK_MS, type Match, type MatchEvent, type Vehicle } from '@rfw/sim';
-import { Director, PIECES, STOP, type MusicOut, type Piece, type Scored } from './director.js';
+import { Director, STOP, type MusicOut, type Piece, type Scored } from './director.js';
 import { BOOK } from './pieces.js';
 import { MODERN_BOOK } from './pieces-modern.js';
 import type { PieceDef } from './score.js';
@@ -42,7 +42,8 @@ export class Music implements MusicOut {
   private timer: ReturnType<typeof setInterval> | null = null;
   private feed: Feed | null = null;
   private held = false;
-  private auditioning = false;
+  /** The splash fanfare is playing, so the director waits. */
+  private inFanfare = false;
   private master: GainNode | null = null;
   private volume = 1;
   private style: MusicStyle = 'retro';
@@ -74,18 +75,13 @@ export class Music implements MusicOut {
     return !!this.player?.fading;
   }
 
-  /** The SoundFont in use, if any. */
-  get soundfont(): string | null {
-    return this.synth?.soundfont?.name ?? null;
-  }
-
   /**
    * Starts the audio, from a key press or tap (browsers allow sound only after one); later ones start it again if
    * the browser left it suspended.
    */
   async unlock(): Promise<void> {
     if (this.ctx) {
-      if ((!this.held || this.auditioning) && this.ctx.state === 'suspended') void this.ctx.resume().catch(() => {});
+      if ((!this.held || this.inFanfare) && this.ctx.state === 'suspended') void this.ctx.resume().catch(() => {});
       return;
     }
     const ctx = new AudioContext();
@@ -99,7 +95,7 @@ export class Music implements MusicOut {
     if (this.wantSampled) this.synth.soundfont = this.font;
     this.player = new Player(ctx, this.synth, master, LEVEL);
     this.timer = setInterval(() => {
-      if (!this.held && !this.auditioning) this.director.update();
+      if (!this.held && !this.inFanfare) this.director.update();
     }, TICK_MS);
     void this.loadOverrides();
   }
@@ -117,15 +113,6 @@ export class Music implements MusicOut {
         // None: our arrangement plays.
       }
     }));
-  }
-
-  /** Plays every program the SoundFont has from its samples, for this visit. Throws if the file is not a SoundFont. */
-  loadSoundFont(data: ArrayBuffer): string {
-    const sf = new SoundFont(data);
-    this.font = sf;
-    this.wantSampled = true;
-    if (this.synth) this.synth.soundfont = sf;
-    return sf.name;
   }
 
   /** Whether this site has a SoundFont for Options > Instruments. */
@@ -189,7 +176,7 @@ export class Music implements MusicOut {
     if (style === this.style) return;
     this.style = style;
     if (this.synth) this.synth.sampled = style === 'retro';
-    if (this.auditioning) this.player?.stop();
+    if (this.inFanfare) this.player?.stop();
     else this.director.replay();
   }
 
@@ -218,7 +205,7 @@ export class Music implements MusicOut {
 
   // ---- What the front end and the game tell it -------------------------------------------------------------------
 
-  /** The music volume as a gain (0-1), master volume and mute included (Options > Sound). */
+  /** The music volume as a gain (0-1), master volume and mute included (Options > Sound and Music > Volume). */
   setVolume(gain: number): void {
     this.volume = gain;
     if (this.master) this.master.gain.value = gain;
@@ -254,7 +241,7 @@ export class Music implements MusicOut {
    */
   fanfare(): number {
     if (!this.player || this.director.off) return 0;
-    this.auditioning = true;
+    this.inFanfare = true;
     const tl = this.timeline('fanfare');
     this.player.play(tl, null, 'now', null);
     return tl.duration * 1000;
@@ -265,8 +252,8 @@ export class Music implements MusicOut {
    * director carries on.
    */
   stopFanfare(): void {
-    if (!this.auditioning || !this.ctx) return;
-    this.auditioning = false;
+    if (!this.inFanfare || !this.ctx) return;
+    this.inFanfare = false;
     if (this.player?.busy) this.player.fadeOut(0.4);
     else this.synth?.cutFrom(this.ctx.currentTime, 0.4);
   }
@@ -330,26 +317,6 @@ export class Music implements MusicOut {
   /** Leaving a match. */
   endMatch(): void {
     this.feed = null;
-  }
-
-  // ---- The jukebox ---------------------------------------------------------------------------------------------
-
-  /** Plays one of the director's pieces straight through (the director waits until stopAudition). */
-  audition(index: number): void {
-    const piece = PIECES[index];
-    if (!piece || !this.player) return;
-    this.auditioning = true;
-    // The jukebox may be open over a paused match.
-    void this.ctx?.resume();
-    this.player.play(this.timeline(piece.file), piece.start, 'now', null);
-  }
-
-  stopAudition(): void {
-    if (!this.auditioning) return;
-    this.auditioning = false;
-    this.player?.stop();
-    if (this.held) void this.ctx?.suspend();
-    this.director.replay();
   }
 }
 
