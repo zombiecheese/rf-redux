@@ -1,6 +1,8 @@
 // The modern view's screen: its size and where each view goes on it. Kept apart from the renderer so the game can
 // lay it out without loading three.js, which is only fetched the first time the modern view is picked.
 
+import type { VehicleKind } from '@rfw/sim';
+
 export const MODERN_W = 1280;
 export const MODERN_H = 720;
 /** The split screen's two views and the strip between them. */
@@ -34,3 +36,11 @@ export function modernAvailable(): boolean {
   }
   return webgl;
 }
+
+/** Where each bay's vehicle stands: its centre across from the shaft's middle, and its floor's height. */
+export const BAY_AT: Record<VehicleKind, { x: number; floor: number; left: boolean }> = {
+  heli: { x: -36, floor: -72, left: true },
+  tank: { x: 35, floor: -72, left: false },
+  asv: { x: -36, floor: -110, left: true },
+  jeep: { x: 35, floor: -110, left: false },
+};

@@ -8,6 +8,7 @@ import type { Camera, ViewRect } from '../camera.js';
 import { LINE, drawText, textWidth } from '../font.js';
 import { type Frame, SCREEN_H, SCREEN_W } from '../raster.js';
 import { BASE_COLOURS } from '../view.js';
+import { TEAMS } from '../paint.js';
 import type { Net } from './net.js';
 
 const TEAM_NAMES = 'ABCD';
@@ -184,4 +185,31 @@ export function drawScoreboard(frame: Frame, m: Match, start: MatchStart, seats:
     drawText(frame, String(flags), col[3]!, y);
     drawText(frame, status, col[4]!, y, 0xffffffff, 1, x0 + w - col[4]!);
   });
+}
+
+/** The chat lines drawChat shows, as coloured runs, for the modern view. */
+export function chatRuns(messages: readonly ChatMessage[], input: ChatInput): { text: string; css: string }[][] {
+  const now = Date.now();
+  const shown = messages.filter((m) => input.typing || now - m.at < CHAT_MS).slice(input.typing ? -8 : -4);
+  const start = input.start;
+  return shown.map((m) => {
+    if (m.system || !m.from) return [{ text: m.text, css: '#60ffff' }];
+    const tag = m.channel === 'team' ? '(Team) ' : m.channel === 'whisper' ? (m.from.id === start.seats.find((s) => s.player === start.you)?.userId ? `(To ${m.to?.name}) ` : '(Whisper) ') : '';
+    const seat = start.seats.find((s) => s.userId === m.from!.id);
+    const css = m.channel === 'whisper' ? '#ff80ff' : seat ? TEAMS[seat.base]?.css ?? '#fff' : '#fff';
+    return [{ text: `${tag}${m.from.name}: `, css }, { text: m.text, css: '#ece7d8' }];
+  });
+}
+
+/** The scoreboard's heading and rows, for the modern view. */
+export function scoreRows(m: Match, start: MatchStart, seats: readonly SeatStatus[], captures: readonly number[], result: MatchResult | null): { head: string[]; rows: { cells: string[]; css: string }[] } {
+  const rows = [...start.seats].sort((a, b) => a.team - b.team || a.player - b.player).map((s) => {
+    const p = m.players[s.player]!;
+    const st = seats.find((x) => x.player === s.player);
+    const left = VEHICLE_KINDS.reduce((n, k) => n + (p.lives[k] === UNLIMITED ? 99 : p.lives[k]), 0) + (p.vehicle ? 1 : 0);
+    const flags = result?.seats.find((r) => r.player === s.player)?.captures ?? captures[s.player] ?? 0;
+    const status = m.eliminated[p.base] ? 'Out' : s.bot ? `Bot ${s.difficulty ?? ''}` : st?.botTakeover ? 'Bot' : st && !st.connected ? 'Gone' : st?.ping !== undefined ? `${st.ping}ms` : '';
+    return { cells: [TEAM_NAMES[s.team] ?? '?', s.name + (s.player === start.you ? ' (you)' : ''), String(left), String(flags), status], css: TEAMS[s.base]?.css ?? '#fff' };
+  });
+  return { head: ['Team', 'Player', 'Left', 'Flags', 'Status'], rows };
 }

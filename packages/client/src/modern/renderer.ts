@@ -3,13 +3,13 @@
 // retro camera (camera.ts) projects from, with the same focal length, follow, lead and zoom, so both views show the
 // same part of the map across; at 16:9 the modern one shows a little more up and down the map.
 //
-// It draws only the playfield. The bunker and the skull screens stay pixel art, taken from the retro frame, and the
-// HUD is modern/hud.ts. Nothing here touches the match.
+// It draws the playfield, and the bunker and skull screens as scenes of their own (modern/screens.ts); the HUD and
+// text are modern/hud.ts. Nothing here touches the match.
 
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import {
-  DOORS_OPEN, FINE_TURN, GRID, LIFT_SPEED, PROJECTILES, VEHICLES, mineArmed, sceneryEntry, subFrame, type Match, type MatchEvent, type Vehicle, type VehicleKind, type World,
+  DOORS_OPEN, FINE_TURN, type Elevator, type Lives, type SkullLook, GRID, LIFT_SPEED, PROJECTILES, VEHICLES, mineArmed, sceneryEntry, subFrame, type Match, type MatchEvent, type Vehicle, type VehicleKind, type World,
 } from '@rfw/sim';
 import type { GameAssets, Model } from '../assets.js';
 import { FOCAL, type Camera } from '../camera.js';
@@ -17,6 +17,7 @@ import { drawMark, type Splat, type Wreck as MarkWreck } from '../effects.js';
 import { TEAMS } from '../paint.js';
 import { building, gateLeaf, lookOf, towerGun, type Box } from './buildings.js';
 import { Fx } from './fx.js';
+import { BunkerScene, SkullScene } from './screens.js';
 import { Ground, TILE } from './ground.js';
 import { Kit, NEUTRAL, teamPaint, type TeamPaint } from './kit.js';
 import * as V from './vehicles.js';
@@ -34,6 +35,21 @@ const TURRET_BUILDINGS = new Set([TOWER, LARGE_TOWER]);
 /** The sun: low in the south-west, behind and left of the camera, as the retro shadows fall. */
 const SUN = new THREE.Vector3(-0.42, 1, 0.55).normalize();
 const SHADOW_SPAN = 340;
+const HEADLIGHTS = 6;
+
+/** A full-view screen drawn in a view instead of (or, for the skull, over) the playfield. */
+export type ModernScreen =
+  | { kind: 'bunker'; base: number; lives: Lives; selected: VehicleKind; elevator: Elevator | null; tick: number }
+  | { kind: 'skull'; look: SkullLook; rival: number; base: number; lost: VehicleKind | null; left: number; start: number };
+
+export interface ModernView {
+  cam: Camera;
+  rect: ModernRect;
+  viewer: number;
+  /** Leaves the playfield out of this view. */
+  skip: boolean;
+  screen?: ModernScreen;
+}
 
 const radians = (heading: number) => (heading / 65536 / 64) * Math.PI * 2;
 
@@ -97,6 +113,12 @@ export class ModernRenderer {
   private readonly rigs = new Map<Vehicle, VehicleRig>();
   private lastTime = performance.now();
   private readonly boxes: (Box | null)[];
+  private bunker: BunkerScene | null = null;
+  private night = false;
+  private readonly sky = new THREE.HemisphereLight(0xcfe8ff, 0x8a6a48, 1.25);
+  /** Headlights for the vehicles at night: a fixed few, so turning them on and off never rebuilds the shaders. */
+  private readonly heads: THREE.SpotLight[] = [];
+  private skull: SkullScene | null = null;
 
   constructor(private readonly assets: GameAssets) {
     this.gl = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true, powerPreference: 'high-performance' });
@@ -112,7 +134,12 @@ export class ModernRenderer {
     this.canvas.height = MODERN_H;
 
     this.scene.background = new THREE.Color(0x0c2a40);
-    this.scene.add(new THREE.HemisphereLight(0xcfe8ff, 0x8a6a48, 1.25));
+    this.scene.add(this.sky);
+    for (let i = 0; i < HEADLIGHTS; i++) {
+      const l = new THREE.SpotLight(0xfff0c8, 0, 260, 0.5, 0.65, 1.2);
+      this.heads.push(l);
+      this.scene.add(l, l.target);
+    }
     this.sun.castShadow = true;
     this.sun.shadow.mapSize.set(2048, 2048);
     this.sun.shadow.bias = -0.0006;
@@ -219,7 +246,7 @@ export class ModernRenderer {
    * Draws the match from each camera into its rectangle of the WebGL picture, and copies it to this.canvas.
    * viewer is the player whose team decides which mines show; skip leaves a view out (the bunker shows there).
    */
-  draw(m: Match, views: readonly { cam: Camera; rect: ModernRect; viewer: number; skip: boolean }[], extras: { wrecks: readonly MarkWreck[]; splats: readonly Splat[] }): void {
+  draw(m: Match, views: readonly ModernView[], extras: { wrecks: readonly MarkWreck[]; splats: readonly Splat[] }): void {
     const now = performance.now();
     const dt = Math.min(0.1, (now - this.lastTime) / 1000);
     this.lastTime = now;
@@ -229,18 +256,41 @@ export class ModernRenderer {
     ground.tick(now / 1000);
     this.syncChunks(m.world);
     this.syncDynamic(m, extras, views.filter((v) => !v.skip).map((v) => v.cam), dt);
+    this.aimHeadlights(m);
     this.fx.step(dt);
 
     const ctx = this.canvas.getContext('2d')!;
     for (const v of views) {
-      if (v.skip) continue;
-      const team = m.players[v.viewer]?.team;
-      for (const mine of this.mines) mine.visible = mine.userData.team === team || !mine.userData.armed;
-      this.place(v.cam, v.rect);
       const r = v.rect;
       this.gl.setViewport(r.x, MODERN_H - r.y - r.h, r.w, r.h);
       this.gl.setScissor(r.x, MODERN_H - r.y - r.h, r.w, r.h);
-      this.gl.render(this.scene, this.camera);
+      if (!v.skip) {
+        const team = m.players[v.viewer]?.team;
+        for (const mine of this.mines) mine.visible = mine.userData.team === team || !mine.userData.armed;
+        this.place(v.cam, v.rect);
+        this.gl.render(this.scene, this.camera);
+      }
+      const sc = v.screen;
+      if (sc?.kind === 'bunker') {
+        const b = (this.bunker ??= new BunkerScene());
+        b.setNight(this.night);
+        b.frame(r.w / r.h);
+        b.update(this.paints[sc.base] ?? NEUTRAL, sc.lives, sc.selected, sc.elevator, sc.tick);
+        this.gl.render(b.scene, b.camera);
+      } else if (sc?.kind === 'skull') {
+        const k = (this.skull ??= new SkullScene());
+        k.frame(r.w / r.h);
+        k.update(sc.look, this.paints[sc.rival] ?? NEUTRAL, this.paints[sc.base] ?? NEUTRAL, sc.lost, sc.left, sc.start);
+        // Over the map while it still shows: dim it, keep its picture and clear only the depth. Then on black.
+        this.gl.autoClear = false;
+        if (v.skip) {
+          this.gl.setClearColor(0x000000, 1);
+          this.gl.clear();
+        } else this.gl.render(k.dim, k.camera);
+        this.gl.clearDepth();
+        this.gl.render(k.scene, k.camera);
+        this.gl.autoClear = true;
+      }
     }
     ctx.drawImage(this.gl.domElement, 0, 0);
   }
@@ -275,6 +325,57 @@ export class ModernRenderer {
     this.sun.target.updateMatrixWorld();
   }
 
+  /** Day, or night: a moon for the sun, a dark sky, dim water, and headlights on the vehicles. */
+  setNight(night: boolean): void {
+    if (night === this.night) return;
+    this.night = night;
+    this.sky.color.setHex(night ? 0x3a4c80 : 0xcfe8ff);
+    this.sky.groundColor.setHex(night ? 0x16120e : 0x8a6a48);
+    this.sky.intensity = night ? 0.6 : 1.25;
+    this.sun.color.setHex(night ? 0xa8bcff : 0xfff2dc);
+    this.sun.intensity = night ? 0.8 : 2.6;
+    (this.scene.background as THREE.Color).setHex(night ? 0x02060c : 0x0c2a40);
+    const w = this.ground?.water.uniforms;
+    if (w) this.waterLight(w);
+    this.bunker?.setNight(night);
+  }
+
+  private waterLight(u: Record<string, THREE.IUniform>): void {
+    (u.tint!.value as THREE.Color).setRGB(this.night ? 0.22 : 1, this.night ? 0.27 : 1, this.night ? 0.4 : 1);
+    (u.glint!.value as THREE.Color).setRGB(this.night ? 0.55 : 1, this.night ? 0.62 : 0.97, this.night ? 0.8 : 0.88);
+  }
+
+  /** Points each vehicle's headlights (at night) ahead of it. */
+  private aimHeadlights(m: Match): void {
+    let i = 0;
+    if (this.night) {
+      for (const p of m.players) {
+        const v = p.vehicle;
+        if (!v || i >= HEADLIGHTS || v.z < -8 * 65536) continue;
+        const a = radians(v.heading);
+        const fx = Math.sin(a);
+        const fz = -Math.cos(a);
+        const x = v.x / 65536;
+        const y = v.y / 65536;
+        const z = Math.max(0, v.z / 65536);
+        const l = this.heads[i++]!;
+        l.intensity = v.kind === 'heli' ? 4500 : 2600;
+        l.position.set(x + fx * 10, z + 10, y + fz * 10);
+        l.target.position.set(x + fx * 90, 0, y + fz * 90);
+        l.target.updateMatrixWorld();
+      }
+    }
+    for (; i < HEADLIGHTS; i++) this.heads[i]!.intensity = 0;
+  }
+
+  /** A point of the bunker (its own units: across from the shaft, up from its top) on the modern screen in a view. */
+  bunkerPoint(rect: ModernRect, x: number, y: number, z = 0): { x: number; y: number } {
+    const b = (this.bunker ??= new BunkerScene());
+    b.frame(rect.w / rect.h);
+    const p = b.project(x, y, z);
+    return { x: rect.x + p.x * rect.w, y: rect.y + p.y * rect.h };
+  }
+
   /** Projects a world point (game pixels, z up) to the modern screen, for names over vehicles. */
   project(cam: Camera, rect: ModernRect, x: number, y: number, z: number): { x: number; y: number } | null {
     this.place(cam, rect);
@@ -291,6 +392,7 @@ export class ModernRenderer {
     }
     this.ground = new Ground(this.assets, world, SUN, this.gl.capabilities.maxTextureSize >= 8192);
     this.statics.add(this.ground.group);
+    this.waterLight(this.ground.water.uniforms);
     for (let i = 0; i < this.chunks.length; i++) {
       const c = this.chunks[i];
       if (c) {

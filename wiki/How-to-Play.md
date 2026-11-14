@@ -59,7 +59,7 @@ What the second and third buttons do depends on the vehicle:
 | ASV | Fire raised at aircraft | Lay a mine |
 | Helicopter | Fire straight ahead | Swap gun and missiles |
 
-On the lift screen the drive keys and fire also pick and launch a vehicle.
+On the lift screen the drive keys and fire also pick and launch a vehicle, or click a bay to pick it and click it again to launch.
 
 With one player (Training, online and the editor's test play) either half of the keyboard works. **Options > Controls** rebinds any vehicle key. There is no gamepad support.
 
@@ -94,7 +94,8 @@ Phones and tablets play solo, in landscape, with faded on-screen buttons. Held u
 
 | Control | Does |
 | --- | --- |
-| Stick (left thumb, lower left) | Drive and turn. On the lift screen, pick a bay |
+| Stick (left thumb, lower left) | Drive and turn |
+| Tap a bay (lift screen) | Pick that vehicle; tap it again to launch |
 | Fire (right corner) | Fire. Launch on the lift screen |
 | Tyres / Flag | Jeep: float the tyres; put down or pick up a flag |
 | AA | Tank and ASV: fire raised at aircraft |
@@ -138,7 +139,8 @@ Replays save as `.rfwreplay.json` files or, signed in, to your account.
 
 - **Controls:** rebind every vehicle key for either half of the keyboard.
 - **Sound:** master, effects and music volume.
-- **Visuals:** Retro (the original's 320 × 240 pixel picture, the default) or Modern (the same game in 3D at 1280 × 720, with lighting, shadows and effects). You can switch during a match; the game plays the same either way.
+- **Visuals:** Retro (the original's 320 × 240 pixel picture, the default) or Modern (the same game in 3D at 1280 × 720, with lighting, shadows and effects, a 3D bunker and skull, and modern messages and scoreboard). You can switch during a match; the game plays the same either way.
+- **Lighting:** Day or Night for the modern view. At night the vehicles have headlights and explosions light up the ground.
 - **Picture:** a subtle CRT look (on by default, retro only) and how the picture is scaled.
 - **Swap Sides:** gives player 1 the right-hand keys.
 

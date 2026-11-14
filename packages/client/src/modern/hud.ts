@@ -3,9 +3,10 @@
 // right. It shows what the retro cockpit shows and nothing more: the same gauges, and a radar over the same span
 // of the map (two tiles a dot) for the vehicles that have one.
 
-import { GRID, NO_TERRAIN, VEHICLES, WATER_TERRAIN, type Match, type Vehicle, type VehicleKind } from '@rfw/sim';
+import { GRID, NO_TERRAIN, ONE, UNLIMITED, VEHICLES, WATER_TERRAIN, type Elevator, type Lives, type Match, type Vehicle, type VehicleKind } from '@rfw/sim';
 import { TEAMS } from '../paint.js';
 import type { ModernRect } from './layout.js';
+import { BAY_AT } from './layout.js';
 
 const PANEL = 'rgba(16, 19, 15, 0.78)';
 const LINE = 'rgba(255, 255, 255, 0.14)';
@@ -205,5 +206,234 @@ export function drawName(g: CanvasRenderingContext2D, name: string, x: number, y
   g.fill();
   g.fillStyle = css;
   g.fillText(name, x, y - 5);
+  g.restore();
+}
+
+/** The modern screen's point for a bunker point, from the renderer. */
+export type BunkerPoint = (rect: ModernRect, x: number, y: number, z?: number) => { x: number; y: number };
+
+/** The bunker's labels: each bay's vehicle and lives over its ceiling, the chosen one lit, and how to choose. */
+export function drawBunkerPanel(
+  g: CanvasRenderingContext2D, rect: ModernRect, at: BunkerPoint, lives: Lives, selected: VehicleKind, elevator: Elevator | null, base: number, touch: boolean,
+): void {
+  g.save();
+  g.beginPath();
+  g.rect(rect.x, rect.y, rect.w, rect.h);
+  g.clip();
+  const scale = Math.min(1, rect.w / 900);
+  const chosen = elevator?.kind ?? selected;
+  for (const kind of Object.keys(BAY_AT) as VehicleKind[]) {
+    if (elevator && kind !== chosen) continue;
+    const b = BAY_AT[kind];
+    // Upper bays are named above their ceilings, lower bays below their floors.
+    const top = b.floor > -100;
+    const p = at(rect, b.x, top ? b.floor + 31 : b.floor - 3, 0);
+    const n = lives[kind];
+    const mine = kind === chosen;
+    const count = n === UNLIMITED ? 'Unlimited' : n === 0 ? 'None left' : `${n} left`;
+    g.font = `700 ${Math.round(16 * scale)}px ${FONT}`;
+    const nameW = g.measureText(NAMES[kind]).width;
+    g.font = `600 ${Math.round(12 * scale)}px ${FONT}`;
+    const countW = g.measureText(count).width;
+    const w = nameW + countW + 34 * scale;
+    const h = 30 * scale;
+    const x = p.x - w / 2;
+    const y = top ? p.y - h - 4 * scale : p.y + 4 * scale;
+    rounded(g, x, y, w, h, h / 2);
+    g.fillStyle = mine ? 'rgba(46, 34, 12, 0.88)' : PANEL;
+    g.fill();
+    g.strokeStyle = mine ? ACCENT : LINE;
+    g.lineWidth = mine ? 2 : 1;
+    g.stroke();
+    g.textBaseline = 'middle';
+    g.textAlign = 'left';
+    g.font = `700 ${Math.round(16 * scale)}px ${FONT}`;
+    g.fillStyle = n === 0 && !mine ? MUTED : mine ? '#ffd58a' : TEXT;
+    g.fillText(NAMES[kind], x + 13 * scale, y + h / 2 + 1);
+    g.font = `600 ${Math.round(12 * scale)}px ${FONT}`;
+    g.fillStyle = n === 0 ? BAD : MUTED;
+    g.fillText(count, x + 21 * scale + nameW, y + h / 2 + 1);
+  }
+  if (!elevator) {
+    // The heading and the help along the bottom.
+    const side = TEAMS[base];
+    const title = 'Choose your vehicle';
+    const help = touch ? 'Tap a bay to choose it, tap it again to launch' : 'Arrows or click to choose, fire or click again to launch';
+    g.font = `700 ${Math.round(20 * scale)}px ${FONT}`;
+    const tw = g.measureText(title).width;
+    g.font = `500 ${Math.round(13 * scale)}px ${FONT}`;
+    const hw = g.measureText(help).width;
+    const w = Math.max(tw, hw) + 56 * scale;
+    const h = 64 * scale;
+    const x = rect.x + (rect.w - w) / 2;
+    const y = rect.y + rect.h - h - 20 * scale;
+    rounded(g, x, y, w, h, 14 * scale);
+    g.fillStyle = PANEL;
+    g.fill();
+    g.strokeStyle = LINE;
+    g.lineWidth = 1;
+    g.stroke();
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    g.font = `700 ${Math.round(20 * scale)}px ${FONT}`;
+    g.fillStyle = TEXT;
+    g.fillText(title, x + w / 2, y + 22 * scale);
+    if (side) {
+      g.fillStyle = side.css;
+      g.beginPath();
+      g.arc(x + w / 2 - tw / 2 - 14 * scale, y + 22 * scale, 6 * scale, 0, Math.PI * 2);
+      g.fill();
+    }
+    g.font = `500 ${Math.round(13 * scale)}px ${FONT}`;
+    g.fillStyle = MUTED;
+    g.fillText(help, x + w / 2, y + 45 * scale);
+  }
+  g.restore();
+}
+
+/** Which bay a point on the modern screen is over, if any: the four bays and the floor in front of them. */
+export function bunkerBayAt(rect: ModernRect, at: BunkerPoint, px: number, py: number): VehicleKind | null {
+  for (const kind of Object.keys(BAY_AT) as VehicleKind[]) {
+    const b = BAY_AT[kind];
+    const a = at(rect, b.left ? -72 : 15, b.floor + 34, 0);
+    const c = at(rect, b.left ? -15 : 72, b.floor - 6, 0);
+    if (px >= Math.min(a.x, c.x) && px <= Math.max(a.x, c.x) && py >= Math.min(a.y, c.y) && py <= Math.max(a.y, c.y)) return kind;
+  }
+  return null;
+}
+
+/** Darkens a view: the fade to and from the map, or the skull's fade out. level is how lit it is, 0 to ONE. */
+export function dimView(g: CanvasRenderingContext2D, rect: ModernRect, level: number): void {
+  if (level >= ONE) return;
+  g.fillStyle = `rgba(0,0,0,${1 - Math.max(0, level) / ONE})`;
+  g.fillRect(rect.x, rect.y, rect.w, rect.h);
+}
+
+/** A short note in a chip at the top left of a view ("Get the flag home!", "Watching ..."). */
+export function drawNote(g: CanvasRenderingContext2D, rect: ModernRect, text: string): void {
+  const scale = Math.min(1, rect.w / 900);
+  g.save();
+  g.font = `700 ${Math.round(15 * scale)}px ${FONT}`;
+  const w = g.measureText(text).width + 28 * scale;
+  const h = 30 * scale;
+  const x = rect.x + 20 * scale;
+  const y = rect.y + 18 * scale;
+  rounded(g, x, y, w, h, h / 2);
+  g.fillStyle = PANEL;
+  g.fill();
+  g.strokeStyle = ACCENT;
+  g.lineWidth = 1.5;
+  g.stroke();
+  g.fillStyle = '#ffd58a';
+  g.textBaseline = 'middle';
+  g.fillText(text, x + 14 * scale, y + h / 2 + 1);
+  g.restore();
+}
+
+/** The latest match messages, newest last, stacked at the top middle. */
+export function drawLog(g: CanvasRenderingContext2D, lines: readonly string[], width: number): void {
+  g.save();
+  g.font = `600 15px ${FONT}`;
+  g.textAlign = 'center';
+  g.textBaseline = 'middle';
+  lines.forEach((text, i) => {
+    const w = Math.min(width - 40, g.measureText(text).width + 32);
+    const h = 30;
+    const x = (width - w) / 2;
+    const y = 18 + i * 36;
+    rounded(g, x, y, w, h, 10);
+    g.fillStyle = PANEL;
+    g.fill();
+    g.strokeStyle = LINE;
+    g.lineWidth = 1;
+    g.stroke();
+    g.fillStyle = TEXT;
+    g.fillText(text, width / 2, y + h / 2 + 1, w - 24);
+  });
+  g.restore();
+}
+
+/** A big centred message: who won, or the server's pause. */
+export function drawBanner(g: CanvasRenderingContext2D, text: string, width: number, y: number, size = 44): void {
+  g.save();
+  g.font = `800 ${size}px ${FONT}`;
+  g.textAlign = 'center';
+  g.textBaseline = 'middle';
+  const w = g.measureText(text).width + size * 1.6;
+  const h = size * 1.9;
+  rounded(g, (width - w) / 2, y - h / 2, w, h, 18);
+  g.fillStyle = PANEL;
+  g.fill();
+  g.strokeStyle = ACCENT;
+  g.lineWidth = 2;
+  g.stroke();
+  g.fillStyle = TEXT;
+  g.fillText(text, width / 2, y + 2);
+  g.restore();
+}
+
+/** A run of coloured text pieces on one line. */
+export interface TextRun {
+  text: string;
+  css: string;
+}
+
+/** Chat lines in a glass panel at the top left, under the view's note. */
+export function drawChatLines(g: CanvasRenderingContext2D, rect: ModernRect, lines: readonly TextRun[][]): void {
+  if (!lines.length) return;
+  const scale = Math.min(1, rect.w / 900);
+  g.save();
+  g.font = `500 ${Math.round(14 * scale)}px ${FONT}`;
+  const lh = 22 * scale;
+  const w = Math.min(rect.w - 40 * scale, 520 * scale);
+  const x = rect.x + 20 * scale;
+  const y = rect.y + 58 * scale;
+  rounded(g, x, y, w, lines.length * lh + 14 * scale, 10);
+  g.fillStyle = 'rgba(16, 19, 15, 0.6)';
+  g.fill();
+  g.textBaseline = 'middle';
+  lines.forEach((runs, i) => {
+    let cx = x + 12 * scale;
+    const cy = y + 7 * scale + lh * (i + 0.5);
+    for (const r of runs) {
+      const room = x + w - 12 * scale - cx;
+      if (room <= 0) break;
+      g.fillStyle = r.css;
+      g.fillText(r.text, cx, cy, room);
+      cx += Math.min(room, g.measureText(r.text).width);
+    }
+  });
+  g.restore();
+}
+
+/** The scoreboard as a glass table in the middle of the screen. */
+export function drawScoreTable(g: CanvasRenderingContext2D, width: number, head: readonly string[], rows: readonly { cells: string[]; css: string }[]): void {
+  g.save();
+  const cols = [24, 64, 330, 400, 470];
+  const w = 600;
+  const rh = 32;
+  const h = 56 + rows.length * rh;
+  const x = (width - w) / 2;
+  const y = 90;
+  rounded(g, x, y, w, h, 16);
+  g.fillStyle = 'rgba(16, 19, 15, 0.86)';
+  g.fill();
+  g.strokeStyle = LINE;
+  g.lineWidth = 1;
+  g.stroke();
+  g.textBaseline = 'middle';
+  g.font = `700 12px ${FONT}`;
+  g.fillStyle = MUTED;
+  head.forEach((t, i) => g.fillText(t.toUpperCase(), x + cols[i]!, y + 26));
+  rows.forEach((r, k) => {
+    const ry = y + 52 + k * rh;
+    g.fillStyle = 'rgba(255,255,255,0.08)';
+    g.fillRect(x + 16, ry - 4, w - 32, 1);
+    r.cells.forEach((t, i) => {
+      g.font = `${i === 1 ? 700 : 500} 15px ${FONT}`;
+      g.fillStyle = i <= 1 ? r.css : TEXT;
+      g.fillText(t, x + cols[i]!, ry + rh / 2 - 2, (cols[i + 1] ?? w - 16) - cols[i]! - 10);
+    });
+  });
   g.restore();
 }

@@ -5,7 +5,8 @@
 // keys (keys.ts lists them).
 //
 // Dev shortcuts: ?mode=solo or ?mode=local2 starts a match at once on ?map= (with ?bots=0, ?seed=, ?difficulty=, ?teams=2,2, ?handicap=1, ?together=1),
-// ?scale=integer picks whole-number scaling, and ?visuals=modern or ?visuals=retro picks the picture.
+// ?scale=integer picks whole-number scaling, ?visuals=modern or ?visuals=retro picks the picture, and ?lighting=night
+// or ?lighting=day the modern view's lighting.
 
 import { checkMap, clampDifficulty } from '@rfw/sim';
 import type { MatchStart, Replay } from '@rfw/net';
@@ -49,6 +50,7 @@ if (handheld) document.body.classList.add('handheld');
 let settings = loadSettings();
 if (params.get('difficulty') !== null) settings.difficulty = clampDifficulty(Number(params.get('difficulty')));
 if (params.get('visuals') === 'modern' || params.get('visuals') === 'retro') settings.visuals = params.get('visuals') as Settings['visuals'];
+if (params.get('lighting') === 'night' || params.get('lighting') === 'day') settings.lighting = params.get('lighting') as Settings['lighting'];
 if (params.get('scale') === 'integer' || params.get('scale') === 'sharp') settings.scale = params.get('scale') as Settings['scale'];
 if (handheld) settings.players = 1;
 
@@ -61,6 +63,7 @@ applyVolume(settings.volume);
 
 /** Options > Visuals, read by a running match every frame so it can change mid-game. */
 const visuals = (): Settings['visuals'] => settings.visuals;
+const lighting = (): Settings['lighting'] => settings.lighting;
 
 /** Options > Sound: the master volume scales both the effects and the music. */
 function applyVolume(v: Volume): void {
@@ -110,7 +113,7 @@ function save(next: Settings): void {
 // ---- Profile (profiles card) ---------------------------------------------------------------------------------
 
 /** The settings an account keeps on the server, so they follow the player to another browser. */
-const PROFILE_KEYS = ['names', 'difficulty', 'level', 'mapId', 'swapSides', 'scale', 'crt', 'visuals', 'volume', 'keys', 'music'] as const;
+const PROFILE_KEYS = ['names', 'difficulty', 'level', 'mapId', 'swapSides', 'scale', 'crt', 'visuals', 'lighting', 'volume', 'keys', 'music'] as const;
 let profileTimer = 0;
 
 function signedIn(): boolean {
@@ -231,7 +234,7 @@ async function startGame(opts: { bots?: boolean; seed?: number; ask?: boolean } 
       assets, display, sound, music, seed: opts.seed ?? ((Date.now() % 0x7fffffff) | 0 || 1), players: settings.players,
       difficulty: settings.difficulty, names: settings.names, swapSides: settings.swapSides, bots: opts.bots ?? (settings.players === 1 || settings.teams.bots), handheld,
       teams, handicap: teams !== undefined && settings.teams.handicap,
-      mapId: settings.mapId, mapName: entry?.name ?? assets.map.name, onReplay: (r) => void saveReplay(r), visuals,
+      mapId: settings.mapId, mapName: entry?.name ?? assets.map.name, onReplay: (r) => void saveReplay(r), visuals, lighting,
     });
     setScreen('game');
     const { picture } = game;
@@ -282,7 +285,7 @@ async function watchReplay(r: Replay): Promise<void> {
     if (mine !== run) return;
     const g = new Game({
       assets, display, sound, music, seed: r.seed, players: 1, difficulty: r.difficulty, names: [], swapSides: false, bots: false, handheld,
-      replay: r, visuals,
+      replay: r, visuals, lighting,
     });
     game = g;
     replayBar = new ReplayBar(g.replayControl!, r, () => g.paused, () => void togglePause(), () => void leave());
@@ -500,7 +503,7 @@ async function startOnline(s: MatchStart): Promise<void> {
     if (mine !== run) return;
     game = new Game({
       assets, display, sound, music, seed: s.seed, players: 1, difficulty: s.difficulty, names: settings.names, swapSides: false, bots: false, handheld,
-      online: { start: s, net }, mapName: s.map.name, onReplay: (r) => void saveReplay(r), visuals,
+      online: { start: s, net }, mapName: s.map.name, onReplay: (r) => void saveReplay(r), visuals, lighting,
     });
     setScreen('game');
     const { picture } = game;
@@ -741,6 +744,11 @@ function optionItems(): MenuEntry[] {
       label: 'Visuals', hint: 'Retro pixels, or modern 3D at 720p',
       value: () => (settings.visuals === 'modern' ? 'Modern' : 'Retro'),
       action: () => save({ ...settings, visuals: settings.visuals === 'modern' ? 'retro' : 'modern' }),
+    },
+    {
+      label: 'Lighting', hint: 'Day, or night with headlights (modern)',
+      value: () => (settings.lighting === 'night' ? 'Night' : 'Day'),
+      action: () => save({ ...settings, lighting: settings.lighting === 'night' ? 'day' : 'night' }),
     },
     { label: 'CRT Look', hint: 'Subtle scanlines and glow (retro)', value: () => onOff(settings.crt), action: () => save({ ...settings, crt: !settings.crt }) },
     {

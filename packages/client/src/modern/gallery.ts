@@ -1,6 +1,7 @@
 // A sheet of every modern model, for reviewing the art in the dev server (npm run dev, then /modern-gallery.html).
 // ?part=buildings (the default) lays out every building for Brown, Green and neutral; ?part=vehicles every vehicle
-// in the four sides' colours. It is not part of the build.
+// in the four sides' colours; ?part=bunker and ?part=skull the two screens (skull takes &face=1-7 and &angle=0-63).
+// It is not part of the build.
 
 import * as THREE from 'three';
 import { loadCommon } from '../assets.js';
@@ -9,6 +10,8 @@ import { building } from './buildings.js';
 import { Kit, NEUTRAL, teamPaint } from './kit.js';
 import { bodyBox } from './renderer.js';
 import * as V from './vehicles.js';
+import { ONE } from '@rfw/sim';
+import { BunkerScene, SkullScene } from './screens.js';
 
 const part = new URLSearchParams(location.search).get('part') ?? 'buildings';
 const data = await loadCommon();
@@ -17,6 +20,26 @@ renderer.setSize(innerWidth, innerHeight);
 renderer.shadowMap.enabled = true;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 document.body.appendChild(renderer.domElement);
+if (part === 'bunker' || part === 'skull') {
+  const q = new URLSearchParams(location.search);
+  const sides = TEAMS.map((t) => teamPaint(t.colour & 255, (t.colour >> 8) & 255, (t.colour >> 16) & 255));
+  if (part === 'skull') {
+    const sk = new SkullScene();
+    sk.frame(innerWidth / innerHeight);
+    const look = { map: null, scale: 0x13333, angle: Number(q.get('angle') ?? 0) * ONE, face: Number(q.get('face') ?? 1), lives: ONE, light: ONE };
+    sk.update(look, sides[1]!, sides[0]!, 'tank', 2, 4);
+    renderer.render(sk.dim, sk.camera);
+    renderer.autoClear = false;
+    renderer.render(sk.scene, sk.camera);
+  } else {
+    const b = new BunkerScene();
+    b.frame(innerWidth / innerHeight);
+    b.update(sides[Number(q.get('base') ?? 0)]!, { tank: 3, jeep: 8, asv: 0, heli: 3 }, 'tank', null, 0);
+    renderer.render(b.scene, b.camera);
+  }
+  document.title = 'ready';
+  await new Promise(() => {});
+}
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0xd9c49a);
 scene.add(new THREE.HemisphereLight(0xcfe8ff, 0x8a6a48, 1.25));

@@ -394,6 +394,9 @@ function waterMaterial(shore: THREE.Texture, pits: THREE.Texture, sun: THREE.Vec
       pits: { value: pits },
       sun: { value: sun.clone().normalize() },
       span: { value: GRID * TILE },
+      /** The light on the water: white by day, a dim moonlit blue at night. */
+      tint: { value: new THREE.Color(1, 1, 1) },
+      glint: { value: new THREE.Color(1.0, 0.97, 0.88) },
     },
     vertexShader: /* glsl */ `
       varying vec3 vWorld;
@@ -408,6 +411,8 @@ function waterMaterial(shore: THREE.Texture, pits: THREE.Texture, sun: THREE.Vec
       uniform sampler2D pits;
       uniform vec3 sun;
       uniform float span;
+      uniform vec3 tint;
+      uniform vec3 glint;
       varying vec3 vWorld;
       float wave(vec2 p, vec2 d, float f, float s) { return sin(dot(p, d) * f + time * s); }
       void main() {
@@ -443,7 +448,7 @@ function waterMaterial(shore: THREE.Texture, pits: THREE.Texture, sun: THREE.Vec
         vec3 h = normalize(view + sun);
         float spec = pow(max(dot(n, h), 0.0), 90.0) * 0.9;
         float diff = 0.75 + 0.25 * max(dot(n, sun), 0.0);
-        col = col * diff + vec3(1.0, 0.97, 0.88) * spec;
+        col = col * diff * tint + glint * spec;
         gl_FragColor = vec4(pow(col, vec3(2.2)), 1.0);
         #include <colorspace_fragment>
       }`,

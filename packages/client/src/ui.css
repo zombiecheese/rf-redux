@@ -418,7 +418,7 @@ body.handheld.playing:not(.replay) .touch { display: block; }
 body[data-touch=bunker] .touch .for-bunker, body[data-touch=jeep] .touch .for-jeep, body[data-touch=tank] .touch .for-tank,
 body[data-touch=asv] .touch .for-asv, body[data-touch=heli] .touch .for-heli, body[data-touch=watch] .touch .for-watch,
 body[data-touch=idle] .touch .for-idle { display: grid; }
-body[data-touch=bunker] .touch-zone, body[data-touch=jeep] .touch-zone, body[data-touch=tank] .touch-zone,
+body[data-touch=jeep] .touch-zone, body[data-touch=tank] .touch-zone,
 body[data-touch=asv] .touch-zone, body[data-touch=heli] .touch-zone { display: block; }
 body.online-game .touch .touch-btn.offline, body:not(.online-game) .touch .touch-btn.online { display: none; }
 /* The chat line goes to the top, clear of the on-screen keyboard; its label is a button that picks who it goes to. */
