@@ -5,6 +5,7 @@
 // shallows, foam and colour come from how far each point is from land.
 
 import * as THREE from 'three';
+import { THERMAL } from './look.js';
 import { GRID, NO_TERRAIN, type World } from '@rfw/sim';
 import type { GameAssets } from '../assets.js';
 
@@ -114,8 +115,12 @@ export class Ground {
     const mat = new THREE.MeshLambertMaterial({ map: this.texture, alphaTest: 0.5 });
     mat.onBeforeCompile = (shader) => {
       shader.uniforms.pits = { value: this.pitTex };
+      shader.uniforms.thermal = THERMAL;
       shader.fragmentShader = shader.fragmentShader
-        .replace('void main() {', 'uniform sampler2D pits;\nvoid main() {')
+        .replace('void main() {', 'uniform sampler2D pits;\nuniform float thermal;\nvoid main() {')
+        // The ground on the thermal camera: cool, its sand and grass and roads just told apart.
+        .replace('#include <dithering_fragment>', `#include <dithering_fragment>
+          if (thermal > 0.5) gl_FragColor = vec4(vec3(0.2 + dot(diffuseColor.rgb, vec3(0.3, 0.59, 0.11)) * 0.26), 1.0);`)
         .replace('#include <alphatest_fragment>', `#include <alphatest_fragment>
           {
             vec2 t = vMapUv * ${GRID}.0;
@@ -397,6 +402,7 @@ function waterMaterial(shore: THREE.Texture, pits: THREE.Texture, sun: THREE.Vec
       /** The light on the water: white by day, a dim moonlit blue at night. */
       tint: { value: new THREE.Color(1, 1, 1) },
       glint: { value: new THREE.Color(1.0, 0.97, 0.88) },
+      thermal: THERMAL,
     },
     vertexShader: /* glsl */ `
       varying vec3 vWorld;
@@ -413,6 +419,7 @@ function waterMaterial(shore: THREE.Texture, pits: THREE.Texture, sun: THREE.Vec
       uniform float span;
       uniform vec3 tint;
       uniform vec3 glint;
+      uniform float thermal;
       varying vec3 vWorld;
       float wave(vec2 p, vec2 d, float f, float s) { return sin(dot(p, d) * f + time * s); }
       void main() {
@@ -451,6 +458,8 @@ function waterMaterial(shore: THREE.Texture, pits: THREE.Texture, sun: THREE.Vec
         col = col * diff * tint + glint * spec;
         gl_FragColor = vec4(pow(col, vec3(2.2)), 1.0);
         #include <colorspace_fragment>
+        // The sea runs cold on the thermal camera; its surf shows a little warmer.
+        if (thermal > 0.5) gl_FragColor = vec4(vec3(0.05 + 0.05 * foam + 0.015 * ripple), 1.0);
       }`,
   });
 }

@@ -4,6 +4,15 @@ Each release's section below becomes its GitHub release notes (`.github/workflow
 
 ## [Unreleased]
 
+### Added
+
+- The modern view looks like a surveillance drone's feed: a slightly washed, cool picture with film grain, a soft lens rim and colour fringes, a rolling scan line, and an overlay with corner brackets, a reticle, the clock, REC and altitude and grid read-outs. Options > Camera switches it to a clean picture.
+- A thermal camera for the modern view (Options > Thermal, the I key, or the IR button beside the menu button): a white-hot picture where vehicles, soldiers and drones run hot, wrecks warm, buildings and ground cool and the sea cold, so it sees through the dark.
+
+### Changed
+
+- Night in the modern view is much darker: a faint moon, a black sky and dark water, so the headlights, fires and lit buildings are most of the light.
+
 ## [0.3.0] - 2026-11-14
 
 The modern view: the game in 3D, with its own hardcore and metalcore soundtrack.

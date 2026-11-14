@@ -17,6 +17,7 @@ import { drawMark, type Splat, type Wreck as MarkWreck } from '../effects.js';
 import { TEAMS } from '../paint.js';
 import { building, gateLeaf, lightOf, lookOf, towerGun, type Box } from './buildings.js';
 import { Fx } from './fx.js';
+import { LookPass, THERMAL, heatFragment } from './look.js';
 import { BunkerScene, SkullScene } from './screens.js';
 import { Ground, TILE } from './ground.js';
 import { Kit, NEUTRAL, teamPaint, type TeamPaint } from './kit.js';
@@ -102,6 +103,8 @@ export class ModernRenderer {
   private readonly camera = new THREE.PerspectiveCamera();
   private readonly sun = new THREE.DirectionalLight(0xfff2dc, 2.6);
   private readonly material = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.72, metalness: 0.04 });
+  /** Vehicles, soldiers and drones: the same paint, but they run hot on the thermal camera. */
+  private readonly hot = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.72, metalness: 0.04 });
   private readonly charred = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.95, color: 0x3a342e });
   private readonly glowMaterial = new THREE.MeshBasicMaterial({ color: 0xffe08a });
   private world: World | null = null;
@@ -128,6 +131,10 @@ export class ModernRenderer {
   /** How much windows and lamps glow: 0 by day, 1 at night. */
   private readonly glow = { value: 0 };
   private skull: SkullScene | null = null;
+  /** The drone's feed over the picture (Options > Camera), and the thermal camera (I). */
+  private feed = false;
+  private thermal = false;
+  private pass: LookPass | null = null;
 
   constructor(private readonly assets: GameAssets) {
     this.gl = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true, powerPreference: 'high-performance' });
@@ -149,15 +156,9 @@ export class ModernRenderer {
       this.lamps.push(l);
       this.scene.add(l);
     }
-    // Windows and lamp glass (the kits' glow attribute) shine warm at night.
-    this.material.onBeforeCompile = (shader) => {
-      shader.uniforms.nightGlow = this.glow;
-      shader.vertexShader = shader.vertexShader
-        .replace('void main() {', 'attribute float glow;\nvarying float vGlow;\nvoid main() {\n  vGlow = glow;');
-      shader.fragmentShader = shader.fragmentShader
-        .replace('void main() {', 'uniform float nightGlow;\nvarying float vGlow;\nvoid main() {')
-        .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n  totalEmissiveRadiance += vec3(1.0, 0.78, 0.42) * vGlow * nightGlow * 1.6;');
-    };
+    this.teach(this.material, 0);
+    this.teach(this.hot, 1);
+    this.teach(this.charred, 0.55);
     for (let i = 0; i < HEADLIGHTS; i++) {
       const l = new THREE.SpotLight(0xfff0c8, 0, 260, 0.5, 0.65, 1.2);
       this.heads.push(l);
@@ -177,6 +178,25 @@ export class ModernRenderer {
     sc.far = 1600;
     this.scene.add(this.sun, this.sun.target, this.statics, this.dynamic, this.fx.group);
     this.boxes = assets.parts.map((parts) => bodyBox(parts));
+  }
+
+  /**
+   * Windows and lamp glass (the kits' glow attribute) shine warm at night; on the thermal camera the material shows
+   * its heat instead of its lit colour.
+   */
+  private teach(material: THREE.Material, heat: number): void {
+    // The closures read alike, so tell three.js each heat needs its own program.
+    material.customProgramCacheKey = () => `heat:${heat}`;
+    material.onBeforeCompile = (shader) => {
+      shader.uniforms.nightGlow = this.glow;
+      shader.uniforms.thermal = THERMAL;
+      shader.vertexShader = shader.vertexShader
+        .replace('void main() {', 'attribute float glow;\nvarying float vGlow;\nvoid main() {\n  vGlow = glow;');
+      shader.fragmentShader = shader.fragmentShader
+        .replace('void main() {', 'uniform float nightGlow;\nuniform float thermal;\nvarying float vGlow;\nvoid main() {')
+        .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n  totalEmissiveRadiance += vec3(1.0, 0.78, 0.42) * vGlow * nightGlow * 1.6;')
+        .replace('#include <dithering_fragment>', `#include <dithering_fragment>\n${heatFragment(heat, true)}`);
+    };
   }
 
   // ---- Events -------------------------------------------------------------------------------------------------
@@ -284,16 +304,24 @@ export class ModernRenderer {
     this.fx.step(dt);
 
     const ctx = this.canvas.getContext('2d')!;
-    for (const v of views) {
-      const r = v.rect;
+    const at = (r: ModernRect) => {
       this.gl.setViewport(r.x, MODERN_H - r.y - r.h, r.w, r.h);
       this.gl.setScissor(r.x, MODERN_H - r.y - r.h, r.w, r.h);
-      if (!v.skip) {
-        const team = m.players[v.viewer]?.team;
-        for (const mine of this.mines) mine.visible = mine.userData.team === team || !mine.userData.armed;
-        this.place(v.cam, v.rect);
-        this.gl.render(this.scene, this.camera);
-      }
+    };
+    // The map from each camera, then the drone's lens or the thermal camera over it, then the bunker and skull
+    // screens, which are the player's own screens and not the feed.
+    const field = views.filter((v) => !v.skip);
+    for (const v of field) {
+      at(v.rect);
+      const team = m.players[v.viewer]?.team;
+      for (const mine of this.mines) mine.visible = mine.userData.team === team || !mine.userData.armed;
+      this.place(v.cam, v.rect);
+      this.gl.render(this.scene, this.camera);
+    }
+    if (field.length && (this.feed || this.thermal)) (this.pass ??= new LookPass(MODERN_W, MODERN_H)).apply(this.gl, field.map((v) => v.rect), this.thermal, now / 1000);
+    for (const v of views) {
+      const r = v.rect;
+      at(r);
       const sc = v.screen;
       if (sc?.kind === 'bunker') {
         const b = (this.bunker ??= new BunkerScene());
@@ -349,25 +377,41 @@ export class ModernRenderer {
     this.sun.target.updateMatrixWorld();
   }
 
-  /** Day, or night: a moon for the sun, a dark sky, dim water, and headlights on the vehicles. */
+  /**
+   * The camera's look: the drone's feed (or a clean picture), and the thermal camera, which shows heat instead of
+   * light, so night hides nothing from it.
+   */
+  setLook(drone: boolean, thermal: boolean): void {
+    this.feed = drone;
+    if (thermal === this.thermal) return;
+    this.thermal = thermal;
+    THERMAL.value = thermal ? 1 : 0;
+    this.background();
+  }
+
+  private background(): void {
+    (this.scene.background as THREE.Color).setHex(this.thermal ? 0x1a1a1a : this.night ? 0x010205 : 0x0c2a40);
+  }
+
+  /** Day, or night: a faint moon for the sun, a black sky, dark water, and headlights on the vehicles. */
   setNight(night: boolean): void {
     if (night === this.night) return;
     this.night = night;
-    this.sky.color.setHex(night ? 0x3a4c80 : 0xcfe8ff);
-    this.sky.groundColor.setHex(night ? 0x16120e : 0x8a6a48);
-    this.sky.intensity = night ? 0.6 : 1.25;
+    this.sky.color.setHex(night ? 0x26345c : 0xcfe8ff);
+    this.sky.groundColor.setHex(night ? 0x0a0806 : 0x8a6a48);
+    this.sky.intensity = night ? 0.22 : 1.25;
     this.glow.value = night ? 1 : 0;
-    this.sun.color.setHex(night ? 0xa8bcff : 0xfff2dc);
-    this.sun.intensity = night ? 0.8 : 2.6;
-    (this.scene.background as THREE.Color).setHex(night ? 0x02060c : 0x0c2a40);
+    this.sun.color.setHex(night ? 0x8ea4e8 : 0xfff2dc);
+    this.sun.intensity = night ? 0.28 : 2.6;
+    this.background();
     const w = this.ground?.water.uniforms;
     if (w) this.waterLight(w);
     this.bunker?.setNight(night);
   }
 
   private waterLight(u: Record<string, THREE.IUniform>): void {
-    (u.tint!.value as THREE.Color).setRGB(this.night ? 0.22 : 1, this.night ? 0.27 : 1, this.night ? 0.4 : 1);
-    (u.glint!.value as THREE.Color).setRGB(this.night ? 0.55 : 1, this.night ? 0.62 : 0.97, this.night ? 0.8 : 0.88);
+    (u.tint!.value as THREE.Color).setRGB(this.night ? 0.1 : 1, this.night ? 0.13 : 1, this.night ? 0.2 : 1);
+    (u.glint!.value as THREE.Color).setRGB(this.night ? 0.3 : 1, this.night ? 0.36 : 0.97, this.night ? 0.5 : 0.88);
   }
 
   /** At night, lights the buildings nearest what each view looks at (shared out between split-screen views). */
@@ -620,7 +664,7 @@ export class ModernRenderer {
       const team = base < 0 ? NEUTRAL : this.paints[base] ?? NEUTRAL;
       const step = (s.frame >> 16) & 3;
       const key = s.water ? `swim:${base}:${step}` : `man:${base}:${step}`;
-      const o = this.pool(key, () => this.mesh(key, () => (s.water ? V.swimmer(step * 1.57) : V.soldier(step * 1.57)), team)).take();
+      const o = this.pool(key, () => this.mesh(key, () => (s.water ? V.swimmer(step * 1.57) : V.soldier(step * 1.57)), team, this.hot)).take();
       o.position.set(s.x / 65536, s.water ? -0.6 : 0, s.y / 65536);
       o.rotation.set(0, -radians(s.heading), 0);
     }
@@ -735,7 +779,7 @@ export class ModernRenderer {
     if (m.sub) {
       const f = subFrame(m.sub);
       if (f >= 0) {
-        const o = this.pool('sub', () => this.mesh('sub', V.submarine, NEUTRAL)).take();
+        const o = this.pool('sub', () => this.mesh('sub', V.submarine, NEUTRAL, this.hot)).take();
         const rise = Math.min(1, f / 19);
         const bob = f >= 20 ? Math.sin(m.tick * 0.2) * 0.8 : 0;
         o.position.set(m.sub.x / 65536, -16 + rise * 18 + bob, m.sub.y / 65536);
@@ -803,39 +847,39 @@ export class ModernRenderer {
     const key = `${v.kind}:${v.base}`;
     const root = new THREE.Group();
     this.dynamic.add(root);
-    const body = this.mesh(`${key}:body`, () => kits.body, team);
+    const body = this.mesh(`${key}:body`, () => kits.body, team, this.hot);
     root.add(body);
     rig = { root, body, wheels: [], inflate: v.tyres ? 1 : 0 };
     if (kits.turret) {
       rig.turret = new THREE.Group();
-      rig.turret.add(this.mesh(`${key}:turret`, () => kits.turret!, team));
+      rig.turret.add(this.mesh(`${key}:turret`, () => kits.turret!, team, this.hot));
       root.add(rig.turret);
     }
     if (kits.barrel) {
       rig.barrel = new THREE.Group();
       const [py, pz] = kits.pivot ?? [0, 0];
       rig.barrel.position.set(0, pz, py);
-      rig.barrel.add(this.mesh(`${key}:barrel`, () => kits.barrel!, team));
+      rig.barrel.add(this.mesh(`${key}:barrel`, () => kits.barrel!, team, this.hot));
       (rig.turret ?? root).add(rig.barrel);
     }
     if (kits.rotor) {
       rig.rotor = new THREE.Group();
       const [x, y, z] = kits.rotorAt ?? [0, 0, 0];
       rig.rotor.position.set(x, z, y);
-      rig.rotor.add(this.mesh(`${key}:rotor`, () => kits.rotor!, team));
+      rig.rotor.add(this.mesh(`${key}:rotor`, () => kits.rotor!, team, this.hot));
       root.add(rig.rotor);
     }
     if (kits.tail) {
       rig.tail = new THREE.Group();
       const [x, y, z] = kits.tailAt ?? [0, 0, 0];
       rig.tail.position.set(x, z, y);
-      rig.tail.add(this.mesh(`${key}:tail`, () => kits.tail!, team));
+      rig.tail.add(this.mesh(`${key}:tail`, () => kits.tail!, team, this.hot));
       root.add(rig.tail);
     }
     for (const [x, y, z] of kits.wheelAt ?? []) {
       const w = new THREE.Group();
       w.position.set(x, z, y);
-      w.add(this.mesh(`${key}:wheel`, () => kits.wheels!, team));
+      w.add(this.mesh(`${key}:wheel`, () => kits.wheels!, team, this.hot));
       rig.wheels.push(w);
       root.add(w);
     }
@@ -847,7 +891,7 @@ export class ModernRenderer {
     const team = this.paints[base] ?? NEUTRAL;
     const key = `wreck:${kind}:${base}`;
     const o = this.pool(key, () => this.mesh(`${kind}:${base}:body`, () => VEHICLE_KITS[kind]().body, team, this.charred)).take() as THREE.Mesh;
-    o.material = body ? this.material : this.charred;
+    o.material = body ? this.hot : this.charred;
     o.position.set(x, z, y);
     o.rotation.set(0, -radians(heading), body ? 0 : 0.12);
     this.fx.trail(x, y, z, !body, dt);
@@ -859,13 +903,13 @@ export class ModernRenderer {
     const o = this.pool(key, () => {
       const kits = V.drone();
       const g = new THREE.Group();
-      g.add(this.mesh(`${key}:body`, () => kits.body, team));
+      g.add(this.mesh(`${key}:body`, () => kits.body, team, this.hot));
       const b = new THREE.Group();
-      b.add(this.mesh(`${key}:pod`, () => kits.barrel!, team));
+      b.add(this.mesh(`${key}:pod`, () => kits.barrel!, team, this.hot));
       b.position.set(0, 0, kits.pivot![0]);
       g.add(b);
       const r = new THREE.Group();
-      r.add(this.mesh(`${key}:rotor`, () => kits.rotor!, team));
+      r.add(this.mesh(`${key}:rotor`, () => kits.rotor!, team, this.hot));
       r.position.set(0, kits.rotorAt![2], 0);
       g.add(r);
       return g;
@@ -878,6 +922,7 @@ export class ModernRenderer {
 
   dispose(): void {
     this.ground?.dispose();
+    this.pass?.dispose();
     for (const c of this.chunks) c?.geometry.dispose();
     for (const g of this.geoCache.values()) g.dispose();
     this.gl.dispose();

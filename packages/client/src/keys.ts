@@ -184,7 +184,7 @@ export const REPLAY_KEYS = {
   follow: ['Digit1', 'Digit2', 'Digit3', 'Digit4'],
 } as const;
 
-export type ShortcutId = 'help' | 'newGame' | 'pause' | 'fullScreen' | 'restart' | 'hallOfFame' | 'menus' | 'swapSides' | 'mute';
+export type ShortcutId = 'help' | 'newGame' | 'pause' | 'fullScreen' | 'restart' | 'hallOfFame' | 'menus' | 'swapSides' | 'mute' | 'thermal';
 
 export interface Shortcut {
   id: ShortcutId;
@@ -205,6 +205,7 @@ export const SHORTCUTS: Shortcut[] = [
   { id: 'hallOfFame', code: 'KeyL', label: 'Hall of Fame' },
   { id: 'menus', code: 'KeyM', label: 'Open the menu' },
   { id: 'mute', code: 'KeyV', label: 'Sound off / on' },
+  { id: 'thermal', code: 'KeyI', label: 'Thermal camera on / off (modern)' },
   { id: 'restart', code: 'KeyR', alt: true, label: 'Restart' },
   { id: 'fullScreen', code: 'Enter', alt: true, label: 'Full Screen' },
   { id: 'swapSides', code: 'Digit3', alt: true, label: 'Swap Sides' },

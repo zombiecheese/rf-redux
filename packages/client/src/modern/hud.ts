@@ -437,3 +437,93 @@ export function drawScoreTable(g: CanvasRenderingContext2D, width: number, head:
   });
   g.restore();
 }
+
+/** What the drone's feed shows over a view. */
+export interface Feed {
+  /** The drone's call sign: UAV-1, UAV-2. */
+  name: string;
+  /** The camera: EO DAY, EO NIGHT, IR WHT. */
+  mode: string;
+  /** Read-outs down the left edge: ALT, HDG, GRID... */
+  lines: readonly string[];
+  /** For the clock and the blinking REC. */
+  now: Date;
+}
+
+const FEED_FONT = '600 13px ui-monospace, "SFMono-Regular", Menlo, Consolas, "Liberation Mono", monospace';
+const FEED_INK = 'rgba(236, 242, 232, 0.86)';
+
+/** The drone feed's overlay: corner brackets, a reticle in the middle, the clock and REC, and its read-outs. */
+export function drawFeed(g: CanvasRenderingContext2D, rect: ModernRect, f: Feed): void {
+  const scale = Math.min(1, rect.w / 900);
+  g.save();
+  g.translate(rect.x, rect.y);
+  g.scale(scale, scale);
+  const w = rect.w / scale;
+  const h = rect.h / scale;
+  g.strokeStyle = FEED_INK;
+  g.fillStyle = FEED_INK;
+  g.shadowColor = 'rgba(0, 0, 0, 0.6)';
+  g.shadowBlur = 3;
+  g.lineWidth = 2;
+  // Corner brackets.
+  const m = 22;
+  const l = 30;
+  g.beginPath();
+  for (const [x, y, dx, dy] of [[m, m, 1, 1], [w - m, m, -1, 1], [m, h - m, 1, -1], [w - m, h - m, -1, -1]] as const) {
+    g.moveTo(x, y + dy * l);
+    g.lineTo(x, y);
+    g.lineTo(x + dx * l, y);
+  }
+  // The reticle: a cross with its middle open, and ticks along it.
+  const cx = w / 2;
+  const cy = h / 2;
+  for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
+    g.moveTo(cx + dx * 14, cy + dy * 14);
+    g.lineTo(cx + dx * 46, cy + dy * 46);
+    for (const t of [24, 34]) {
+      g.moveTo(cx + dx * t - dy * 4, cy + dy * t - dx * 4);
+      g.lineTo(cx + dx * t + dy * 4, cy + dy * t + dx * 4);
+    }
+  }
+  g.stroke();
+  g.lineWidth = 1;
+  g.beginPath();
+  g.arc(cx, cy, 2, 0, Math.PI * 2);
+  g.fill();
+  // Range marks above and below the reticle.
+  g.beginPath();
+  g.moveTo(cx - 70, cy - 70);
+  g.lineTo(cx - 60, cy - 70);
+  g.moveTo(cx + 60, cy - 70);
+  g.lineTo(cx + 70, cy - 70);
+  g.moveTo(cx - 70, cy + 70);
+  g.lineTo(cx - 60, cy + 70);
+  g.moveTo(cx + 60, cy + 70);
+  g.lineTo(cx + 70, cy + 70);
+  g.stroke();
+
+  g.font = FEED_FONT;
+  g.textBaseline = 'top';
+  // The clock, REC and the camera at the top right.
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const d = f.now;
+  const clock = `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())} ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}:${pad(d.getUTCSeconds())}Z`;
+  const right = w - m - 8;
+  g.textAlign = 'right';
+  g.fillText(`${f.name}   REC`, right, m + 8);
+  const recW = g.measureText('REC').width;
+  if (d.getMilliseconds() < 600) {
+    g.fillStyle = '#ff4a3a';
+    g.beginPath();
+    g.arc(right - recW - 10, m + 15, 4.5, 0, Math.PI * 2);
+    g.fill();
+    g.fillStyle = FEED_INK;
+  }
+  g.fillText(clock, right, m + 26);
+  g.fillText(f.mode, right, m + 44);
+  // Read-outs down the left edge, clear of the note at the top and the gauges at the bottom.
+  g.textAlign = 'left';
+  f.lines.forEach((t, i) => g.fillText(t, m + 8, h / 2 - (f.lines.length * 18) / 2 + i * 18));
+  g.restore();
+}

@@ -66,6 +66,10 @@ body[data-screen=game] .main-menu { justify-content: center; background: rgba(0,
   font: 600 var(--ui-size)/1 system-ui, sans-serif; cursor: pointer; opacity: .25; transition: opacity .15s; }
 body[data-screen=game]:not(.menu-open) .menu-fab { display: block; }
 .menu-fab:hover, .menu-fab:focus-visible, body.handheld .menu-fab { opacity: .85; }
+/* The thermal camera's button, beside the menu button, over a modern match only; lit while it is on. */
+.thermal-fab { left: calc(max(1.2vmin, env(safe-area-inset-left)) + 2.9em); font-size: calc(var(--ui-size) * .78); width: 3.1em; height: 3.1em; }
+body:not([data-visuals=modern]) .thermal-fab { display: none !important; }
+body.thermal .thermal-fab { background: rgba(240, 240, 240, .85); color: #111; opacity: .9; }
 
 /* ---- Dialogs ---- */
 

@@ -63,7 +63,7 @@ Still to come: two-player maps of the project's own.
 **The picture, and phones and tablets**
 
 - The 320 × 240 picture fills the browser at 4:3 with square pixels. The bars left over are pixel camouflage in the watching player's colour.
-- Options > Visuals switches to a modern view, at any time, even during a match: the same game drawn in 3D at 1280 × 720 (16:9) with low-poly toy-soldier models, sunlight and shadows, an animated sea, glowing explosions, smoke and debris, and a HUD in the menus' style. The bunker is a 3D cutaway of the hill with the vehicles parked in their bays and the lift carrying them up, the skull is a 3D skull in the rival's helmet, and messages, chat and the scoreboard use the menus' style too. It has its own hardcore and metalcore soundtrack. Options > Lighting picks day, or night with headlights, glowing fire, and lit windows and lamps on the buildings. The camera follows and zooms as the retro one does, so both show the same part of the map across, and retro and modern players can share an online match. It needs WebGL; without it the game stays retro. `/modern-gallery.html` in the dev server shows every modern model.
+- Options > Visuals switches to a modern view, at any time, even during a match: the same game drawn in 3D at 1280 × 720 (16:9) with low-poly toy-soldier models, sunlight and shadows, an animated sea, glowing explosions, smoke and debris, and a HUD in the menus' style. The bunker is a 3D cutaway of the hill with the vehicles parked in their bays and the lift carrying them up, the skull is a 3D skull in the rival's helmet, and messages, chat and the scoreboard use the menus' style too. It has its own hardcore and metalcore soundtrack. Options > Lighting picks day, or a dark night with headlights, glowing fire, and lit windows and lamps on the buildings. The picture looks like a surveillance drone's feed (Options > Camera turns that off), and Options > Thermal (or I, or the IR button) switches to a white-hot thermal camera that sees in the dark. The camera follows and zooms as the retro one does, so both show the same part of the map across, and retro and modern players can share an online match. It needs WebGL; without it the game stays retro. `/modern-gallery.html` in the dev server shows every modern model.
 - Phones and tablets play solo, in landscape, with on-screen controls ([Touch controls](#touch-controls)). Held upright they show a "turn your device sideways" notice and the match waits.
 
 ## Getting started
@@ -113,6 +113,7 @@ for the menus, or touch on phones and tablets; there is no gamepad support.
 | L | Hall of Fame |
 | M | Open the menu (or the ☰ button over a match; offline the match waits while it is open) |
 | V | Sound off / on |
+| I | Thermal camera on / off (modern view) |
 | Alt+3 | Swap Sides |
 | Esc | Leave the game (any key skips the splash or the win scene) |
 | T | Online: open the chat line (Tab picks everyone, your team or one player; Enter sends; Esc closes) |

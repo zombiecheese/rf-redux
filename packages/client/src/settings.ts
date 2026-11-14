@@ -34,6 +34,10 @@ export interface Settings {
   visuals: 'retro' | 'modern';
   /** Options > Lighting: the modern view by day, or at night with headlights and glowing fire. */
   lighting: 'day' | 'night';
+  /** Options > Camera: the modern view as a surveillance drone's feed, or a clean picture. */
+  camera: 'drone' | 'clean';
+  /** Options > Thermal (I): the modern view through a thermal camera, white-hot, to see in the dark. */
+  thermal: boolean;
   /** Options > Instruments: the band on the built-in synthesiser, or sampled from the site's SoundFont. */
   instruments: 'builtin' | 'sampled';
   /** The last choices on the Teams dialog, for offline games on maps with three or four bases. */
@@ -64,7 +68,7 @@ const KEY = 'rfw.settings';
 const DEFAULTS: Settings = {
   names: ['Brown', 'Green'], difficulty: DIFFICULTY.default, players: 1, level: 1, mapId: 'rfmap101',
   swapSides: false, scale: 'sharp', music: true,
-  volume: { master: 80, effects: 100, music: 70, muted: false }, keys: {}, crt: true, visuals: 'retro', lighting: 'day', instruments: 'builtin',
+  volume: { master: 80, effects: 100, music: 70, muted: false }, keys: {}, crt: true, visuals: 'retro', lighting: 'day', camera: 'drone', thermal: false, instruments: 'builtin',
   teams: { layout: '', handicap: false, together: false, bots: true },
 };
 
@@ -103,6 +107,8 @@ export function loadSettings(): Settings {
   s.crt = s.crt !== false;
   if (s.visuals !== 'modern') s.visuals = 'retro';
   if (s.lighting !== 'night') s.lighting = 'day';
+  if (s.camera !== 'clean') s.camera = 'drone';
+  s.thermal = s.thermal === true;
   if (s.instruments !== 'sampled') s.instruments = 'builtin';
   s.teams = { layout: typeof s.teams?.layout === 'string' ? s.teams.layout : '', handicap: s.teams?.handicap === true, together: s.teams?.together === true, bots: s.teams?.bots !== false };
   return s;

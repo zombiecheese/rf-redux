@@ -121,18 +121,18 @@ describe('rebinding', () => {
 
   it('keeps every rule the defaults keep, whatever was saved', () => {
     // Saved settings may clash or be hand-edited: what cannot be bound falls back to the original key.
-    setBindings({ left: { fire: 'Enter', up: 'KeyT', dock: 'KeyI', fire3: 'Numpad5' }, right: { fire: 'KeyH' } });
+    setBindings({ left: { fire: 'Enter', up: 'KeyT', dock: 'KeyO', fire3: 'Numpad5' }, right: { fire: 'KeyH' } });
     const b = bindings();
     expect(b.left.fire).toBe('Space');
     expect(b.left.up).toBe('KeyW');
-    expect(b.left.dock).toBe('KeyI');
+    expect(b.left.dock).toBe('KeyO');
     expect(b.left.fire3).toBe('Numpad5');
     expect(b.right.fire).toBe('Enter');
     const left = Object.values(b.left);
     const right = Object.values(b.right);
     expect(new Set([...left, ...right]).size).toBe(left.length + right.length);
     for (const k of playKeys()) expect(reservedKey(k), k).toBeNull();
-    expect(touchKey('dock')).toBe('KeyI');
+    expect(touchKey('dock')).toBe('KeyO');
     expect(new Set(Object.values(activeControls().solo).flat(2))).toEqual(playKeys());
     setBindings({});
   });
