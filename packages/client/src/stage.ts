@@ -10,7 +10,7 @@ import { SCREEN_H, SCREEN_W } from './raster.js';
 
 const TITLE_ART = {
   retro: new URL('./title/title-art.png', import.meta.url).href,
-  // A frame of the modern view: a four-base bot battle as the drone sees it (tools/title-art/modern.mjs).
+  // The same scene by night and through the thermal camera, as the drone sees it (tools/title-art/modern.mjs).
   modern: new URL('./title/title-modern.jpg', import.meta.url).href,
 };
 

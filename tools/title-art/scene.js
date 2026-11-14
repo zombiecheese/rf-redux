@@ -4,6 +4,9 @@
 // nothing comes from the original game's files. render.mjs runs it.
 
 const OW = 960, OH = 540, SS = 3, W = OW * SS, H = OH * SS;
+// ?mode=night or ?mode=thermal draws the same scene for the modern title art (modern.mjs): by moonlight with the fires
+// and lamps glowing, or white-hot through a thermal camera. Left out, it is the classic title art's daylight.
+const MODE = new URLSearchParams(location.search).get('mode') || 'day';
 
 // ---- maths -----------------------------------------------------------------------------------------------------
 const add = (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
@@ -419,12 +422,13 @@ const aim = (from, to) => Math.atan2(-(to[0] - from[0]), to[1] - from[1]);
 groundTris();
 
 // fortress along the back
+const TOWERS = [];
 wall(-30, 12.5, -6.2, 12.5);
 wall(-0.2, 12.5, 4.5, 12.5);
 wall(-30, 12.5, -30, 30);
 wall(4.5, 12.5, 7.2, 17.5);
 const t1 = tower([-12, 12.5, 0], 0, 0.6);
-const t2 = tower([-5.2, 12.6, 0], 0, 2.6);
+const t2 = (() => { const from = part + 1; const r = tower([-5.2, 12.6, 0], 0, 2.6); TOWERS.push({ from, to: part }); return r; })();
 const t3 = tower([1.6, 12.6, 0], 0, 3.4);
 tower([-20, 12.5, 0], 0, 0.2);
 hut(-12, 18, Math.PI / 2, [150, 150, 140]);
@@ -435,17 +439,19 @@ box((q) => q, [-0.5, 12, 0], [-0.1, 13.0, 2.6], [150, 150, 142], { mat: 'stone' 
 
 const HELI = [2.0, 4.4, 4.0], TANK = [6.9, -5.4, 0];
 const heliYaw = aim(HELI, [6, -4]);
-const h = heli(HELI, heliYaw, -0.22, 0.18, TEAM.blue, 0.7);
+const MARKS = [];
+const mark = (name, side, build) => { const from = part + 1; const r = build(); MARKS.push({ name, side, from, to: part }); return r; };
+const h = mark('HELICOPTER', 'blue', () => heli(HELI, heliYaw, -0.22, 0.18, TEAM.blue, 0.7));
 
 const tankYaw = 0.5;
 const tAim = aim(TANK, HELI);
-const tk = tank(TANK, tankYaw, TEAM.brown, tAim - tankYaw, 0.42);
+const tk = mark('TANK', 'brown', () => tank(TANK, tankYaw, TEAM.brown, tAim - tankYaw, 0.42));
 
 const ASV = [12.2, 2.6, 0];
-const av = asv(ASV, aim(ASV, [4, -2]), TEAM.green, 0.45);
+const av = mark('ASV', 'green', () => asv(ASV, aim(ASV, [4, -2]), TEAM.green, 0.45));
 
 const JEEP = [-0.9, 0.9, 0];
-jeep(JEEP, aim(JEEP, [1.2, -3]) + 0.15, TEAM.red, TEAM.green);
+mark('JEEP', 'red', () => jeep(JEEP, aim(JEEP, [1.2, -3]) + 0.15, TEAM.red, TEAM.green));
 
 palm(-9.5, 9.0, 4.6, [0.25, -0.1], 3);
 palm(-7.6, 10.2, 3.9, [-0.2, 0.05], 5);
@@ -641,6 +647,11 @@ function raster(pts, w, h, cb) {
   }
 }
 
+// Fires and the tank's shot, which light the night and run hot on the thermal camera: [x, y, z, strength].
+const GLOWS = [[-3.2, 13.2, 1.0, 1.3], [-3.6, -0.2, 0.3, 1.1], [4.4, -2.6, 0.3, 1.0], [-14.6, 4.6, 0.2, 0.35]];
+const glowAt = (p) => GLOWS.reduce((a, [x, y, z, s]) => a + s / (1 + ((p[0] - x) ** 2 + (p[1] - y) ** 2 + (p[2] - z) ** 2) * 0.35), 0);
+const hotPart = (pt) => MARKS.some((m) => pt >= m.from && pt <= m.to);
+const towerPart = (pt) => TOWERS.some((m) => pt >= m.from && pt <= m.to);
 function render() {
   const N = W * H;
   const depth = new Float32Array(N), id = new Int32Array(N).fill(-1);
@@ -675,7 +686,12 @@ function render() {
   };
   for (let k = 0; k < N; k++) {
     const i = id[k];
-    if (i < 0) { const t = Math.floor(k / W) / H; col.set(mix([150, 190, 226], [214, 226, 232], clamp(t * 5)), k * 3); continue; }
+    if (i < 0) {
+      const t = Math.floor(k / W) / H;
+      const sky = MODE === 'night' ? mix([4, 6, 14], [16, 22, 38], clamp(t * 5)) : MODE === 'thermal' ? [22, 22, 22] : mix([150, 190, 226], [214, 226, 232], clamp(t * 5));
+      col.set(sky, k * 3);
+      continue;
+    }
     const t = tris[i], p = world(k);
     let n = t.n;
     const view = norm(sub(p, CAM));
@@ -698,6 +714,29 @@ function render() {
     // haze with distance
     const zc = 1 / depth[k], hz = clamp((zc - 24) / 46, 0, 0.45);
     c = mix(c, [196, 214, 222], hz);
+    if (MODE === 'night') {
+      // Moonlight: dim and blue, with warm pools round the fires and the lamps lit.
+      const moon = 0.16 + 0.26 * Math.max(0, nl) * sh;
+      const g = glowAt(p);
+      c = [base[0] * (moon * 0.7 + g * 0.55), base[1] * (moon * 0.8 + g * 0.33), base[2] * (moon * 1.15 + g * 0.12)];
+      if (t.mat === 'lamp') c = shade(t.col, 1.6);
+      if (t.mat === 'glass') c = add(c, [10, 22, 34]);
+      c = mix(c, [8, 12, 22], hz);
+    } else if (MODE === 'thermal') {
+      // White-hot: the vehicles and anything near a fire run hot, the ground cool, the sea cold.
+      let heat = 0.3;
+      if (t.mat === 'ground') {
+        const sx = coast(p[0], p[1]);
+        heat = sx > 0 ? 0.06 + 0.03 * noise(p[0], p[1] * 2) : 0.27 + 0.06 * fbm(p[0] * 0.3, p[1] * 0.3);
+      } else if (t.mat === 'leaf') heat = 0.2;
+      else if (t.mat === 'stone') heat = 0.3 + 0.05 * Math.max(0, nl);
+      else if (t.mat === 'lamp') heat = 0.95;
+      if (hotPart(t.part)) heat = (t.mat === 'tread' || t.mat === 'tyre' ? 0.78 : t.mat === 'glass' ? 0.5 : 0.64) + 0.08 * Math.max(0, nl);
+      if (towerPart(t.part) && t.mat !== 'stone') heat = 0.55;
+      heat = clamp(heat + glowAt(p) * 0.35);
+      const v = 255 * Math.pow(heat, 0.9);
+      c = [v, v, v];
+    }
     col[k * 3] = c[0]; col[k * 3 + 1] = c[1]; col[k * 3 + 2] = c[2];
   }
   // cel outlines: on the far side of every edge between parts, plus a fainter crease between faces of a part
@@ -735,7 +774,19 @@ function render() {
         const al = img[(y * cw + x) * 4 + 3] / 255; if (!al) continue;
         const kk = sy * W + sx;
         if (id[kk] >= 0 && tris[id[kk]].mat !== 'ground' && depth[kk] > iz) continue;
-        for (let c = 0; c < 3; c++) out[kk * 3 + c] = lerp(out[kk * 3 + c], img[(y * cw + x) * 4 + c], al);
+        const o4 = (y * cw + x) * 4;
+        let fr = img[o4], fg = img[o4 + 1], fb = img[o4 + 2];
+        if (MODE === 'thermal') {
+          // Fire and tracers white-hot, smoke a warm grey.
+          const lum = 0.3 * fr + 0.59 * fg + 0.11 * fb, warm = Math.max(0, fr - fb) / 255;
+          fr = fg = fb = clamp((lum / 255) * 0.42 + warm * 1.1) * 255;
+        } else if (MODE === 'night') {
+          // Smoke goes dark in the night; fire stays bright.
+          const warm = Math.max(0, fr - fb) / 255;
+          const k2 = 0.25 + 0.95 * smooth(warm * 1.6);
+          fr *= Math.min(1.25, k2 * 1.1); fg *= k2 * 0.95; fb *= k2 * 0.8;
+        }
+        out[kk * 3] = lerp(out[kk * 3], fr, al); out[kk * 3 + 1] = lerp(out[kk * 3 + 1], fg, al); out[kk * 3 + 2] = lerp(out[kk * 3 + 2], fb, al);
       }
     }
   }
@@ -751,4 +802,13 @@ function render() {
   ctx.putImageData(img, 0, 0);
 }
 render();
+// Where each vehicle is on the picture (960 x 540), for the computer-vision boxes.
+window.marks = MARKS.map((m) => {
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const t of tris) if (t.part >= m.from && t.part <= m.to) for (const v of t.v) {
+    const q = proj(v);
+    x0 = Math.min(x0, q[0] / SS); y0 = Math.min(y0, q[1] / SS); x1 = Math.max(x1, q[0] / SS); y1 = Math.max(y1, q[1] / SS);
+  }
+  return { name: m.name, side: m.side, box: [x0, y0, x1, y1] };
+});
 window.done = true;
