@@ -61,7 +61,7 @@ What the second and third buttons do depends on the vehicle:
 
 On the lift screen the drive keys and fire also pick and launch a vehicle, or click a bay to pick it and click it again to launch.
 
-With one player (Training, online and the editor's test play) either half of the keyboard works. **Options > Controls** rebinds any vehicle key. There is no gamepad support.
+With one player (Training, online and the editor's test play) either half of the keyboard works. **Options > Controls > Vehicle Keys** rebinds any vehicle key. There is no gamepad support.
 
 ## Shortcuts
 

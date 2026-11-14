@@ -95,6 +95,8 @@ let maps: MapEntry[] = [];
 type Screen = 'start' | 'gate' | 'splash' | 'title' | 'loading' | 'game' | 'win';
 let screen: Screen = 'start';
 let game: Game | null = null;
+/** The running online match's start, for the host's picks of how everyone sees it. */
+let onlineStart: MatchStart | null = null;
 /** Ends the splash, or the win scene, that is showing. */
 let skip = new AbortController();
 /** Bumped by every new match, so a superseded one's ending is ignored. */
@@ -526,6 +528,7 @@ async function startOnline(s: MatchStart): Promise<void> {
     const assets = await loadAssetsWith(s.map);
     status.textContent = '';
     if (mine !== run) return;
+    onlineStart = s;
     game = new Game({
       assets, display, sound, music, seed: s.seed, players: 1, difficulty: s.difficulty, names: settings.names, swapSides: false, bots: false, handheld,
       online: { start: s, net }, mapName: s.map.name, onReplay: (r) => void saveReplay(r), visuals, lighting, camera,
@@ -759,22 +762,38 @@ function onlineItems(): MenuEntry[] {
   ];
 }
 
+/** Options, in groups that each fit the screen. */
 function optionItems(): MenuEntry[] {
   return [
     { label: 'Full Screen', key: shortcutName('fullScreen'), value: () => onOff(!!document.fullscreenElement), action: fullScreen },
+    { label: 'View', hint: 'Retro or modern, day or night, camera', items: viewItems },
+    { label: 'Sound and Music', hint: 'Volume, music, instruments, jukebox', items: soundItems },
+    ...(handheld ? [] : [{ label: 'Controls', hint: 'Vehicle keys, swap sides', items: controlItems }]),
+  ];
+}
+
+/** The host's picks while in an online lobby or match: they set how everyone sees it. */
+function hostView(): { visuals: 'retro' | 'modern'; lighting: 'day' | 'night' } | null {
+  const start = game?.online ? onlineStart : null;
+  if (start) return { visuals: start.visuals === 'modern' ? 'modern' : 'retro', lighting: start.lighting === 'night' ? 'night' : 'day' };
+  return net.lobby ? { visuals: net.lobby.visuals, lighting: net.lobby.lighting } : null;
+}
+
+function viewItems(): MenuEntry[] {
+  const host = hostView();
+  const hostNote: MenuEntry[] = host ? [{ label: 'Online, the host picks Visuals and Lighting for every player.', note: true }] : [];
+  return [
+    ...hostNote,
     {
-      label: 'Picture', hint: 'Fill the window, or whole-number pixels only',
-      value: () => (settings.scale === 'integer' ? 'Whole pixels' : 'Fill'),
-      action: () => save({ ...settings, scale: settings.scale === 'integer' ? 'sharp' : 'integer' }),
-    },
-    {
-      label: 'Visuals', hint: 'Retro pixels, or modern 3D at 720p',
-      value: () => (settings.visuals === 'modern' ? 'Modern' : 'Retro'),
+      label: 'Visuals', hint: host ? 'Set by the host' : 'Retro pixels, or modern 3D at 720p',
+      value: () => ((host?.visuals ?? settings.visuals) === 'modern' ? 'Modern' : 'Retro'),
+      enabled: () => !host,
       action: () => save({ ...settings, visuals: settings.visuals === 'modern' ? 'retro' : 'modern' }),
     },
     {
-      label: 'Lighting', hint: 'Day, or night with headlights (modern)',
-      value: () => (settings.lighting === 'night' ? 'Night' : 'Day'),
+      label: 'Lighting', hint: host ? 'Set by the host' : 'Day, or night with headlights (modern)',
+      value: () => ((host?.lighting ?? settings.lighting) === 'night' ? 'Night' : 'Day'),
+      enabled: () => !host,
       action: () => save({ ...settings, lighting: settings.lighting === 'night' ? 'day' : 'night' }),
     },
     {
@@ -783,22 +802,25 @@ function optionItems(): MenuEntry[] {
       action: () => save({ ...settings, camera: settings.camera === 'clean' ? 'drone' : 'clean' }),
     },
     { label: 'Thermal', key: shortcutName('thermal'), hint: 'See heat in the dark (modern)', value: () => onOff(settings.thermal), action: toggleThermal },
-    { label: 'CRT Look', hint: 'Subtle scanlines and glow (retro)', value: () => onOff(settings.crt), action: () => save({ ...settings, crt: !settings.crt }) },
     {
-      label: 'Sound', hint: 'Master, effects and music volume',
+      label: 'Picture', hint: 'Fill the window, or whole-number pixels only (retro)',
+      value: () => (settings.scale === 'integer' ? 'Whole pixels' : 'Fill'),
+      action: () => save({ ...settings, scale: settings.scale === 'integer' ? 'sharp' : 'integer' }),
+    },
+    { label: 'CRT Look', hint: 'Subtle scanlines and glow (retro)', value: () => onOff(settings.crt), action: () => save({ ...settings, crt: !settings.crt }) },
+  ];
+}
+
+function soundItems(): MenuEntry[] {
+  return [
+    {
+      label: 'Volume', hint: 'Master, effects and music',
       value: () => (settings.volume.muted ? 'Muted' : `${settings.volume.master}%`),
       action: () => void overGame(async () => {
         const v = await soundDialog(settings.volume, applyVolume);
         if (v) save({ ...settings, volume: v });
       }),
     },
-    ...(handheld ? [] : [{
-      label: 'Controls', hint: 'Change the vehicle keys',
-      action: () => void overGame(async () => {
-        const keys = await controlsDialog();
-        if (keys) save({ ...settings, keys });
-      }),
-    }]),
     {
       label: 'Music', value: () => onOff(settings.music),
       action: () => {
@@ -817,10 +839,22 @@ function optionItems(): MenuEntry[] {
       },
     },
     { label: 'Jukebox', hint: 'Hear the soundtrack, load a SoundFont', action: () => void overGame(() => jukebox(music)) },
-    ...(handheld ? [] : [{
+  ];
+}
+
+function controlItems(): MenuEntry[] {
+  return [
+    {
+      label: 'Vehicle Keys', hint: 'Change the keys for each player',
+      action: () => void overGame(async () => {
+        const keys = await controlsDialog();
+        if (keys) save({ ...settings, keys });
+      }),
+    },
+    {
       label: 'Swap Sides', hint: `Arrow keys play Brown (${shortcutName('swapSides')})`, value: () => onOff(settings.swapSides),
       action: () => save({ ...settings, swapSides: !settings.swapSides }),
-    }]),
+    },
   ];
 }
 

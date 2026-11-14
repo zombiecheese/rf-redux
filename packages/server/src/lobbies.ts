@@ -143,7 +143,7 @@ export class Lobbies {
     const bases = Math.min(MAX_BASES, map.bases.length);
     const l: Lobby = {
       id: id(), code: code(), name: (opts.name?.trim() || `${c.identity.name}'s game`).slice(0, 40), owner: c.identity.id, mapId: opts.mapId, map,
-      visibility: opts.visibility === 'private' ? 'private' : 'open', difficulty: this.settings.get().defaultDifficulty, handicap: false, visuals: 'any', lighting: 'any',
+      visibility: opts.visibility === 'private' ? 'private' : 'open', difficulty: this.settings.get().defaultDifficulty, handicap: false, visuals: 'retro', lighting: 'day',
       slots: [], members: new Map(), state: 'waiting', room: null, quick: false, chatMuted: false, created: Date.now(),
     };
     l.slots = this.defaultSlots(l, bases);

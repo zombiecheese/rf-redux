@@ -18,7 +18,7 @@ import {
   type Match, type MatchEvent, type Snapshot, type VehicleInput, type VehicleKind,
 } from '@rfw/sim';
 import {
-  DOCK, ReplayPlayer, ReplayRecorder, SoloRecorder, applyFrame, commandCode, packInput,
+  DOCK, ReplayPlayer, ReplayRecorder, SoloRecorder, applyFrame, commandCode, lobbyLighting, lobbyVisuals, packInput,
   type MatchResult, type MatchStart, type Replay, type SoloLog,
 } from '@rfw/net';
 import type { GameAssets } from './assets.js';
@@ -195,9 +195,10 @@ export class Game {
     const start = online?.start;
     const net = online?.net;
     /** Retro or modern: the host's pick for everyone online, or the player's own. */
-    const wanted = () => (start?.visuals && start.visuals !== 'any' ? start.visuals : this.o.visuals?.());
+    const hostVisuals = start ? lobbyVisuals(start.visuals) : undefined;
+    const wanted = () => hostVisuals ?? this.o.visuals?.();
     // The host's pick brings its own soundtrack too.
-    if (start?.visuals && start.visuals !== 'any') music.setStyle(start.visuals === 'modern' && modernAvailable() ? 'modern' : 'retro');
+    if (hostVisuals) music.setStyle(hostVisuals === 'modern' && modernAvailable() ? 'modern' : 'retro');
     const players = online ? 1 : this.o.players;
     let sides = activeControls();
     const pick = () => (online || players === 1 ? [sides.solo] : this.o.swapSides ? [sides.right, sides.left] : [sides.left, sides.right]);
@@ -760,7 +761,7 @@ export class Game {
       display.sides = v.map((p) => match.players[p]!.base);
       if (useModern && modern) {
         const rects = modernLayout(cameras.length);
-        const night = (start?.lighting && start.lighting !== 'any' ? start.lighting : this.o.lighting?.()) === 'night';
+        const night = (start ? lobbyLighting(start.lighting) : this.o.lighting?.()) === 'night';
         const look = this.o.camera?.() ?? { drone: false, thermal: false };
         modern.setNight(night);
         modern.setLook(look.drone, look.thermal);

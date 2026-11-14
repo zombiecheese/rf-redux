@@ -38,17 +38,17 @@ export interface LobbySlot {
 
 export type Visibility = 'open' | 'private';
 
-/** How the host has everyone see the match: each player's own pick, or the same for all. */
-export type LobbyVisuals = 'any' | 'retro' | 'modern';
-/** The modern view's lighting for everyone, or each player's own pick. */
-export type LobbyLighting = 'any' | 'day' | 'night';
+/** How every player sees an online match: the host picks, retro or modern. */
+export type LobbyVisuals = 'retro' | 'modern';
+/** The modern view's lighting for every player: the host picks. */
+export type LobbyLighting = 'day' | 'night';
 
-/** A lobby's visuals and lighting from a message that may be old or hand-made. */
+/** A lobby's visuals and lighting from a message that may be old or hand-made (retro and day unless it says otherwise). */
 export function lobbyVisuals(v: unknown): LobbyVisuals {
-  return v === 'retro' || v === 'modern' ? v : 'any';
+  return v === 'modern' ? 'modern' : 'retro';
 }
 export function lobbyLighting(v: unknown): LobbyLighting {
-  return v === 'day' || v === 'night' ? v : 'any';
+  return v === 'night' ? 'night' : 'day';
 }
 
 export interface LobbyInfo {
@@ -65,9 +65,9 @@ export interface LobbyInfo {
   difficulty: number;
   /** Extra vehicles for the smaller side in an uneven match (sim startingLives). */
   handicap: boolean;
-  /** Retro or modern for every player, or each player's own pick. */
+  /** Retro or modern for every player: the host's pick. */
   visuals: LobbyVisuals;
-  /** Day or night (the modern view) for every player, or each player's own pick. */
+  /** Day or night (the modern view) for every player: the host's pick. */
   lighting: LobbyLighting;
   state: 'waiting' | 'playing';
   /** Set while a match is running. */
@@ -160,7 +160,7 @@ export interface MatchStart {
   difficulty: number;
   /** Extra vehicles for the smaller side (sim startingLives). */
   handicap?: boolean;
-  /** The host's picks for everyone; left out, each player sees the match as they like. */
+  /** The host's picks for everyone (an older server leaves them out: retro and day). */
   visuals?: LobbyVisuals;
   lighting?: LobbyLighting;
   seats: MatchSeat[];

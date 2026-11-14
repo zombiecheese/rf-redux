@@ -4,6 +4,12 @@ Each release's section below becomes its GitHub release notes (`.github/workflow
 
 ## [Unreleased]
 
+### Changed
+
+- The online lobby fits the window without scrolling, from 1280 × 720 up and on a phone held sideways: the seats and the match settings on the left, the map and the chat on the right, the invite code in the title bar, and Ready or Start always in view.
+- In an online match the host picks the view for every player in the lobby's Multiplayer view section: Classic or Modern, and Day or Night. "Each player's choice" is gone; a player's own Visuals and Lighting options show the host's picks while online.
+- Options is grouped so each page fits the screen: Full Screen, View (Visuals, Lighting, Camera, Thermal, Picture, CRT Look), Sound and Music (Volume, Music, Instruments, Jukebox) and Controls (Vehicle Keys, Swap Sides).
+
 ## [0.4.0] - 2026-11-14
 
 The modern view as a drone feed, with a thermal camera and vehicle lights.

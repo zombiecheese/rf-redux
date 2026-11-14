@@ -19,9 +19,9 @@ docker compose up -d --no-build
 
 ## Playing
 
-**No sound.** Browsers only allow sound after a key press or a tap, so press a key on the splash. **V** turns sound off and on, and **Options > Sound** has the volumes.
+**No sound.** Browsers only allow sound after a key press or a tap, so press a key on the splash. **V** turns sound off and on, and **Options > Sound and Music > Volume** has the volumes.
 
-**A key does nothing.** **H** lists the keys in use. A key may have been rebound under **Options > Controls**. While the chat line, a text box, a dialog or the menu is open, the vehicle takes no keys.
+**A key does nothing.** **H** lists the keys in use. A key may have been rebound under **Options > Controls > Vehicle Keys**. While the chat line, a text box, a dialog or the menu is open, the vehicle takes no keys.
 
 **I cannot pause online.** That is by design: an online match is shared, so no player can stop it.
 

@@ -39,8 +39,7 @@ The lobby's owner picks:
 - **The difficulty** of the bots.
 - **Open or private.** An open lobby is listed. A private one needs its code or invite link.
 - **Handicap for the smaller side**, off by default.
-- **Visuals:** each player's choice (the default), classic for all, or modern for all, each with a preview.
-- **Lighting:** each player's choice (the default), day for all, or night for all, in the modern view.
+- **Multiplayer view:** Classic (the default) or Modern for every player, each with a preview, and Day (the default) or Night for the modern view. Only the host picks these; during the match a player's own Options > View > Visuals and Lighting show the host's picks and cannot be changed.
 
 ![The Host a Game dialog with the map picker](images/host-a-game.png)
 

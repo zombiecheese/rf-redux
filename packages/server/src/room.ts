@@ -129,7 +129,7 @@ export class Room {
   private startFor(player: number | null): MatchStart {
     const o = this.o;
     return {
-      gameId: o.id, mapId: o.mapId, map: o.map, seed: o.seed, difficulty: o.difficulty, handicap: o.handicap === true, visuals: o.visuals ?? 'any', lighting: o.lighting ?? 'any', seats: o.seats, you: player,
+      gameId: o.id, mapId: o.mapId, map: o.map, seed: o.seed, difficulty: o.difficulty, handicap: o.handicap === true, visuals: o.visuals ?? 'retro', lighting: o.lighting ?? 'day', seats: o.seats, you: player,
       snapshot: this.match.tick > 0 ? snapshotMatch(this.match) : undefined,
     };
   }
