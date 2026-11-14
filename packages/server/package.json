@@ -1,6 +1,6 @@
 {
   "name": "@rfw/server",
-  "version": "0.5.2",
+  "version": "0.5.3",
   "private": true,
   "type": "module",
   "scripts": {
@@ -9,8 +9,8 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@rfw/net": "0.5.2",
-    "@rfw/sim": "0.5.2"
+    "@rfw/net": "0.5.3",
+    "@rfw/sim": "0.5.3"
   },
   "devDependencies": {
     "@types/node": "^26.6.6",

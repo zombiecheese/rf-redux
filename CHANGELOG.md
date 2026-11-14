@@ -4,6 +4,10 @@ Each release's section below becomes its GitHub release notes (`.github/workflow
 
 ## [Unreleased]
 
+## [0.5.3] - 2026-11-15
+
+The modern view's sea comes alive: shallow and deep water clearly told apart, wakes and spray from every vehicle, helicopter downwash, and the moon, lamps, headlights and blasts reflected on the water at night.
+
 ### Changed
 
 - The modern view's sea shows its depth as the match plays it: the shallows are clear water over a sandy bottom with light playing on the sand, deep water is dark blue and darker further out, and a pale rim and a dark drop-off mark the edge of the shelf, so you can see where a tank would sink. On the thermal camera the shallows run a touch warmer than deep water.
@@ -140,7 +144,8 @@ The first release: a browser remake of Return Fire (1995) that plays like the or
 
 - A Docker Compose stack with one image, `ghcr.io/zombiecheese/rf-redux`, published for every version tag together with a compose file, an `.env` template and a Caddyfile for HTTPS ([docs/deploy.md](docs/deploy.md)).
 
-[Unreleased]: https://github.com/zombiecheese/rf-redux/compare/v0.5.2...HEAD
+[Unreleased]: https://github.com/zombiecheese/rf-redux/compare/v0.5.3...HEAD
+[0.5.3]: https://github.com/zombiecheese/rf-redux/releases/tag/v0.5.3
 [0.5.2]: https://github.com/zombiecheese/rf-redux/releases/tag/v0.5.2
 [0.5.1]: https://github.com/zombiecheese/rf-redux/releases/tag/v0.5.1
 [0.4.0]: https://github.com/zombiecheese/rf-redux/releases/tag/v0.5.1
