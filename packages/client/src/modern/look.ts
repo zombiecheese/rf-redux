@@ -12,6 +12,58 @@ import * as THREE from 'three';
 /** 1 while the thermal camera is on: shared by every material that draws its heat. */
 export const THERMAL = { value: 0 };
 
+/** Seconds, for the lights' flicker: shared by every material whose lights are made less clean. */
+export const LIGHT_TIME = { value: 0 };
+
+const GRAIN_GLSL = `
+uniform float lightTime;
+float grainHash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+float grainNoise(vec2 p) {
+  vec2 i = floor(p);
+  vec2 f = fract(p);
+  f = f * f * (3.0 - 2.0 * f);
+  return mix(mix(grainHash(i), grainHash(i + vec2(1.0, 0.0)), f.x), mix(grainHash(i + vec2(0.0, 1.0)), grainHash(i + vec2(1.0, 1.0)), f.x), f.y);
+}
+// A headlight or searchlight through scratched, dirty glass: blotches across the beam, faint rings from the
+// reflector, and a slight flutter from the engine. Worked out across the cone, so the pattern travels with the beam.
+float beamGrain(vec3 toLight, vec3 axis, float k) {
+  float c = max(dot(toLight, axis), 0.2);
+  vec3 side = normalize(cross(axis, abs(axis.y) < 0.9 ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0)));
+  vec3 up = cross(axis, side);
+  vec2 q = vec2(dot(toLight, side), dot(toLight, up)) / c;
+  float blotch = grainNoise(q * 7.0 + k * 7.3) * 0.6 + grainNoise(q * 21.0 - k * 3.1) * 0.4;
+  float rings = 0.5 + 0.5 * sin(length(q) * 46.0 + k);
+  float grime = 1.0 - 0.6 * smoothstep(0.62, 0.8, grainNoise(q * 13.0 + vec2(k * 5.1, 2.0)));
+  float scratch = 1.0 - 0.35 * smoothstep(0.86, 0.97, grainNoise(vec2(q.x * 3.0 + q.y * 1.4, q.y * 60.0 - q.x * 12.0) + k));
+  float flutter = 0.95 + 0.05 * sin(lightTime * (19.0 + k * 3.0) + k * 5.0) * sin(lightTime * 4.3 + k);
+  return (0.3 + 1.05 * blotch * blotch) * (0.8 + 0.2 * rings) * grime * scratch * flutter;
+}
+// A lamp through its cage and grimy glass: soft bars of shadow round it, smudges, and an old bulb's or a flame's
+// flicker. Worked out in the world's directions, so the bars stand upright whatever the camera does.
+float lampGrain(vec3 toLight, float k) {
+  vec3 d = normalize((vec4(-toLight, 0.0) * viewMatrix).xyz);
+  float a = atan(d.x, d.z);
+  float bars = smoothstep(0.5, 0.95, abs(sin(a * 4.0 + k * 1.7)));
+  float smudge = grainNoise(vec2(a * 2.5, d.y * 5.0) + k * 11.0);
+  float flick = 0.84 + 0.16 * grainNoise(vec2(lightTime * 8.0, k * 13.0));
+  return (1.0 - 0.5 * bars) * (0.6 + 0.6 * smudge) * flick;
+}
+`;
+
+/**
+ * Makes a lit material's point and spot lights less clean (Paul's night: lamps, fires and headlights with texture
+ * in them, not perfect discs): a gobo-like pattern, grime and flicker on each light's contribution.
+ */
+export function grainLights(shader: { uniforms: Record<string, THREE.IUniform>; fragmentShader: string }): void {
+  shader.uniforms.lightTime = LIGHT_TIME;
+  const chunk = THREE.ShaderChunk.lights_fragment_begin
+    .replace('getPointLightInfo( pointLight, geometryPosition, directLight );', '$&\n\t\tdirectLight.color *= lampGrain( directLight.direction, float( UNROLLED_LOOP_INDEX ) );')
+    .replace('getSpotLightInfo( spotLight, geometryPosition, directLight );', '$&\n\t\tdirectLight.color *= beamGrain( directLight.direction, spotLight.direction, float( UNROLLED_LOOP_INDEX ) );');
+  shader.fragmentShader = shader.fragmentShader
+    .replace('void main() {', `${GRAIN_GLSL}\nvoid main() {`)
+    .replace('#include <lights_fragment_begin>', chunk);
+}
+
 /**
  * Teaches a lit material to show its heat when THERMAL is on: heat is how hot it runs (0 cold, 1 an engine), and
  * the glow attribute's windows and lamps run warm at night (nightGlow).

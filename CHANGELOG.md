@@ -8,9 +8,11 @@ Each release's section below becomes its GitHub release notes (`.github/workflow
 
 - Guide arrows at the edges of the modern view, in each rival base's colour, point to where its flag may be: every standing flag building of a rival (without giving away which one hides it), a flag lying in the open, and the way home while your jeep carries one, each with its distance.
 - A player whose base is out can switch between the players still in the match, in the classic and modern views, offline (including each half of Two Players) and online: the turn keys step through them (fire steps on), the launch keys or 1–4 pick one, and on a phone or tablet P1–P4 at the top. The view starts on a teammate who is still playing, or else anyone still in, and the game says how to switch when you go out. Online spectators can step through the players with ← / → as well as 1–4.
+- The modern view's own end of the match: the drone's last pass over the winner's base, climbing as fireworks go up in the winner's colour, while the computer vision locks onto the base and types out its assessment (the winner, bases neutralised, engagement time), then the stream breaks up and cuts to SIGNAL LOST. It keeps the match's look (drone feed or clean, thermal, day or night).
 
 ### Changed
 
+- The modern view's night lights are less clean: headlights and searchlights carry blotches, grime, scratches and faint reflector rings that travel with the beam, and lamps and fires throw the soft bars of their cages, smudges and a flicker.
 - The thermal camera is a control: G (left hand) or I (right hand), listed and rebindable in Options > Controls and in Help. An always-visible THERMAL toggle beside the menu button shows whether it is on and its key.
 - Over a modern match the menu and thermal buttons take the computer vision's look, and the drone overlay's corner bracket and the note chip move out of their way.
 - Every message to the player over a modern match shows as a computer-vision read-out (monospace, framed, tagged STATUS, EVENT, COMMS, SCORES, ANALYSIS or SYS): the view's note, the match log, chat, the scoreboard, banners and pop-up messages such as the thermal camera's on and off, which now sit under the clock, clear of the plot.

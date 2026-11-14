@@ -17,7 +17,7 @@ import { drawMark, type Splat, type Wreck as MarkWreck } from '../effects.js';
 import { TEAMS } from '../paint.js';
 import { building, gateLeaf, lightOf, lookOf, towerGun, type Box } from './buildings.js';
 import { Fx } from './fx.js';
-import { LookPass, THERMAL, heatFragment } from './look.js';
+import { LIGHT_TIME, LookPass, THERMAL, grainLights, heatFragment } from './look.js';
 import { BunkerScene, SkullScene } from './screens.js';
 import { Ground, TILE } from './ground.js';
 import { Kit, NEUTRAL, teamPaint, type TeamPaint } from './kit.js';
@@ -211,6 +211,7 @@ export class ModernRenderer {
         .replace('void main() {', 'uniform float nightGlow;\nuniform float thermal;\nvarying float vGlow;\nvoid main() {')
         .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n  totalEmissiveRadiance += vec3(1.0, 0.78, 0.42) * vGlow * nightGlow * 1.6;')
         .replace('#include <dithering_fragment>', `#include <dithering_fragment>\n${heatFragment(heat, true)}`);
+      grainLights(shader);
     };
   }
 
@@ -341,6 +342,7 @@ export class ModernRenderer {
    */
   draw(m: Match, views: readonly ModernView[], extras: { wrecks: readonly MarkWreck[]; splats: readonly Splat[] }): void {
     const now = performance.now();
+    LIGHT_TIME.value = (now / 1000) % 1000;
     const dt = Math.min(0.1, (now - this.lastTime) / 1000);
     this.lastTime = now;
     if (m.world !== this.world) this.setWorld(m.world);
