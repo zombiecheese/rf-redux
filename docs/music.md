@@ -1,7 +1,9 @@
 # Music
 
 The original played its score from the CD's audio tracks. The remake does not use those: it plays MIDI band
-arrangements of public-domain military and classical music, chosen the way the original chose its tracks.
+arrangements of public-domain military and classical music, chosen the way the original chose its tracks. The
+modern view (Options > Visuals) has a soundtrack of its own: original hardcore, beatdown and metalcore
+instrumentals, chosen by the same director (see "The modern soundtrack" below).
 
 ## How it works
 
@@ -66,6 +68,44 @@ The original game also played the jeep's death on the same track as Death, so bo
 Copyright terms differ by country; the table gives the position as we understand it, not legal advice. Holst is
 the one composer whose work is not yet free everywhere: if that matters for where the game is offered, replace
 `tank` (see "Replacing a piece") or swap its lines in `pieces.ts`.
+
+## The modern soundtrack
+
+When the modern view is on, the director plays from `packages/client/src/music/pieces-modern.ts` instead of the band
+book: the same eighteen pieces and the same file and section names, so every moment the band covers has a heavy
+counterpart. Switching the view switches the music at once, to the same piece. A browser that cannot show the
+modern view keeps the band. The splash's fanfare stays the band's.
+
+The band: two rhythm guitars in drop C, double-tracked and panned hard left and right, with their palm mutes on
+their own channels (GM programs 30 and 28), a pick bass (34), a lead guitar (29), a pad (89), a clean guitar (27),
+an 808-style sub that drops an octave as it rings (38) and the Power kit (drum-channel program 16: a clicky kick,
+a fat snare, deep toms and a china on key 52). The synthesiser plays the guitars and bass through an amp of its
+own on their channel: a tightening high-pass, a hard-driven soft-clipping preamp and a 4x12 cabinet curve, with the
+right-hand guitar a few milliseconds late to spread the pair. The modern soundtrack always plays this rig, never a
+SoundFont.
+
+Riffs are written once (`riff()` in `pieces-modern.ts`: upper case is an open power chord, lower case a palm-muted
+chug) and become the lines of both guitars, both palm mutes and the bass; `lock()` writes breakdown drums that hit
+with the riff. Any piece can be replaced with a MIDI file at `assets/generated/music/modern-<name>.mid`.
+
+Every piece is original to this project, 2026, released under [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/):
+
+| File | Director pieces | Title | Style |
+| --- | --- | --- | --- |
+| `tank` | Tank 1, 2, 3 (sections a, b, c) | Iron Lung | Metalcore: a stomping groove, a d-beat, then the breakdown with the flag in danger |
+| `tank-death` | Tank Death | Last Rites | Two ringing chords over a sub drop |
+| `jeep` | Jeep 1 | Two-Step Getaway | Fast hardcore punk, then a two-step |
+| `asv` | MSV 1 | Slow Payload | Beatdown: a chug riff, then a slower slam with the sub |
+| `asv-death` | MSV Death | Payload Lost | A falling run of chords and a tom fill |
+| `heli` | Heli 1, 2 (sections a, b) | Rotorblade | Melodic metalcore: a gallop under a lead line, then a half-time chorus |
+| `heli-death` | HELI Death | Autorotation | The lead dives down the neck |
+| `flag-discovery` | Flag Discovery | Spotted | Stabs and a fill |
+| `flag-pickup` | Flag Pickup | Run It Home | Blast beats under a tremolo riff and a lead call, then stomps |
+| `win` | Win | Last Base Standing | A major-key anthem with the lead |
+| `bunker` | Bunker | Holding Pattern | Clean guitar and pad, palm mutes creeping in |
+| `death` | Death, Jeep Death | Flatline | Clean guitar falling through C minor, one last chord |
+| `sub` | Sub | Pressure Hull | Slow doom with a sonar ping |
+| `drums` | Drums (sections intro, loop) | Warm-Up | A mid-tempo hardcore groove for the menus |
 
 ## Writing or changing a piece
 

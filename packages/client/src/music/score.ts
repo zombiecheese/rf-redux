@@ -21,6 +21,8 @@ export const PPQ = 480;
 
 export const DRUMS: Record<string, number> = {
   bd: 36, rim: 37, sn: 38, hh: 42, ph: 44, oh: 46, lt: 45, mt: 47, ht: 50, cy: 49, rc: 51, cy2: 57, tam: 52,
+  // The Power kit's: a china (the tam-tam's key), a floor tom.
+  cn: 52, ft: 41,
 };
 
 const DYNAMICS: Record<string, number> = { pp: 32, p: 48, mp: 64, mf: 80, f: 100, ff: 118 };

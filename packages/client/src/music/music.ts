@@ -1,13 +1,18 @@
-// The game's music: the original's director (director.ts) choosing pieces from the band book (pieces.ts), played
-// as MIDI (smf.ts, player.ts) on the synthesiser (synth.ts). The game feeds it each tick what the original's
+// The game's music: the original's director (director.ts) choosing pieces from the band book (pieces.ts), or in the
+// modern view from its own soundtrack (pieces-modern.ts), played as MIDI (smf.ts, player.ts) on the synthesiser
+// (synth.ts). The game feeds it each tick what the original's
 // triggers saw; the front end tells it about the menus, the win and the Music switch.
 //
 // A SoundFont dropped in as /generated/music/soundfont.sf2 replaces the built-in timbres, and any piece can be
-// replaced by a MIDI file at /generated/music/<name>.mid (its sections named by markers, as docs/music.md says).
+// replaced by a MIDI file at /generated/music/<name>.mid (its sections named by markers, as docs/music.md says), or
+// in the modern soundtrack at /generated/music/modern-<name>.mid. The modern soundtrack plays its own rig, never
+// the SoundFont.
 
 import { TICK_MS, type Match, type MatchEvent, type Vehicle } from '@rfw/sim';
 import { Director, PIECES, STOP, type MusicOut, type Piece, type Scored } from './director.js';
 import { BOOK } from './pieces.js';
+import { MODERN_BOOK } from './pieces-modern.js';
+import type { PieceDef } from './score.js';
 import { Player } from './player.js';
 import { compile } from './score.js';
 import { readSmf, timeline, writeSmf, type Timeline } from './smf.js';
@@ -39,6 +44,7 @@ export class Music implements MusicOut {
   private auditioning = false;
   private master: GainNode | null = null;
   private volume = 1;
+  private style: MusicStyle = 'retro';
   readonly director: Director<Vehicle>;
 
   constructor(enabled = true) {
@@ -84,6 +90,7 @@ export class Music implements MusicOut {
     master.connect(ctx.destination);
     this.master = master;
     this.synth = new Synth(ctx, master);
+    this.synth.sampled = this.style === 'retro';
     this.player = new Player(ctx, this.synth, master, LEVEL);
     this.timer = setInterval(() => {
       if (!this.held && !this.auditioning) this.director.update();
@@ -102,11 +109,12 @@ export class Music implements MusicOut {
         // None: the built-in timbres play.
       }
     }
-    await Promise.all(Object.keys(BOOK).filter((name) => have.has(`music/${name}.mid`)).map(async (name) => {
+    const files = [...Object.keys(BOOK).map((name) => ['retro', name, name]), ...Object.keys(MODERN_BOOK).map((name) => ['modern', name, `modern-${name}`])];
+    await Promise.all(files.filter(([, , file]) => have.has(`music/${file}.mid`)).map(async ([style, name, file]) => {
       try {
-        const res = await fetch(`/generated/music/${name}.mid`);
+        const res = await fetch(`/generated/music/${file}.mid`);
         const type = res.headers.get('content-type') ?? '';
-        if (res.ok && !type.includes('text/html')) this.timelines.set(name, timeline(readSmf(await res.arrayBuffer())));
+        if (res.ok && !type.includes('text/html')) this.timelines.set(`${style}:${name}`, timeline(readSmf(await res.arrayBuffer())));
       } catch {
         // None: our arrangement plays.
       }
@@ -122,14 +130,36 @@ export class Music implements MusicOut {
 
   /** A piece laid out for playing: a replacement file if one was found, else our arrangement compiled. */
   timeline(file: string): Timeline {
-    let tl = this.timelines.get(file);
+    const key = `${this.style}:${file}`;
+    let tl = this.timelines.get(key);
     if (!tl) {
-      const def = BOOK[file];
+      const def = this.piece(file);
       if (!def) throw new Error(`music: no piece "${file}"`);
       tl = timeline(readSmf(writeSmf(compile(def))));
-      this.timelines.set(file, tl);
+      this.timelines.set(key, tl);
     }
     return tl;
+  }
+
+  /** A piece of the soundtrack playing now (the modern one borrows the band's splash fanfare). */
+  piece(file: string): PieceDef | undefined {
+    return (this.style === 'modern' ? MODERN_BOOK[file] : undefined) ?? BOOK[file];
+  }
+
+  get currentStyle(): MusicStyle {
+    return this.style;
+  }
+
+  /**
+   * The soundtrack: the band book for the retro view, hardcore and metalcore for the modern one. Switching cuts
+   * straight to the same piece in the other soundtrack.
+   */
+  setStyle(style: MusicStyle): void {
+    if (style === this.style) return;
+    this.style = style;
+    if (this.synth) this.synth.sampled = style === 'retro';
+    if (this.auditioning) this.player?.stop();
+    else this.director.replay();
   }
 
   // ---- What the director asks of the player ----------------------------------------------------------------------
@@ -291,6 +321,8 @@ export class Music implements MusicOut {
     this.director.replay();
   }
 }
+
+export type MusicStyle = 'retro' | 'modern';
 
 /** What sub_40f2f0 looks at for the vehicle being scored. */
 function scoring(m: Match, v: Vehicle): Scored<Vehicle> | null {

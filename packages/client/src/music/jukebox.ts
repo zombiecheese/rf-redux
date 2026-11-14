@@ -1,9 +1,9 @@
-// Options > Jukebox: plays any of the director's eighteen pieces, to hear the band book, and loads a SoundFont for
+// Options > Jukebox: plays any of the director's eighteen pieces from the soundtrack in use (the band book, or the
+// modern view's), and loads a SoundFont for
 // sampled instruments (kept for this visit; one placed at /generated/music/soundfont.sf2 loads every time).
 
 import { dialog, el } from '../dialogs.js';
 import { PIECES } from './director.js';
-import { BOOK } from './pieces.js';
 import type { Music } from './music.js';
 
 export async function jukebox(music: Music): Promise<void> {
@@ -11,12 +11,12 @@ export async function jukebox(music: Music): Promise<void> {
   const list = el('select', { size: 10 } as Partial<HTMLSelectElement>);
   list.style.minWidth = '300px';
   PIECES.forEach((p, i) => {
-    const def = BOOK[p.file];
+    const def = music.piece(p.file);
     list.add(new Option(`${p.name}: ${def?.title ?? p.file}${p.start ? ` (${p.start})` : ''}`, String(i), i === 0, i === 0));
   });
   const credit = el('p', {});
   const showCredit = () => {
-    const def = BOOK[PIECES[Number(list.value)]?.file ?? ''];
+    const def = music.piece(PIECES[Number(list.value)]?.file ?? '');
     credit.textContent = def ? def.credit : '';
   };
   showCredit();
@@ -26,7 +26,7 @@ export async function jukebox(music: Music): Promise<void> {
   play.addEventListener('click', () => music.audition(Number(list.value)));
   list.addEventListener('dblclick', () => music.audition(Number(list.value)));
   stop.addEventListener('click', () => music.stopAudition());
-  const sfName = el('span', {}, music.soundfont ?? 'Built-in band (MT-32 style)');
+  const sfName = el('span', {}, music.currentStyle === 'modern' ? 'Built-in rig (the modern soundtrack does not use a SoundFont)' : music.soundfont ?? 'Built-in band (MT-32 style)');
   const file = el('input', { type: 'file', accept: '.sf2' });
   file.addEventListener('change', async () => {
     const f = file.files?.[0];
