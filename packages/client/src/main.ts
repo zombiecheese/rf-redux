@@ -32,7 +32,6 @@ import { Menu, type MenuEntry } from './menu.js';
 import { formatTime, loadScores, recordGame, saveScores } from './scores.js';
 import { controlsDialog, soundDialog } from './options.js';
 import { gainOf, loadSettings, saveSettings, type Settings, type Volume } from './settings.js';
-import { jukebox } from './music/jukebox.js';
 import { Music } from './music/music.js';
 import { modernAvailable } from './modern/layout.js';
 import { Sound } from './sound.js';
@@ -767,7 +766,7 @@ function optionItems(): MenuEntry[] {
   return [
     { label: 'Full Screen', key: shortcutName('fullScreen'), value: () => onOff(!!document.fullscreenElement), action: fullScreen },
     { label: 'View', hint: 'Retro or modern, day or night, camera', items: viewItems },
-    { label: 'Sound and Music', hint: 'Volume, music, instruments, jukebox', items: soundItems },
+    { label: 'Sound and Music', hint: 'Volume, music, instruments', items: soundItems },
     ...(handheld ? [] : [{ label: 'Controls', hint: 'Vehicle keys, swap sides', items: controlItems }]),
   ];
 }
@@ -838,7 +837,6 @@ function soundItems(): MenuEntry[] {
         void music.unlock().then(() => music.setSampled(settings.instruments === 'sampled')).then(() => menu.refresh());
       },
     },
-    { label: 'Jukebox', hint: 'Hear the soundtrack, load a SoundFont', action: () => void overGame(() => jukebox(music)) },
   ];
 }
 
