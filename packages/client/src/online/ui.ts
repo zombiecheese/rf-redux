@@ -330,10 +330,9 @@ function segmented(name: string, options: [string, string][], value: string): HT
 
 const segValue = (s: HTMLElement) => s.querySelector<HTMLInputElement>('input:checked')!.value;
 
-/** The lobby's Multiplayer section: how every player sees the match, which only the host picks. */
-function multiplayerView(look: HTMLElement, light: HTMLElement): HTMLFieldSetElement {
-  return el('fieldset', { class: 'view-set' }, el('legend', {}, 'Multiplayer view · set by the host'),
-    el('div', { class: 'view-set-row' }, look, el('div', { class: 'field' }, el('span', {}, 'Lighting:'), light)));
+/** The lobby's Multiplayer view section: how every player sees the match, which only the host picks. */
+function multiplayerView(look: HTMLElement): HTMLFieldSetElement {
+  return el('fieldset', { class: 'view-set' }, el('legend', {}, 'Multiplayer view · set by the host'), look);
 }
 
 /** Host a Game: name, who may join, the map and the team layout. */
@@ -495,27 +494,28 @@ export class LobbyWindow {
       this.preview.actions.replaceChildren(change);
       const handicap = el('input', { type: 'checkbox', checked: l.handicap });
       handicap.addEventListener('change', () => this.net.send({ t: 'settings', handicap: handicap.checked }));
-      const handicapRow = el('label', { class: 'check' }, handicap, 'Handicap for the smaller side');
+      const handicapRow = el('label', { class: 'check' }, handicap, 'Handicap the smaller side');
       handicapRow.title = 'In an uneven match (2v1, say) the smaller team starts with more vehicles, in proportion, and its flag must be captured three times';
       const look = viewPicker(l.visuals, LOBBY_VIEWS, false);
       look.title = 'Every player sees the match this way';
       look.addEventListener('change', () => this.net.send({ t: 'settings', visuals: look.value as LobbyVisuals }));
       const light = segmented('lobby-light', LIGHTING, l.lighting);
-      light.title = 'Day or night in the modern view, for every player';
+      light.title = 'Day or night for the match';
       light.addEventListener('change', () => this.net.send({ t: 'settings', lighting: segValue(light) as LobbyLighting }));
-      this.settings.append(field('Teams:', layout), field('Difficulty:', skill), field('Who can join:', vis), handicapRow,
-        multiplayerView(look, light));
+      this.settings.append(field('Teams:', layout), field('Difficulty:', skill), field('Time of day:', light), field('Who can join:', vis), handicapRow,
+        multiplayerView(look));
       this.settings.classList.add('host');
     } else {
       this.preview.actions.replaceChildren();
       this.settings.classList.remove('host');
-      this.settings.append(field('Difficulty:', el('span', {}, String(l.difficulty))));
+      this.settings.append(field('Difficulty:', el('span', {}, String(l.difficulty))),
+        field('Time of day:', el('span', { class: 'lobby-light' }, LIGHTING.find(([v]) => v === l.lighting)![1])));
       if (l.handicap) this.settings.append(el('p', { class: 'hint' }, 'Handicap on: the smaller side gets extra vehicles, and its flag must be captured more than once.'));
       // The host's picks, with a picture of the view.
       const shown = viewPicker(l.visuals, LOBBY_VIEWS.filter((c) => c.value === l.visuals), false);
       for (const b of shown.querySelectorAll('button')) b.tabIndex = -1;
       shown.classList.add('view-shown');
-      this.settings.append(multiplayerView(shown, el('span', { class: 'lobby-light' }, LIGHTING.find(([v]) => v === l.lighting)![1])));
+      this.settings.append(multiplayerView(shown));
     }
     const known = this.maps.find((m) => m.id === l.mapId);
     showLobbyMap(this.preview, known ?? { id: l.mapId, name: l.mapName, bases: l.slots.length });

@@ -246,21 +246,25 @@ body.thermal .thermal-fab { background: rgba(240, 240, 240, .85); color: #111; o
 .ui .seat-extra .badge { margin-left: 0; }
 .ui .seat-extra .btn { margin-left: auto; }
 /* The match settings: a tight grid of labelled boxes, the Visuals cards across the bottom. */
-.ui .lobby-settings { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .4em .8em; margin-top: .7em; padding-top: .6em; border-top: 1px solid var(--ui-line); flex: none; }
-.ui .lobby-settings .field { grid-template-columns: 1fr; gap: .15em; }
-.ui .lobby-settings .field > span:first-child { color: var(--ui-muted); font-size: .75em; text-transform: uppercase; letter-spacing: .1em; }
-.ui .lobby-settings .view-set, .ui .lobby-settings > .hint { grid-column: 1 / -1; }
-.ui .lobby-settings .check { align-self: end; min-height: 1.9em; }
-.ui .lobby-settings .segmented .btn, .ui .lobby-settings .segmented button { min-height: 1.9em; padding: .1em .8em; }
+.ui .lobby-settings { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .4em .8em; margin-top: .7em; padding-top: .6em; border-top: 1px solid var(--ui-line); flex: none; }
+.ui .lobby-settings .field:has(input[name=lobby-vis]) { grid-column: span 2; }
+/* The Player Selector, laid out like the lobby's match settings. */
+.ui .match-setup { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .5em .9em; width: min(30em, 80vw); }
+.ui .match-setup > .field:first-child { grid-column: 1 / -1; }
+.ui .match-setup > .field[hidden] { display: none; }
+.ui .lobby-settings .field, .ui .match-setup .field { grid-template-columns: 1fr; gap: .15em; }
+.ui .lobby-settings .field > span:first-child, .ui .match-setup .field > span:first-child { color: var(--ui-muted); font-size: .75em; text-transform: uppercase; letter-spacing: .1em; }
+.ui .lobby-settings .view-set, .ui .match-setup .view-set, .ui .lobby-settings > .hint, .ui .match-setup > .hint { grid-column: 1 / -1; }
+.ui .lobby-settings .check, .ui .match-setup .check { align-self: end; min-height: 1.9em; }
+.ui .lobby-settings .segmented .btn, .ui .match-setup .segmented .btn, .ui .lobby-settings .segmented button, .ui .match-setup .segmented button { min-height: 1.9em; padding: .1em .8em; }
 .ui .seat select, .ui .lobby-settings select { min-height: 1.9em; padding: .1em .45em; }
-.ui .lobby-settings .view-set { margin: 0; padding: .2em .5em .45em; }
-.ui .lobby-settings .view-set-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: .8em; }
-.ui .lobby-settings .view-picker { grid-template-columns: repeat(2, minmax(0, 11em)); gap: .45em; }
+.ui .lobby-settings .view-set, .ui .match-setup .view-set { margin: 0; padding: .2em .5em .45em; }
+.ui .lobby-settings .view-picker, .ui .match-setup .view-picker { grid-template-columns: repeat(2, minmax(0, 11em)); gap: .45em; }
 .ui .lobby-settings .view-picker.view-shown { grid-template-columns: minmax(0, 11em); }
 .ui .lobby-settings .lobby-light { font-weight: 600; }
-.ui .lobby-settings .view-card { padding: .3em; gap: .1em; font-size: .9em; }
-.ui .lobby-settings .view-card img, .ui .lobby-settings .view-card .view-both { aspect-ratio: 16 / 9; }
-.ui .lobby-settings .view-card small { display: none; }
+.ui .lobby-settings .view-card, .ui .match-setup .view-card { padding: .3em; gap: .1em; font-size: .9em; }
+.ui .lobby-settings .view-card img, .ui .match-setup .view-card img, .ui .lobby-settings .view-card .view-both, .ui .match-setup .view-card .view-both { aspect-ratio: 16 / 9; }
+.ui .lobby-settings .view-card small, .ui .match-setup .view-card small { display: none; }
 /* The map's preview at the top of the right column. */
 .ui .lobby-side .map-preview.compact { flex: none; }
 .ui .lobby-side .map-preview.compact .map-preview-frame { width: 6em; }

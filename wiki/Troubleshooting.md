@@ -25,7 +25,7 @@ docker compose up -d --no-build
 
 **I cannot pause online.** That is by design: an online match is shared, so no player can stop it.
 
-**Two Players or the Level Editor is missing.** Both are desktop only. Phones and tablets play solo.
+**Split Screen or the Level Editor is missing.** Both are desktop only. Phones and tablets play solo.
 
 **My phone shows "turn your device sideways".** The game plays in landscape. The match waits until you turn it.
 
@@ -35,7 +35,7 @@ docker compose up -d --no-build
 
 ## Online
 
-**"Sign in" is asked for everything.** Online play needs an account. Training and Two Players do not.
+**"Sign in" is asked for everything.** Online play needs an account. Training and Split Screen do not.
 
 **I cannot sign up.** The site's owner may have set sign-ups to invite-only or closed. Ask them for an invite code.
 

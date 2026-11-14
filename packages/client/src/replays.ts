@@ -104,7 +104,7 @@ export function openReplayFile(): Promise<Replay | null> {
   });
 }
 
-const MODES: Record<Replay['mode'], string> = { training: 'Training', tournament: 'Two players', online: 'Online', test: 'Test play' };
+const MODES: Record<Replay['mode'], string> = { training: 'Training', tournament: 'Split screen', online: 'Online', test: 'Test play' };
 
 /** A replay saved to the signed-in account (packages/server/src/replays.ts). */
 interface SavedReplay {

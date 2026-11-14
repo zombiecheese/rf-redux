@@ -16,7 +16,7 @@ Still to come: two-player maps of the project's own.
 
 **Playing**
 
-- Training (you against the computer, one full-screen view) and Two Players on one keyboard in split screen (desktop only). On a map with three or four bases both ask for the team layout (2v2, 2v1v1, 3v1 and so on, or everyone for themselves), and the computer plays every base without a player.
+- Training (you against the computer, one full-screen view) and Split Screen on one keyboard in split screen (desktop only). On a map with three or four bases both ask for the team layout (2v2, 2v1v1, 3v1 and so on, or everyone for themselves), and the computer plays every base without a player.
 - The 104 original two-player maps, and sixteen 3- and 4-base maps made from pieces of them on islands shaped like the originals', mirror-symmetric so every base gets the same layout ([docs/map-format.md](docs/map-format.md)).
 - Capture the flag: a base is out when an enemy jeep takes its flag home or it has no jeeps left. Home is the jeep's own base or any teammate's still in the match. The last team standing wins, and a player whose base is out watches a teammate.
 - An optional handicap, offline and in lobbies, helps the smaller side of an uneven match: extra vehicles in proportion, and a flag that must be captured three times (one base against two).
@@ -63,7 +63,7 @@ Still to come: two-player maps of the project's own.
 **The picture, and phones and tablets**
 
 - The 320 × 240 picture fills the browser at 4:3 with square pixels. The bars left over are pixel camouflage in the watching player's colour.
-- Options > View > Visuals switches to a modern view, at any time, even during a match: the same game drawn in 3D at 1280 × 720 (16:9) with low-poly toy-soldier models, sunlight and shadows, an animated sea, glowing explosions, smoke and debris, and a HUD that reads like a machine-vision analysis of the feed: tracking boxes with integrity on vehicles, gun towers and flag buildings, your fuel and ammunition beside your own vehicle, and a tactical plot for the radar. The bunker is a 3D cutaway of the hill with the vehicles parked in their bays and the lift carrying them up, the skull is a 3D skull in the rival's helmet, and messages, chat and the scoreboard use the menus' style too. It has its own hardcore and metalcore soundtrack. Options > View > Lighting picks day, or a dark night with headlights, glowing fire, and lit windows and lamps on the buildings. The picture looks like a surveillance drone's feed (Options > View > Camera turns that off), and Options > View > Thermal (or I, or the IR button) switches to a white-hot thermal camera that sees in the dark. The camera follows and zooms as the retro one does, so both show the same part of the map across, and online the host picks retro or modern, day or night, for every player. It needs WebGL; without it the game stays retro. `/modern-gallery.html` in the dev server shows every modern model.
+- Options > View > Visuals switches to a modern view, at any time, even during a match: the same game drawn in 3D at 1280 × 720 (16:9) with low-poly toy-soldier models, sunlight and shadows, an animated sea, glowing explosions, smoke and debris, and a HUD that reads like a machine-vision analysis of the feed: tracking boxes with integrity on vehicles, gun towers and flag buildings, your fuel and ammunition beside your own vehicle, and a tactical plot for the radar. The bunker is a 3D cutaway of the hill with the vehicles parked in their bays and the lift carrying them up, the skull is a 3D skull in the rival's helmet, and messages, chat and the scoreboard use the menus' style too. It has its own hardcore and metalcore soundtrack. Time of day (on the Player Selector, or the host's pick online) is day, or a dark night with headlights, glowing fire, and lit windows and lamps on the buildings. The picture looks like a surveillance drone's feed (Options > View > Camera turns that off), and Options > View > Thermal (or I, or the IR button) switches to a white-hot thermal camera that sees in the dark. The camera follows and zooms as the retro one does, so both show the same part of the map across, and online the host picks retro or modern for every player. It needs WebGL; without it the game stays retro. `/modern-gallery.html` in the dev server shows every modern model.
 - Phones and tablets play solo, in landscape, with on-screen controls ([Touch controls](#touch-controls)). Held upright they show a "turn your device sideways" notice and the match waits.
 
 ## Getting started
@@ -77,7 +77,7 @@ npm install
 npm run dev
 ```
 
-Then open http://localhost:5173. The Zombiecheese Productions splash plays first (press a key or tap to start it with sound, any key to skip it, or Esc to go straight to the title), then the title screen shows the menu; any key or tap brings it back after Esc. Play > Training (you against the computer, in one full-screen view) and Play > Two Players (two players on one keyboard, split screen) open the Player Selector for names and the computer's skill, then the Level Selector for the map; New Game (N) also lets you pick Training or Tournament, starting on Training. One player always gets the single view: split screen only appears when two people pick Two Players, and that choice is not remembered for the next visit. P pauses, Alt+R restarts, L shows the Hall of Fame, H shows every key and Esc leaves the game.
+Then open http://localhost:5173. The Zombiecheese Productions splash plays first (press a key or tap to start it with sound, any key to skip it, or Esc to go straight to the title), then the title screen shows the menu; any key or tap brings it back after Esc. Local Play > Training (you against the computer, in one full-screen view) and Local Play > Split Screen (two players on one keyboard, split screen) open the Player Selector for names, the difficulty, the time of day and the view, then the Level Selector for the map; New Game (N) also lets you pick Training or Split Screen, starting on Training. Online play is under Online and is always one player per screen. One player always gets the single view: split screen only appears when two people pick Split Screen, and that choice is not remembered for the next visit. P pauses, Alt+R restarts, L shows the Hall of Fame, H shows every key and Esc leaves the game.
 
 The level editor is at http://localhost:5173/editor.html. For online play (Online in the main menu), also run the game server: `npm run build -w @rfw/server && npm start` in a second terminal. See [docs/online.md](docs/online.md).
 
@@ -132,7 +132,7 @@ menu is open the match takes none either.
 ### Touch controls
 
 Phones and tablets (a touch screen with no mouse, or any iPhone, iPad or Android device) get on-screen controls
-during a match, drawn as faded pixel buttons. They play solo only: Two Players and the level editor are not offered (`editor.html` shows a "Desktop only" notice).
+during a match, drawn as faded pixel buttons. They play solo only: Split Screen and the level editor are not offered (`editor.html` shows a "Desktop only" notice).
 
 | Control | What it does |
 | --- | --- |

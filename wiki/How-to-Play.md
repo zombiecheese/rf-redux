@@ -8,14 +8,14 @@ The title screen shows the menu after the splash. Any key or a tap brings it bac
 
 | Menu item | What it starts |
 | --- | --- |
-| **Play > Training** | You against the computer in one full-screen view |
-| **Play > Two Players** | Two players on one keyboard in split screen (desktop only) |
+| **Local Play > Training** | You against the computer in one full-screen view |
+| **Local Play > Split Screen** | Two players on one keyboard in split screen (desktop only) |
 | **Online** | Matches with other people. See [[Online Play]] |
 | **Replays** | Your recorded matches |
 | **Level Editor** | Make your own maps (desktop only). See [[Level Editor]] |
 | **Options** | Controls, sound, picture and Swap Sides |
 
-Training and Two Players open the **Player Selector** (names, the computer's skill, 1 to 9, and the view: Classic or Modern, each with a preview), then the **Level Selector**, which lists the maps by level 1 to 9 with a preview of each. On a map with three or four bases you are also asked for the team layout.
+Training and Split Screen open the **Player Selector** (names, the difficulty, 1 to 9, the time of day, Day or Night, and the view: Classic or Modern, each with a preview), laid out like an online lobby's match settings, then the **Level Selector**, which lists the maps by level 1 to 9 with a preview of each. On a map with three or four bases you are also asked for the team layout.
 
 ![The Level Selector with levels, maps and a map preview](images/level-selector.png)
 
@@ -40,7 +40,7 @@ Training and Two Players open the **Player Selector** (names, the computer's ski
 
 **H** in the game lists every key, always showing the keys in use.
 
-| | Player 1 (Brown) | Player 2 (Green, Two Players) |
+| | Player 1 (Brown) | Player 2 (Green, Split Screen) |
 | --- | --- | --- |
 | Drive | W A S D | Arrow keys |
 | Fire | Space | Enter |
@@ -91,7 +91,7 @@ In the menus, the arrow keys move, Enter or Space picks, and Esc goes back. A mo
 
 ## Phones and tablets
 
-Phones and tablets play solo, in landscape, with faded on-screen buttons. Held upright, the game asks you to turn the device and the match waits. Two Players and the level editor are desktop only.
+Phones and tablets play solo, in landscape, with faded on-screen buttons. Held upright, the game asks you to turn the device and the match waits. Split Screen and the level editor are desktop only.
 
 | Control | Does |
 | --- | --- |
@@ -119,7 +119,7 @@ Phones and tablets play solo, in landscape, with faded on-screen buttons. Held u
 
 ![Split screen with two players and two cockpit panels](images/two-players.png)
 
-*Two Players: Brown on the left half, Green on the right, each with their own panel.*
+*Split Screen: Brown on the left half, Green on the right, each with their own panel.*
 
 ## Replays
 
@@ -142,7 +142,7 @@ Replays save as `.rfwreplay.json` files or, signed in, to your account.
 - **Sound:** master, effects and music volume. The retro view plays a military band; the modern view has a hardcore and metalcore soundtrack of its own.
 - **Instruments:** Built-in (the default) or Sampled, which plays the retro band from real instrument samples (the GeneralUser GS SoundFont). The first time you pick Sampled the game downloads it (32 MB); after that your browser keeps it. The modern soundtrack keeps its own guitars and drums either way.
 - **Visuals:** Retro (the original's 320 × 240 pixel picture, the default) or Modern (the same game in 3D at 1280 × 720, with lighting, shadows and effects, a 3D bunker and skull, and modern messages and scoreboard). You can switch during a match; the game plays the same either way.
-- **Lighting:** Day or Night for the modern view. Night is dark: the vehicles have headlights, explosions light up the ground, and street lamps, watchtowers and windows are lit.
+- **Time of day** (on the Player Selector, not in Options): Day or Night. Night is dark: the vehicles have headlights, explosions light up the ground, and street lamps, watchtowers and windows are lit.
 - **Camera:** Drone feed (the default) shows the modern view as a surveillance drone sees it, with grain, a lens, stream errors when something blows up nearby (worst when you are hit) and an overlay of the clock, altitude and grid; Clean drops all that.
 - **Thermal:** the modern view through a thermal camera, white-hot: vehicles, soldiers and drones glow, the ground and buildings are grey and the sea is black, so it sees in the dark. **I** or the **IR** button beside the menu button switches it too.
 - **Picture:** a subtle CRT look (on by default, retro only) and how the picture is scaled.

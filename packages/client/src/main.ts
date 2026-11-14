@@ -209,8 +209,8 @@ async function title(): Promise<void> {
 // ---- Starting and ending a match ---------------------------------------------------------------------------------
 
 /**
- * New Game (N): the Player Selector, then the Level Selector, then the match. Play > Training and Play > Two Players
- * fix the number of players; New Game offers both and starts on Training, so one player always gets the single view.
+ * New Game (N): the Player Selector, then the Level Selector, then the match. Local Play > Training and Local Play > Split
+ * Screen fix the number of players; New Game offers both and starts on Training, so one player always gets the single view.
  */
 async function newGame(players?: 1 | 2): Promise<void> {
   if (game?.online) {
@@ -704,7 +704,7 @@ const showHallOfFame = () => overGame(() => hallOfFame(loadScores(), settings.pl
 
 function titleItems(): MenuEntry[] {
   return [
-    { label: 'Play', primary: true, items: playItems },
+    { label: 'Local Play', hint: 'Training, or split screen on one keyboard', primary: true, items: playItems },
     { label: 'Online', items: onlineItems },
     { label: 'Hall of Fame', key: shortcutName('hallOfFame'), action: () => void showHallOfFame() },
     { label: 'Replays', hint: 'Watch your last matches again', action: () => void showReplays() },
@@ -719,7 +719,7 @@ function titleItems(): MenuEntry[] {
 function playItems(): MenuEntry[] {
   return [
     { label: 'Training', hint: 'You against the computer', primary: true, action: () => void newGame(1) },
-    ...(handheld ? [] : [{ label: 'Two Players', hint: 'Split screen on one keyboard', action: () => void newGame(2) }]),
+    ...(handheld ? [] : [{ label: 'Split Screen', hint: 'Two players on one keyboard', action: () => void newGame(2) }]),
   ];
 }
 
@@ -765,35 +765,29 @@ function onlineItems(): MenuEntry[] {
 function optionItems(): MenuEntry[] {
   return [
     { label: 'Full Screen', key: shortcutName('fullScreen'), value: () => onOff(!!document.fullscreenElement), action: fullScreen },
-    { label: 'View', hint: 'Retro or modern, day or night', items: viewItems },
+    { label: 'View', hint: 'Retro or modern, picture scaling', items: viewItems },
     { label: 'Sound and Music', hint: 'Volume, music, instruments', items: soundItems },
     ...(handheld ? [] : [{ label: 'Controls', hint: 'Vehicle keys, swap sides', items: controlItems }]),
   ];
 }
 
-/** The host's picks while in an online lobby or match: they set how everyone sees it. */
-function hostView(): { visuals: 'retro' | 'modern'; lighting: 'day' | 'night' } | null {
+/** The host's pick of the view while in an online lobby or match: it sets how everyone sees it. */
+function hostVisuals(): 'retro' | 'modern' | null {
   const start = game?.online ? onlineStart : null;
-  if (start) return { visuals: start.visuals === 'modern' ? 'modern' : 'retro', lighting: start.lighting === 'night' ? 'night' : 'day' };
-  return net.lobby ? { visuals: net.lobby.visuals, lighting: net.lobby.lighting } : null;
+  if (start) return start.visuals === 'modern' ? 'modern' : 'retro';
+  return net.lobby ? net.lobby.visuals : null;
 }
 
 function viewItems(): MenuEntry[] {
-  const host = hostView();
-  const hostNote: MenuEntry[] = host ? [{ label: 'Online, the host picks Visuals and Lighting for every player.', note: true }] : [];
+  const host = hostVisuals();
+  const hostNote: MenuEntry[] = host ? [{ label: 'Online, the host picks the view for every player.', note: true }] : [];
   return [
     ...hostNote,
     {
       label: 'Visuals', hint: host ? 'Set by the host' : 'Retro pixels, or modern 3D at 720p',
-      value: () => ((host?.visuals ?? settings.visuals) === 'modern' ? 'Modern' : 'Retro'),
+      value: () => ((host ?? settings.visuals) === 'modern' ? 'Modern' : 'Retro'),
       enabled: () => !host,
       action: () => save({ ...settings, visuals: settings.visuals === 'modern' ? 'retro' : 'modern' }),
-    },
-    {
-      label: 'Lighting', hint: host ? 'Set by the host' : 'Day, or night with headlights (modern)',
-      value: () => ((host?.lighting ?? settings.lighting) === 'night' ? 'Night' : 'Day'),
-      enabled: () => !host,
-      action: () => save({ ...settings, lighting: settings.lighting === 'night' ? 'day' : 'night' }),
     },
     {
       label: 'Picture', hint: 'Fill the window, or whole-number pixels only (retro)',

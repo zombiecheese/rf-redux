@@ -4,7 +4,7 @@ Online matches are for one to four players on maps with two to four bases, with 
 
 ## Accounts
 
-Online play needs an account. Training, Two Players, replays and the level editor do not, and anyone can read the leaderboards.
+Online play needs an account. Training, Split Screen, replays and the level editor do not, and anyone can read the leaderboards.
 
 Sign up under **Online > Create an Account** with a name, an email address and a password. The site sends no email: if you forget your password, ask one of the site's admins for a one-time reset code.
 
@@ -39,7 +39,8 @@ The lobby's owner picks:
 - **The difficulty** of the bots.
 - **Open or private.** An open lobby is listed. A private one needs its code or invite link.
 - **Handicap for the smaller side**, off by default.
-- **Multiplayer view:** Classic (the default) or Modern for every player, each with a preview, and Day (the default) or Night for the modern view. Only the host picks these; during the match a player's own Options > View > Visuals and Lighting show the host's picks and cannot be changed.
+- **Time of day:** Day (the default) or Night.
+- **Multiplayer view:** Classic (the default) or Modern for every player, each with a preview. Only the host picks it; during the match a player's own Options > View > Visuals shows the host's pick and cannot be changed.
 
 ![The Host a Game dialog with the map picker](images/host-a-game.png)
 
