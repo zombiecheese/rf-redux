@@ -2,21 +2,13 @@
 
 *Return Fire: Redux* is a browser remake of *Return Fire* (Silent Software, 1995/96), the capture-the-flag game where you drive a jeep, tank, armoured support vehicle (ASV) and helicopter out of an underground bunker to find the enemy's flag and bring it home.
 
-The aim is a like-for-like remake: the same look (a software renderer reproduces the original's 320 × 240 tilted 3D view), the same handling and the same rules, traced from the original Windows 95 release. On top of that it adds online play for 1–4 players, computer opponents, accounts and lobbies, chat, and a web level editor.
+The aim is a like-for-like remake: the same look (a software renderer reproduces the original's 320 × 240 tilted 3D view), the same handling and the same rules, traced from the original Windows 95 release. On top of that it adds online play for 1–4 players, computer opponents, accounts and lobbies, chat, a web level editor, and an optional modern 3D view with its own hardcore and metalcore soundtrack.
 
 > **About the original.** The game runs on its own art, sounds and pictures, with no copy of the original needed. Two things in the repository come from the original: its measurements (model shapes and number tables) and its 104 two-player map layouts, which are the original designers' work.
 
 ## Status
 
-The latest release is [v0.3.0](https://github.com/zombiecheese/rf-redux/releases/tag/v0.3.0) (2026-11-14); what changed in each release, and what is waiting for the next one, is in [CHANGELOG.md](CHANGELOG.md). Version 1.0.0 is kept for when the game can go public.
-
-| Part | State |
-| --- | --- |
-| The game itself: vehicles, weapons, buildings, soldiers, flags, bots | Done, traced from the original |
-| Online play: lockstep server, accounts, lobbies, chat, friends, replays, admin panel | Built; needs more play-testing with real players |
-| Level editor and map sharing | Done |
-| The project's own art, models, sounds, cockpit pictures, title art, win scene and music | Done: nothing is imported from the original |
-| Maps | The 104 original two-player layouts, and sixteen 3- and 4-base maps made from them |
+The latest release is [v0.3.0](https://github.com/zombiecheese/rf-redux/releases/tag/v0.3.0) (2026-11-14); what changed in each release, and what is waiting for the next one, is in [CHANGELOG.md](CHANGELOG.md). Version 1.0.0 is kept for when the game no longer uses anything from the original.
 
 Still to come: two-player maps of the project's own.
 
@@ -66,12 +58,12 @@ Still to come: two-player maps of the project's own.
 
 - Every match is recorded in the browser (the last 20, plus any you star) and plays back at ¼× to 8× with pause, ten-second jumps, a timeline and a choice of player to follow. Replays save as `.rfwreplay.json` files or, signed in, to your account.
 - Options: rebind every vehicle key for either half of the keyboard, master, effects and music volume, retro or modern visuals, day or night lighting for the modern view, a subtle CRT look (on by default), how the picture is scaled, and Swap Sides. Names, settings and the Hall of Fame are kept in the browser, and settings follow a signed-in account.
-- Music chosen the way the original's music director chose it, played as MIDI band arrangements of public-domain music on an MT-32-style synthesiser, or on a SoundFont you add ([docs/music.md](docs/music.md)).
+- Music chosen the way the original's music director chose it, for each vehicle, the bunker, deaths, the flag, the win and the menus ([docs/music.md](docs/music.md)). The retro view plays MIDI band arrangements of public-domain music on an MT-32-style synthesiser, or on a SoundFont you add. The modern view has its own soundtrack: original hardcore, beatdown and metalcore instrumentals, with a breakdown in every piece, played on the synthesiser's guitar amp, bass and metal kit. Switching the view switches the music at once.
 
 **The picture, and phones and tablets**
 
 - The 320 × 240 picture fills the browser at 4:3 with square pixels. The bars left over are pixel camouflage in the watching player's colour.
-- Options > Visuals switches to a modern view, at any time, even during a match: the same game drawn in 3D at 1280 × 720 (16:9) with low-poly toy-soldier models, sunlight and shadows, an animated sea, glowing explosions, smoke and debris, and a HUD in the menus' style. The bunker is a 3D cutaway of the hill with the vehicles parked in their bays and the lift carrying them up, the skull is a 3D skull in the rival's helmet, and messages, chat and the scoreboard use the menus' style too. Options > Lighting picks day, or night with headlights, glowing fire, and lit windows and lamps on the buildings. The camera follows and zooms as the retro one does, so both show the same part of the map across, and retro and modern players can share an online match. It needs WebGL; without it the game stays retro. `/modern-gallery.html` in the dev server shows every modern model.
+- Options > Visuals switches to a modern view, at any time, even during a match: the same game drawn in 3D at 1280 × 720 (16:9) with low-poly toy-soldier models, sunlight and shadows, an animated sea, glowing explosions, smoke and debris, and a HUD in the menus' style. The bunker is a 3D cutaway of the hill with the vehicles parked in their bays and the lift carrying them up, the skull is a 3D skull in the rival's helmet, and messages, chat and the scoreboard use the menus' style too. It has its own hardcore and metalcore soundtrack. Options > Lighting picks day, or night with headlights, glowing fire, and lit windows and lamps on the buildings. The camera follows and zooms as the retro one does, so both show the same part of the map across, and retro and modern players can share an online match. It needs WebGL; without it the game stays retro. `/modern-gallery.html` in the dev server shows every modern model.
 - Phones and tablets play solo, in landscape, with on-screen controls ([Touch controls](#touch-controls)). Held upright they show a "turn your device sideways" notice and the match waits.
 
 ## Getting started
@@ -199,7 +191,7 @@ An npm workspaces monorepo in TypeScript. It is complete in itself: nothing is i
 | --- | --- |
 | `packages/sim` | The game rules: vehicles, weapons, buildings, flags, bots. Deterministic integer fixed-point maths that mirrors the original (tile = 2^21 units, pixel = 2^16, 64 headings), so the server and every client compute bit-identical results. Tested with Vitest. |
 | `packages/net` | The multiplayer protocol shared by server and client: lockstep frames and their binary encoding, the JSON messages, team layouts and solo-run replays. |
-| `packages/client` | The browser game (Vite). `raster.ts` is a software rasteriser that reproduces the original cel renderer at 320 × 240; the HUD, bunker screen, effects and sound sit on top. `menu.ts` and `ui.css` are the on-screen menu and the look of every panel, `src/online/` is online play and the lobby, and `src/admin/` the admin panel. |
+| `packages/client` | The browser game (Vite). `raster.ts` is a software rasteriser that reproduces the original cel renderer at 320 × 240; the HUD, bunker screen, effects and sound sit on top. `src/modern/` is the optional 3D view (three.js), `src/music/` the music director, MIDI player, synthesiser and both soundtracks, `menu.ts` and `ui.css` are the on-screen menu and the look of every panel, `src/online/` is online play and the lobby, and `src/admin/` the admin panel. |
 | `packages/server` | Node game server, bundled into one file: serves the client and assets, runs lockstep matches and bots, accounts (SQLite via `node:sqlite`), lobbies, chat, leaderboards and the admin API over HTTP and a WebSocket. |
 | `tools/art/`, `assets/art/` | The art pack the game runs on: sprites, models and number tables, sounds, cockpit pictures and maps ([docs/assets.md](docs/assets.md)). `npm run art` builds it; `tools/art-sheet.mjs` and `tools/asset-inventory.mjs` help review it. |
 | `tools/title-art/`, `tools/favicon/` | Draw the title art and the favicon from code ([docs/assets.md](docs/assets.md#the-title-art-splash-logo-and-favicon)). |
@@ -214,6 +206,6 @@ An npm workspaces monorepo in TypeScript. It is complete in itself: nothing is i
 | [docs/online.md](docs/online.md) | Online play, accounts, the admin panel and how lockstep works |
 | [docs/level-editor.md](docs/level-editor.md) | The level editor, the map library and its API |
 | [docs/map-format.md](docs/map-format.md) | The map file format, playability checks and how the 3- and 4-base maps are made |
-| [docs/music.md](docs/music.md) | The music system, the pieces and why each is in the public domain |
+| [docs/music.md](docs/music.md) | The music system, the band's pieces and why each is in the public domain, and the modern view's soundtrack |
 | [CHANGELOG.md](CHANGELOG.md) | What changed in each release |
 | [Wiki](https://github.com/zombiecheese/rf-redux/wiki) | The players' and hosts' guide: installing, deploying, how to play, the rules, online play and the level editor. Its pages are the files in `wiki/`, published by `.github/workflows/wiki.yml` |

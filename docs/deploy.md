@@ -115,7 +115,7 @@ Releases are cut from `main` by pushing a version tag. `.github/workflows/releas
 2. Once it is merged, tag `main` and push the tag:
 
    ```sh
-   git tag v0.2.0 && git push origin v0.2.0
+   git tag v0.3.0 && git push origin v0.3.0
    ```
 
    Publishing a release for a new tag on the repository's Releases page does the same: the workflow fills in its title, notes and files.
