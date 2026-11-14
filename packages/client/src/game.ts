@@ -29,7 +29,7 @@ import { setTouchMode, touchModeFor } from './touch.js';
 import { Effects } from './effects.js';
 import { LINE, drawText, textWidth } from './font.js';
 import { drawHud } from './hud.js';
-import { ONLINE_KEYS, REPLAY_KEYS, activeControls, bindingsVersion, keyName, playKeys, typingIn } from './keys.js';
+import { ONLINE_KEYS, REPLAY_KEYS, activeControls, bindingsVersion, keyName, playKeys, typingIn, type Controls } from './keys.js';
 import type { Net } from './online/net.js';
 import { ChatInput, chatRuns, drawChat, drawNames, drawScoreboard, scoreRows } from './online/overlay.js';
 import { Frame, SCREEN_H, SCREEN_W } from './raster.js';
@@ -222,17 +222,58 @@ export class Game {
     const handicap = (replay ? replay.handicap : start ? start.handicap : this.o.handicap) === true;
     const startSlots = match.players.map((p) => ({ base: p.base, team: p.team }));
     const startLives = match.players.map((p) => startingLives(replay?.map ?? start?.map ?? assets.map, startSlots, p.id, handicap));
-    // Who each view follows: the local players, or online this browser's seat (a spectator picks with 1-4).
+    // Who each view follows: the local players, or online this browser's seat (a spectator picks with 1-4 or the arrows).
     let watched = start ? (start.you ?? 0) : 0;
     const me = start ? start.you : replay ? null : 0;
-    // A player whose base is out watches a teammate still in the match.
-    const follow = (p: number): number => {
+    /** Still in the match: worth watching. */
+    const playing = (id: number): boolean => {
+      const q = match.players[id];
+      return !!q && q.state !== 'out' && !match.eliminated[q.base];
+    };
+    /** The player each view has picked to watch once its own base is out (null: not picked yet). */
+    const picked: (number | null)[] = [null, null];
+    // A player whose base is out watches the one they picked, else a teammate still in the match, else anyone still in.
+    const follow = (p: number, i: number): number => {
       const pl = match.players[p]!;
       if (pl.state !== 'out') return p;
-      return match.players.find((q) => q.team === pl.team && !match.eliminated[q.base] && q.state !== 'out')?.id ?? p;
+      const c = picked[i];
+      if (c !== null && c !== undefined && playing(c)) return c;
+      return match.players.find((q) => q.team === pl.team && playing(q.id))?.id ?? match.players.find((q) => playing(q.id))?.id ?? p;
     };
     const seats = (): number[] => (online || replay ? [watched] : Array.from({ length: players }, (_, p) => p));
     const viewers = (): number[] => (me === null ? seats() : seats().map(follow));
+    /** Watching (a spectator, or a player whose base is out): view i follows player n, if they are still in. */
+    const choose = (i: number, n: number): boolean => {
+      if (me === null) {
+        if (n < 0 || n >= match.players.length || n === watched) return false;
+        watched = n;
+        return true;
+      }
+      if (!playing(n) || viewers()[i] === n) return false;
+      picked[i] = n;
+      return true;
+    };
+    /** Watching: view i moves on to the next (step 1) or the one before (step -1) of the players still in. */
+    const cycle = (i: number, step: 1 | -1): boolean => {
+      const left = match.players.filter((q) => playing(q.id)).map((q) => q.id);
+      if (!left.length) return false;
+      const at = left.indexOf(viewers()[i]!);
+      const n = at < 0 ? left[step > 0 ? 0 : left.length - 1]! : left[(at + step + left.length) % left.length]!;
+      return choose(i, n);
+    };
+    /**
+     * A key pressed by someone watching: turn left / right step through the players still in (fire steps on), and the
+     * launch keys (or 1-4) pick player 1-4. Returns whether the view changed.
+     */
+    const watchKey = (i: number, c: Controls, code: string): boolean => {
+      if (c.left.includes(code)) return cycle(i, -1);
+      if (c.right.includes(code) || c.fire.includes(code)) return cycle(i, 1);
+      const slot = c.launch.findIndex((codes) => codes.includes(code));
+      if (slot >= 0) return choose(i, slot);
+      // One view on the screen: the number keys (and the touch buttons P1-P4) pick a player too.
+      const n = players === 1 || online ? (ONLINE_KEYS.follow as readonly string[]).indexOf(code) : -1;
+      return n >= 0 && choose(i, n);
+    };
     const names = replay ? match.players.map((p) => replay.seats[p.id]?.name ?? `Base ${p.base + 1}`) : this.o.names;
     // A replay shows names as an online match does, from its seats.
     const shown: MatchStart | undefined = start ?? (replay ? {
@@ -396,6 +437,21 @@ export class Game {
       }
     };
 
+    /** When a base played on this screen goes out: how to pick who to watch, if anyone is left to watch. */
+    const outHint = (base: number) => {
+      if (me === null || replay) return;
+      const ours = seats().filter((p) => match.players[p]!.base === base);
+      if (!ours.length || !match.players.some((q) => playing(q.id))) return;
+      if (this.o.handheld) return say('You are out: P1-P4 pick who to watch');
+      for (const p of ours) {
+        const i = seats().indexOf(p);
+        const c = controls[i]!;
+        // One view: the arrows (the last of the merged keys) or 1-4; split screen: that half's own turn keys.
+        const keys = players > 1 ? `${keyName(c.left[0]!)} / ${keyName(c.right[0]!)}` : `${keyName(c.left.at(-1)!)} / ${keyName(c.right.at(-1)!)} or 1-4`;
+        say(`${players > 1 ? `${baseName(base)} is out` : 'You are out'}: ${keys} pick who to watch`);
+      }
+    };
+
     /** Effects, sounds, messages and cameras after a tick, local or online. */
     const afterTick = () => {
       effects.add(match.events, match);
@@ -410,6 +466,7 @@ export class Game {
       for (const e of match.events) {
         const text = describe(e);
         if (text) say(text);
+        if (e.type === 'eliminated') outHint(e.base);
         if (e.type === 'captured') captures[e.player] = (captures[e.player] ?? 0) + 1;
       }
       const v = viewers();
@@ -441,6 +498,11 @@ export class Game {
       for (const code of pressed.splice(0)) {
         for (let p = 0; p < players; p++) {
           const c = controls[p]!;
+          // Out of the match: the keys pick who to watch.
+          if (match.players[p]!.state === 'out') {
+            if (watchKey(p, c, code)) sound.ui('click');
+            continue;
+          }
           const slot = c.launch.findIndex((codes) => codes.includes(code));
           if (slot >= 0) {
             selected[p] = LAUNCH_ORDER[slot]!;
@@ -578,12 +640,12 @@ export class Game {
         } else net!.command({ launch: kind });
       }
       for (const code of pressed.splice(0)) {
-        if (me === null) {
-          const n = (ONLINE_KEYS.follow as readonly string[]).indexOf(code);
-          if (n >= 0 && n < match.players.length) watched = n;
+        const c = controls[0]!;
+        // A spectator, or a player whose base is out, picks who to watch.
+        if (me === null || match.players[me]!.state === 'out') {
+          if (watchKey(0, c, code)) sound.ui('click');
           continue;
         }
-        const c = controls[0]!;
         const slot = c.launch.findIndex((codes) => codes.includes(code));
         if (slot >= 0) {
           selected[0] = LAUNCH_ORDER[slot]!;
@@ -863,7 +925,7 @@ export class Game {
       say(me === null ? 'Watching: P1-P4 pick a player' : 'Stick picks a bay, Launch sends it up');
       if (me !== null) say('Dock takes a vehicle back in on your base');
     } else if (online) {
-      if (me === null) say('Watching: 1-4 pick a player, Tab the scores');
+      if (me === null) say(`Watching: ${keyName(sides.solo.left[0]!)} / ${keyName(sides.solo.right[0]!)} or 1-4 pick a player, Tab the scores`);
       else {
         say(`Drive keys pick a bay, ${keyName(sides.left.fire[0]!)} launches`);
         say(`${keyName(ONLINE_KEYS.chat)} to chat, ${keyName(ONLINE_KEYS.scoreboard)} the scores`);
