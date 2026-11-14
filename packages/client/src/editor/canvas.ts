@@ -6,7 +6,7 @@
 
 import { GRID, buildWorld, createMatch, type MapPoint, type MapProblem, type Match, type World } from '@rfw/sim';
 import type { GameAssets, GameData } from '../assets.js';
-import { Camera, type ViewRect } from '../camera.js';
+import { Camera, FOCAL, type ViewRect } from '../camera.js';
 import { drawable } from '../mappreview.js';
 import { TEAMS } from '../paint.js';
 import { CrtLook } from '../display.js';
@@ -29,8 +29,9 @@ const MODERN_TOP_PITCH = 63.5;
 export type Look = 'classic' | 'modern' | 'night';
 const MODERN_W = 1280;
 const MODERN_H = 720;
+/** The minimap's picture of the map, in pixels (drawn at 168 CSS pixels, so sharp on a 2x screen). */
+const MINIMAP_PICTURE = 336;
 export const BASE_CSS = TEAMS.map((t) => t.css);
-const FOCAL = 300;
 
 /** A small square of a base's colour, for lists. */
 export function dot(colour: string): HTMLElement {
@@ -85,6 +86,8 @@ export class MapView {
    */
   private shownWorld: World | null = null;
   private shownDoc: EditorDoc | null = null;
+  /** Night preview only: extra moonlight so the whole map can be read (matches and test play never have it). */
+  moonlight = true;
   /** Called when the modern view has loaded (or failed to), to draw again. */
   onLoad: () => void = () => {};
 
@@ -227,6 +230,7 @@ export class MapView {
       this.canvas.height = ch;
     }
     const match = this.world();
+    this.adoptShown(match);
     this.setup();
     const ctx = this.ctx;
     const w = this.frame.w * this.pixel;
@@ -250,12 +254,9 @@ export class MapView {
     this.drawOverlay(overlay);
   }
 
-  /**
-   * The modern view: the renderer draws the same camera into a part of its 1280 x 720 screen with the view's own
-   * shape, always as the drone's feed (the modern view's look), by day or at night, and that part is scaled up here.
-   */
-  private drawModern(built: Match, w: number, h: number): void {
-    const modern = this.modern!;
+  /** Keeps one world for the modern renderer per document: a new build's contents are copied into it. */
+  private adoptShown(built: Match): void {
+    if (this.shownLook === 'classic') return;
     const d = this.doc();
     if (this.shownDoc !== d || !this.shownWorld) {
       this.shownWorld = built.world;
@@ -264,11 +265,53 @@ export class MapView {
       adopt(this.shownWorld, built.world);
       built.world = this.shownWorld;
     }
+  }
+
+  /**
+   * The whole map straight down in the look being previewed, size x size pixels, for the minimap and the drafts'
+   * thumbnails. It covers map pixels 0 to the longer side on both axes, so a tile maps to the same place as on the
+   * minimap. Null until the world is built.
+   */
+  snapshot(size: number): HTMLCanvasElement | null {
+    const d = this.doc();
+    const match = this.world();
+    this.adoptShown(match);
+    const span = Math.max(d.width, d.height) * TILE;
+    const scale = size / span;
+    const o = this.offset;
+    const cam = new Camera({ x: 0, y: 0, w: size, h: size, dx: 0, dy: 0, boxW: size, boxH: size });
+    const modern = this.shownLook !== 'classic' ? this.modern : null;
+    cam.fix(span / 2 + o.x * TILE, span / 2 + o.y * TILE, FOCAL / scale - FOCAL, modern ? MODERN_TOP_PITCH : PITCH.top);
+    cam.begin();
+    const out = document.createElement('canvas');
+    out.width = size;
+    out.height = size;
+    const g = out.getContext('2d')!;
+    if (modern) {
+      const rect = { x: 0, y: 0, w: Math.min(size, MODERN_H), h: Math.min(size, MODERN_H) };
+      modern.draw(match, [{ cam, rect, viewer: 0, skip: false }], { wrecks: [], splats: [] });
+      g.drawImage(modern.canvas, 0, 0, rect.w, rect.h, 0, 0, size, size);
+    } else {
+      const frame = new Frame(size, size);
+      frame.setClip(0, 0, size, size);
+      drawView(frame, cam, match, this.assets!, 0);
+      g.putImageData(new ImageData(new Uint8ClampedArray(frame.px.buffer), size, size), 0, 0);
+    }
+    return out;
+  }
+
+  /**
+   * The modern view: the renderer draws the same camera into a part of its 1280 x 720 screen with the view's own
+   * shape, always as the drone's feed (the modern view's look), by day or at night, and that part is scaled up here.
+   */
+  private drawModern(built: Match, w: number, h: number): void {
+    const modern = this.modern!;
     const aspect = this.frame.w / this.frame.h;
     const rect = aspect > MODERN_W / MODERN_H
       ? { x: 0, y: 0, w: MODERN_W, h: Math.max(1, Math.round(MODERN_W / aspect)) }
       : { x: 0, y: 0, w: Math.max(1, Math.round(MODERN_H * aspect)), h: MODERN_H };
     modern.setNight(this.look === 'night');
+    modern.setMoonlight(this.look === 'night' && this.moonlight ? 1 : 0);
     modern.setLook(true, false);
     modern.draw(built, [{ cam: this.cam, rect, viewer: 0, skip: false }], { wrecks: [], splats: [] });
     const ctx = this.ctx;
@@ -454,9 +497,13 @@ function adopt(into: World, from: World): void {
 export class Minimap {
   readonly canvas = document.createElement('canvas');
   private readonly ctx = this.canvas.getContext('2d')!;
+  /** The map in the previewed look (MapView.snapshot), redrawn a moment after edits stop, or null for flat colours. */
+  private picture: HTMLCanvasElement | null = null;
   private image: ImageData | null = null;
   private builtFor = -1;
   private builtDoc: EditorDoc | null = null;
+  private builtLook = '';
+  private due = 0;
 
   constructor(private readonly colours: [number, number, number][], private readonly doc: () => EditorDoc) {
     this.canvas.className = 'minimap';
@@ -469,18 +516,36 @@ export class Minimap {
     return { x: Math.floor(sx / k), y: Math.floor(sy / k) };
   }
 
-  render(view: MapView): void {
+  /** Whether the picture is waiting to be redrawn. */
+  get waiting(): boolean {
+    return this.due > 0;
+  }
+
+  /** busy: an edit is under way (a drag), so the picture waits for it to end. */
+  render(view: MapView, busy = false): void {
     const d = this.doc();
-    if (this.builtDoc !== d || this.builtFor !== d.version || !this.image || this.image.width !== d.width || this.image.height !== d.height) {
-      const img = new ImageData(d.width, d.height);
-      for (let i = 0; i < d.width * d.height; i++) {
-        const [r, g, b] = this.colours[d.terrain[i]! & 127]!;
-        const dark = d.objects.has(i) ? 0.45 : 1;
-        img.data.set([r * dark, g * dark, b * dark, 255], i * 4);
+    const look = view.shownLook;
+    const stale = this.builtDoc !== d || this.builtFor !== d.version || this.builtLook !== look;
+    if (stale || !this.image || this.image.width !== d.width || this.image.height !== d.height) {
+      // Flat colours at once, so the minimap never lags an edit; the proper picture follows when things settle.
+      if (this.builtDoc !== d || this.builtFor !== d.version || !this.image) {
+        const img = new ImageData(d.width, d.height);
+        for (let i = 0; i < d.width * d.height; i++) {
+          const [r, g, b] = this.colours[d.terrain[i]! & 127]!;
+          const dark = d.objects.has(i) ? 0.45 : 1;
+          img.data.set([r * dark, g * dark, b * dark, 255], i * 4);
+        }
+        this.image = img;
       }
-      this.image = img;
+      if (this.builtDoc !== d || this.builtLook !== look) this.picture = null;
       this.builtFor = d.version;
       this.builtDoc = d;
+      this.builtLook = look;
+      this.due = performance.now() + (this.picture ? 600 : 0);
+    }
+    if (this.due && !busy && performance.now() >= this.due) {
+      this.due = 0;
+      this.picture = view.snapshot(MINIMAP_PICTURE);
     }
     const size = this.canvas.clientWidth;
     const dpr = devicePixelRatio || 1;
@@ -493,13 +558,22 @@ export class Minimap {
     ctx.fillStyle = '#123';
     ctx.fillRect(0, 0, size, size);
     const k = size / Math.max(d.width, d.height);
-    const tmp = new OffscreenCanvas(d.width, d.height);
-    tmp.getContext('2d')!.putImageData(this.image, 0, 0);
-    ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(tmp, 0, 0, d.width * k, d.height * k);
+    if (this.picture && !this.due) {
+      ctx.imageSmoothingEnabled = true;
+      ctx.drawImage(this.picture, 0, 0, size, size);
+    } else {
+      const tmp = new OffscreenCanvas(d.width, d.height);
+      tmp.getContext('2d')!.putImageData(this.image!, 0, 0);
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(tmp, 0, 0, d.width * k, d.height * k);
+    }
     d.bases.forEach((b, i) => {
       ctx.fillStyle = BASE_CSS[i]!;
-      ctx.fillRect((b.start.x - 1) * k, (b.start.y - 1) * k, Math.max(3, 3 * k), Math.max(3, 3 * k));
+      ctx.strokeStyle = '#000';
+      ctx.lineWidth = 1;
+      const s = Math.max(4, 3 * k);
+      ctx.fillRect((b.start.x + 0.5) * k - s / 2, (b.start.y + 0.5) * k - s / 2, s, s);
+      ctx.strokeRect((b.start.x + 0.5) * k - s / 2, (b.start.y + 0.5) * k - s / 2, s, s);
     });
     const c = view.viewCorners();
     if (c.every(Boolean)) {

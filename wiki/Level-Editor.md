@@ -19,9 +19,9 @@ The **Preview** switch at the top (or the **V** key) draws the map you are editi
 
 - **Classic**: the pixel view, through its CRT look.
 - **Modern**: the 3D view as the drone's feed, by day.
-- **Night**: the modern view in a night match, with the buildings' lights.
+- **Night**: the modern view in a night match, with the buildings' lights. The **Moonlight** pill over the map brightens it while you edit; turn it off to see how dark the match will really be.
 
-**Test Play** starts in the view you are previewing. The modern choices need WebGL; the editor remembers your preview and camera.
+**Test Play** starts in the view you are previewing. The modern choices need WebGL; the editor remembers your preview and camera. The minimap and the draft pictures in **File > Open** follow the preview too.
 
 ![The same map previewed in the modern view at night, from the game camera](images/editor-night.png)
 
@@ -36,7 +36,9 @@ The **Preview** switch at the top (or the **V** key) draws the map you are editi
 | Tile | T | Note | N |
 | Bridge | R | Move view | H |
 
-Painting tools take a shape: a brush 1, 2, 3, 5 or 7 tiles across, a line, a box or a fill. **?** lists every key.
+Painting tools take a shape: a brush 1, 2, 3, 5 or 7 tiles across, a line, a box or a fill. **?** lists every key, and holding **K** shows them all over the map until you let go.
+
+New to the editor? The **Getting started** checklist over the map ticks off each step towards a playable map (land, two bases, flag sites, no errors, a test play). Click a step to jump to its tool. × hides it, and **Help > Getting Started** brings it back.
 
 ## Making a map
 
@@ -58,11 +60,13 @@ The **Problems** tab lists what is wrong, and the map outlines the tiles involve
 - **Errors** (red) stop the map being played: a lift in the water, a missing flag site, a base with no jeeps, a bridge end without its partner.
 - **Warnings** (amber) do not: a flag a jeep cannot reach, two buildings on one tile.
 
+Click a problem to go to it, or press **J** (Shift+J goes back). Many problems have a fix button beside them, such as **Remove the building**, **Put land under it** or **Place a flag site**; a fix can be undone like any edit.
+
 **Test Play** (P) starts a solo match on the map from the base you pick, with the computer playing the others, in the view you are previewing. Esc comes back to the editor where you were.
 
 ## Saving and sharing
 
-- Maps save themselves as drafts in your browser as you work. **File > Open** lists them, and can open a copy of any built-in two-player map.
+- Maps save themselves as drafts in your browser as you work. **File > Open** lists them, with a picture of the one you pick, and can open a copy of any built-in two-player map.
 - **File > Export** writes a `.rfw.json` file. **Import** reads one back.
 - Drafts with two or more bases appear in the Level Selector under **Add-Ons**.
 

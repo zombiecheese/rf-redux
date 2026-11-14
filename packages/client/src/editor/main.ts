@@ -18,6 +18,8 @@ import { settingsPanel } from './settings.js';
 import { browseLibrary, saveToLibrary } from './library.js';
 import { deleteDraft, lastOpen, listDrafts, loadDraft, newDraftId, saveDraft, setLastOpen } from './storage.js';
 import { testPlay } from './testplay.js';
+import { CheatSheet, Checklist, KEY_SECTIONS, fixFor, keyTable, markTested } from './guide.js';
+import { MapPreview } from '../mappreview.js';
 import { TEAMS } from '../paint.js';
 import { buildingIcon, palette, tileColours, tileIcon, tileTransforms, type PaletteEntry } from './tiles.js';
 import {
@@ -71,6 +73,8 @@ const VIEW_KEY = 'rfw-editor-view';
 /** Below this the editor's panels do not fit round a usable map. */
 const MIN_W = 1000;
 const MIN_H = 560;
+/** After this long without the mouse or keyboard, the modern preview animates slowly. */
+const IDLE_MS = 5000;
 
 /** A building's name as the palette shows it: TOWER_LARGE becomes Tower large, BLDG_N becomes Bldg (N), its facing. */
 function pretty(name: string): string {
@@ -175,6 +179,12 @@ class Editor {
     el('b', {}, 'Make the window bigger'), el('span', {}, `The level editor needs a window at least ${MIN_W} × ${MIN_H} pixels for its tools and the map.`));
   private tab: 'palette' | 'settings' | 'problems' = 'palette';
   private testing = false;
+  /** When the pointer or a key last did something, for slowing the modern view's animation when idle. */
+  private lastInput = performance.now();
+  private lastAnimated = 0;
+  private readonly cheat = new CheatSheet();
+  private readonly guide = new Checklist((step) => this.guideStep(step));
+  private readonly moonBtn = el('button', { type: 'button', class: 'ed-pill ed-moon', title: 'Extra light in the Night preview so the whole map can be read. Test Play and matches stay as dark as a real night.' });
 
   constructor(private readonly data: GameData, private readonly lift: number[] | null) {
     this.painter = new ShorePainter(data.shore);
@@ -197,7 +207,8 @@ class Editor {
     };
     this.minimap = new Minimap(tileColours(data), () => this.doc);
     try {
-      const saved = JSON.parse(localStorage.getItem(VIEW_KEY) ?? '{}') as { look?: Look; mode?: ViewMode };
+      const saved = JSON.parse(localStorage.getItem(VIEW_KEY) ?? '{}') as { look?: Look; mode?: ViewMode; moonlight?: boolean };
+      if (saved.moonlight === false) this.view.moonlight = false;
       if (saved.mode === 'top' || saved.mode === 'tilted') this.view.mode = saved.mode;
       if (saved.look && LOOKS.some((l) => l.id === saved.look)) this.view.setLook(saved.look);
     } catch {
@@ -214,6 +225,9 @@ class Editor {
     };
     requestAnimationFrame(loop);
     setInterval(() => this.autosave(), 1500);
+    for (const type of ['pointermove', 'pointerdown', 'keydown', 'wheel'] as const) {
+      addEventListener(type, () => (this.lastInput = performance.now()), { capture: true, passive: true });
+    }
     addEventListener('beforeunload', () => this.autosave());
   }
 
@@ -288,6 +302,8 @@ class Editor {
       {
         label: 'Help', items: [
           { label: 'Map Editor Help', key: '?', action: () => void this.help() },
+          { label: 'Key Cheat Sheet', key: 'Hold K', action: () => this.cheat.show() },
+          { label: 'Getting Started', action: () => this.showGuide(), checked: () => !this.guide.off },
         ],
       },
     ]);
@@ -360,7 +376,14 @@ class Editor {
     const zoom = el('div', { class: 'ed-zoom' },
       zoomBtn('+', 'Zoom in (+)', () => this.view.zoom(1.25)), zoomBtn('−', 'Zoom out (-)', () => this.view.zoom(0.8)),
       zoomBtn('⤢', 'Zoom to fit (0)', () => this.view.fit()));
-    const stage = el('main', { class: 'stage' }, this.view.canvas, this.minimap.canvas, zoom, this.statusbar, this.loadingPill);
+    this.moonBtn.addEventListener('click', () => {
+      this.view.moonlight = !this.view.moonlight;
+      this.keepView();
+      this.syncToolbar();
+      this.redraw();
+    });
+    const stage = el('main', { class: 'stage' }, this.view.canvas, this.minimap.canvas, zoom, this.statusbar, this.loadingPill, this.moonBtn, this.guide.root);
+    document.body.append(this.cheat.root);
     for (const [id, label] of [['palette', 'Palette'], ['settings', 'Map'], ['problems', 'Problems']] as const) {
       const b = el('button', { type: 'button', class: 'tab' }, label);
       b.dataset.tab = id;
@@ -410,6 +433,9 @@ class Editor {
       b.setAttribute('aria-checked', String(b.dataset.id === this.view.mode));
     });
     this.loadingPill.hidden = !this.view.loading;
+    this.moonBtn.hidden = this.view.shownLook !== 'night';
+    this.moonBtn.textContent = `☾ Moonlight ${this.view.moonlight ? 'on' : 'off'}`;
+    this.moonBtn.classList.toggle('on', this.view.moonlight);
     this.undoBtn.disabled = !this.doc.canUndo;
     this.redoBtn.disabled = !this.doc.canRedo;
     document.body.dataset.look = this.view.shownLook;
@@ -537,16 +563,82 @@ class Editor {
       wrap.append(el('p', {}, 'No problems found. The map can be test played and shared.'));
       return wrap;
     }
+    wrap.append(el('p', { class: 'hint' }, 'Click a problem to go to it, or press J for the next one (Shift+J the one before).'));
     for (const p of this.problems) {
-      const b = el('button', { type: 'button', class: `problem ${p.level}` }, el('b', {}, p.level === 'error' ? 'Error' : 'Warning'), ' ', p.message);
-      b.addEventListener('click', () => {
-        this.focus = p;
-        if (p.tiles[0]) this.view.centreOn(p.tiles[0]);
-        this.redraw();
+      const b = el('button', { type: 'button', class: `problem ${p.level}` + (p === this.focus ? ' on' : '') }, el('b', {}, p.level === 'error' ? 'Error' : 'Warning'), ' ', p.message);
+      b.addEventListener('click', () => this.goTo(p));
+      const fix = fixFor(p, this.doc, { ...this.ctx, symmetry: 'none' });
+      if (!fix) {
+        wrap.append(b);
+        continue;
+      }
+      const f = el('button', { type: 'button', class: 'btn small fix' }, `✓ ${fix.label}`);
+      f.addEventListener('click', () => {
+        if ('edit' in fix) {
+          this.edit(fix.edit);
+          this.flash(fix.label);
+        } else {
+          this.setTool(fix.tool);
+          this.base = fix.base;
+          this.renderSide();
+          if (p.tiles[0]) this.view.centreOn(p.tiles[0]);
+          this.redraw();
+        }
       });
-      wrap.append(b);
+      wrap.append(el('div', { class: 'problem-row' }, b, f));
     }
     return wrap;
+  }
+
+  /** Centres the view on a problem and lights it up. */
+  private goTo(p: MapProblem): void {
+    this.focus = p;
+    if (p.tiles[0]) this.view.centreOn(p.tiles[0]);
+    if (this.tab === 'problems') this.renderSide();
+    this.redraw();
+  }
+
+  /** J: the next problem (by: -1 the one before), from the Problems tab or anywhere. */
+  private nextProblem(by: 1 | -1): void {
+    const list = this.problems;
+    if (!list.length) {
+      this.flash('No problems: the map can be played');
+      return;
+    }
+    const k = this.focus ? list.indexOf(this.focus) : -1;
+    const p = list[(k + by + list.length) % list.length]!;
+    this.goTo(p);
+    this.flash(`${list.indexOf(p) + 1} of ${list.length}: ${p.message}`);
+  }
+
+  // ---- Getting started -------------------------------------------------------------------------------------------
+
+  private refreshGuide(): void {
+    let land = 0;
+    const t = this.doc.terrain;
+    for (let i = 0; i < t.length && !land; i++) if (this.painter.pure(t[i]! & 127) === GROUNDS.land) land++;
+    this.guide.update(this.doc, this.problems, this.draftId, land);
+  }
+
+  private showGuide(): void {
+    this.guide.turnOn();
+    this.refreshGuide();
+    if (this.guide.root.hidden) this.flash('Every step is done: the map is ready to play and share');
+  }
+
+  /** A click on a checklist step picks the tool that does it. */
+  private guideStep(step: string): void {
+    if (step === 'land') this.setTool('land');
+    else if (step === 'start') {
+      this.base = Math.min(this.doc.bases.length, MAX_BASES - 1);
+      this.setTool('start');
+    } else if (step === 'flag') {
+      this.base = Math.max(0, this.doc.bases.findIndex((b) => !b.flagSites.length));
+      this.setTool('flag');
+    } else if (step === 'problems') {
+      this.showTab('problems');
+      if (this.problems[0]) this.goTo(this.problems[0]);
+    } else if (step === 'test') void this.test();
   }
 
   // ---- Changes, drawing and saving -----------------------------------------------------------------------------------
@@ -574,12 +666,23 @@ class Editor {
       if (this.focus && !this.problems.some((p) => p.code === this.focus!.code)) this.focus = null;
       this.syncToolbar();
       if (this.tab === 'problems') this.renderSide();
+      this.refreshGuide();
       this.needsDraw = true;
     }
-    if (this.testing || (!this.needsDraw && !this.view.animated)) return;
+    if (this.testing) return;
+    // The modern view animates (the sea, the feed's grain), but only needs every frame while someone is working:
+    // a few frames a second once the editor has sat idle, and one a second while the window is in the background.
+    const now = performance.now();
+    const gap = !document.hasFocus() ? 1000 : now - this.lastInput > IDLE_MS ? 250 : 0;
+    const animate = this.view.animated && now - this.lastAnimated >= gap;
+    if (!this.needsDraw && !animate) {
+      if (this.minimap.waiting && !this.drag) this.minimap.render(this.view);
+      return;
+    }
     this.needsDraw = false;
+    this.lastAnimated = now;
     this.view.render(this.overlay());
-    this.minimap.render(this.view);
+    this.minimap.render(this.view, !!this.drag);
     this.updateStatus();
   }
 
@@ -617,7 +720,7 @@ class Editor {
       const i = this.doc.index(c.x, c.y);
       parts.push(`${c.x}, ${c.y}`, `terrain ${this.doc.terrain[i]}`);
       const o = this.doc.objects.get(i);
-      if (o) parts.push(o.type + (o.base === null ? '' : ` (base ${o.base + 1})`));
+      if (o) parts.push(pretty(o.type) + (o.base === null ? '' : `, base ${o.base + 1}`));
       const s = this.doc.startAt(c.x, c.y);
       if (s >= 0) parts.push(`base ${s + 1} lift`);
       const f = this.doc.flagAt(c.x, c.y);
@@ -644,10 +747,15 @@ class Editor {
 
   private thumbnail(): string | undefined {
     try {
+      // The map in the look being previewed, as the minimap shows it.
+      const pic = this.view.snapshot(128);
+      if (!pic) return undefined;
       const c = document.createElement('canvas');
       c.width = 64;
       c.height = 64;
-      c.getContext('2d')!.drawImage(this.minimap.canvas, 0, 0, 64, 64);
+      const g = c.getContext('2d')!;
+      g.imageSmoothingQuality = 'high';
+      g.drawImage(pic, 0, 0, 64, 64);
       return c.toDataURL('image/png');
     } catch {
       return undefined;
@@ -972,6 +1080,10 @@ class Editor {
         case 'Delete': case 'Backspace': return handle(() => this.deleteSelection());
         case 'Escape': return handle(() => { this.selection = null; this.redraw(); });
         case 'KeyP': return handle(() => void this.test());
+        case 'KeyJ': return handle(() => this.nextProblem(e.shiftKey ? -1 : 1));
+        case 'KeyK': return handle(() => {
+          if (!e.repeat) this.cheat.show();
+        });
         case 'Slash': if (e.shiftKey) return handle(() => void this.help());
           break;
       }
@@ -998,7 +1110,7 @@ class Editor {
 
   private keepView(): void {
     try {
-      localStorage.setItem(VIEW_KEY, JSON.stringify({ look: this.view.look, mode: this.view.mode }));
+      localStorage.setItem(VIEW_KEY, JSON.stringify({ look: this.view.look, mode: this.view.mode, moonlight: this.view.moonlight }));
     } catch {
       // Not remembered.
     }
@@ -1103,6 +1215,8 @@ class Editor {
       b.classList.add('on');
       pick = fn;
     };
+    const preview = new MapPreview(() => Promise.resolve(this.data));
+    preview.clear('Pick a map to see it');
     for (const d of drafts) {
       const img = el('img', { src: d.thumb ?? '', alt: '' });
       const b = el('button', { type: 'button', class: 'draft' }, img,
@@ -1112,7 +1226,10 @@ class Editor {
         if (map) this.load(map, d.id);
         else void notice('Open', 'That draft could not be read.');
       };
-      b.addEventListener('click', () => choose(b, open));
+      b.addEventListener('click', () => {
+        choose(b, open);
+        preview.show(`draft:${d.id}:${d.updated}`, { name: d.name, bases: d.bases, note: 'Your draft' }, async () => loadDraft(d.id));
+      });
       b.addEventListener('dblclick', () => {
         open();
         layer()?.querySelector<HTMLButtonElement>('.close')?.click();
@@ -1125,11 +1242,15 @@ class Editor {
     for (const m of index) originals.add(new Option(`Level ${m.level}: ${m.name}`, m.id));
     originals.addEventListener('change', () => {
       list.querySelectorAll('.on').forEach((x) => x.classList.remove('on'));
-      pick = () => void this.openOriginal(originals.value);
+      const id = originals.value;
+      pick = () => void this.openOriginal(id);
+      const m = index.find((x) => x.id === id);
+      preview.show(`original:${id}`, { name: m ? m.name : id, note: m ? `Level ${m.level} · opens a copy` : 'Opens a copy' }, async () => parseMap(await loadMap(id)));
     });
     const body = el('div', { class: 'cols open' },
       el('fieldset', { class: 'grow' }, el('legend', {}, 'Your drafts'), list),
-      el('fieldset', { class: 'grow' }, el('legend', {}, 'Original maps (opens a copy)'), index.length ? originals : el('p', {}, 'Import the game data to see them.')));
+      el('fieldset', { class: 'grow' }, el('legend', {}, 'Original maps (opens a copy)'), index.length ? originals : el('p', {}, 'Import the game data to see them.')),
+      el('fieldset', { class: 'open-preview' }, el('legend', {}, 'Preview'), preview.root));
     const layer = () => document.querySelector('.dialog-layer');
     const r = await dialog('Open Map', body, [['Open', 'ok'], ['Delete Draft', 'delete'], ['Cancel', 'cancel']]);
     if (r === 'ok') (pick as (() => void) | null)?.();
@@ -1237,39 +1358,24 @@ class Editor {
     try {
       // The match is drawn as the map is being previewed: classic, or the modern view by day or at night.
       const look = this.view.look;
-      await testPlay(this.data, map, () => document.body.classList.add('testing'), { visuals: look === 'classic' ? 'retro' : 'modern', lighting: look === 'night' ? 'night' : 'day' });
+      const id = this.draftId;
+      await testPlay(this.data, map, () => {
+        document.body.classList.add('testing');
+        markTested(id);
+      }, { visuals: look === 'classic' ? 'retro' : 'modern', lighting: look === 'night' ? 'night' : 'day' });
     } finally {
       this.testing = false;
       document.body.classList.remove('testing');
+      this.refreshGuide();
       this.redraw();
     }
   }
 
   private async help(): Promise<void> {
-    const sections: [string, [string, string][]][] = [
-      ['Tools and painting', [
-        ['Pick a tool', 'Click it, or press its letter'], ['Brush, line, box, fill', 'The Brush buttons under the tools'],
-        ['Take a tile or building as the brush', 'Alt + click'], ['Undo / redo', 'Ctrl+Z / Ctrl+Y (or Ctrl+Shift+Z)'],
-        ['Select all / clear the selection', 'Ctrl+A / Esc'], ['Delete the selection', 'Delete or Backspace'],
-        ['Copy, cut, paste', 'Ctrl+C, Ctrl+X, Ctrl+V (R turns, H and V mirror, Esc drops)'],
-      ]],
-      ['Looking at the map', [
-        ['Preview: Classic, Modern or Night', 'V, or the Preview switch at the top'], ['Top down / game camera', 'Tab'],
-        ['Move the view', 'Right-drag, Space + drag, or the arrow keys'], ['Zoom', 'Mouse wheel, + and -; 0 fits the map'],
-        ['Jump to a place', 'Click or drag on the minimap'], ['Grid on or off', 'G'],
-      ]],
-      ['Files and playing', [
-        ['New map', 'Ctrl+Alt+N'], ['Open a draft or an original map', 'Ctrl+O'], ['Export as a file', 'Ctrl+E'],
-        ['Save the draft', 'Ctrl+S (drafts also save by themselves)'], ['Save to your library on the server', 'Ctrl+Shift+S'],
-        ['Shared maps and your library', 'Ctrl+Shift+O'], ['Test play', 'P, or Test Play at the top'],
-        ['In test play', "The game's keys (its Help lists them); P pauses, Esc comes back"], ['This help', '?'],
-      ]],
-    ];
-    const table = (rows: [string, string][]) => el('table', { class: 'grid help' }, el('tbody', {}, ...rows.map(([x, y]) => el('tr', {}, el('td', {}, x), el('td', {}, y)))));
     await dialog('Map Editor Help', el('div', { class: 'stack' },
-      el('p', {}, 'Paint land and water and the coast follows. Place up to four bases, each with a start (its lift) and at least one flag site, then add buildings and defences. Symmetry repeats every edit on the mirrored side so fair maps stay fair. The Problems tab says what stops a map being played.'),
-      el('p', {}, 'The Preview switch draws the map with the game\'s own views while you edit: Classic is the pixel view through its CRT, Modern is the 3D view as the drone\'s feed, and Night is the modern view in a night match, with the buildings\' lights. Test Play starts in the view you are previewing.'),
-      ...sections.flatMap(([title, rows]) => [el('div', { class: 'caption' }, title), table(rows)])),
+      el('p', {}, 'Paint land and water and the coast follows. Place up to four bases, each with a start (its lift) and at least one flag site, then add buildings and defences. Symmetry repeats every edit on the mirrored side so fair maps stay fair. The Problems tab says what stops a map being played, and fixes the simple ones for you.'),
+      el('p', {}, 'The Preview switch draws the map with the game\'s own views while you edit: Classic is the pixel view through its CRT, Modern is the 3D view as the drone\'s feed, and Night is the modern view in a night match, with the buildings\' lights and a little extra moonlight (the Moonlight button) so the map can be read. Test Play starts in the view you are previewing, as dark as a real night.'),
+      ...KEY_SECTIONS.flatMap(([title, rows]) => [el('div', { class: 'caption' }, title), keyTable(rows)])),
     [['OK', 'ok']]);
   }
 }

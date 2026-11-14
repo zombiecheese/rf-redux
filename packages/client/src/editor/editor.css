@@ -107,6 +107,41 @@ body.editor-page {
   color: var(--ui-text); pointer-events: none; }
 .ed-pill[hidden] { display: none; }
 
+/* Night only: the editor's extra moonlight, on or off. */
+.ed-moon { left: auto; right: .9em; transform: none; pointer-events: auto; cursor: pointer; font: inherit; font-weight: 600; }
+.ed-moon.on { border-color: #9fb4ff; color: #dfe6ff; }
+.ed-moon:hover { border-color: var(--ui-accent); }
+
+/* Getting started: the steps to a playable map, over the map's top-left corner. */
+.ed-guide { position: absolute; left: .9em; top: .9em; width: 17em; padding: .7em .8em .8em; border-radius: calc(var(--ui-radius) * 1.4);
+  background: rgba(14, 17, 13, .88); backdrop-filter: blur(6px); border: 1px solid var(--ui-line); box-shadow: 0 .6em 2em rgba(0, 0, 0, .5); }
+.ed-guide[hidden] { display: none; }
+.ed-guide-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: .4em; }
+.ed-guide-head b { color: var(--ui-accent); letter-spacing: .08em; text-transform: uppercase; font-size: .85em; }
+.ed-guide-close { width: 1.7em; height: 1.7em; border-radius: 50%; border: 0; background: var(--ui-raise); color: var(--ui-text); cursor: pointer; }
+.ed-guide-close:hover { background: var(--ui-bad); color: #fff; }
+.ed-guide ol { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .15em; }
+.ed-step { width: 100%; display: flex; align-items: center; gap: .6em; padding: .35em .4em; border: 0; border-radius: var(--ui-radius); background: none;
+  color: var(--ui-muted); text-align: left; cursor: pointer; font: inherit; }
+.ed-step:hover { background: var(--ui-hover); color: var(--ui-text); }
+.ed-step .tick { flex: none; width: 1.3em; height: 1.3em; display: grid; place-items: center; border-radius: 50%; border: 1px solid var(--ui-line); font-size: .8em; }
+.ed-step.done { color: var(--ui-muted); text-decoration: line-through; text-decoration-color: rgba(255, 255, 255, .25); }
+.ed-step.done .tick { background: var(--ui-good); border-color: transparent; color: #0d1a0a; }
+.ed-step.next { color: #fff; font-weight: 600; }
+.ed-step.next .tick { border-color: var(--ui-accent); box-shadow: 0 0 0 2px rgba(227, 163, 59, .3); }
+
+/* The key cheat sheet, while K is held. */
+.ed-keys { position: fixed; inset: 0; z-index: 45; display: grid; place-content: center; padding: 2em; background: rgba(6, 8, 6, .72); pointer-events: none; }
+.ed-keys[hidden] { display: none; }
+.ed-keys-head { display: flex; align-items: baseline; gap: 1em; margin-bottom: .8em; }
+.ed-keys-head b { color: var(--ui-accent); font-size: 1.3em; letter-spacing: .12em; text-transform: uppercase; }
+.ed-keys-head span { color: var(--ui-muted); }
+.ed-keys-cols { display: grid; grid-template-columns: repeat(3, minmax(0, 22em)); gap: 1.2em; padding: 1.2em; border-radius: calc(var(--ui-radius) * 1.6);
+  background: rgba(16, 19, 15, .95); border: 1px solid var(--ui-line); box-shadow: 0 1.2em 3em rgba(0, 0, 0, .6); }
+.ed-keys .grid { white-space: normal; }
+.ed-keys .grid td:last-child { color: var(--ui-accent); }
+.ed-keys .caption { margin-bottom: .3em; }
+
 /* The side panel. */
 .sidebar { display: flex; flex-direction: column; min-height: 0; background: var(--ed-panel); border-left: 1px solid var(--ui-line); }
 .tabs { display: flex; gap: .2em; margin: .6em .6em 0; padding: .2em; border-radius: 2em; background: rgba(0, 0, 0, .4); border: 1px solid var(--ui-line); }
@@ -139,6 +174,10 @@ body.editor-page {
 .problem { display: block; text-align: left; padding: .55em .75em; border-radius: var(--ui-radius); border: 1px solid var(--ui-line); border-left-width: 3px;
   background: var(--ui-raise); color: var(--ui-text); cursor: pointer; font: inherit; }
 .problem:hover { background: var(--ui-hover); }
+.problem.on { box-shadow: 0 0 0 1px var(--ui-accent); }
+.problem-row { display: flex; flex-direction: column; gap: .3em; }
+.problem-row .fix { align-self: flex-end; background: rgba(124, 196, 106, .16); border-color: rgba(124, 196, 106, .4); color: #bfe8b2; }
+.problem-row .fix:hover { background: rgba(124, 196, 106, .3); }
 .problem.error { border-left-color: var(--ui-bad); }
 .problem.error b { color: #ff8a73; }
 .problem.warning { border-left-color: var(--ui-accent); }
@@ -163,7 +202,10 @@ input.num { width: 4.5em; box-sizing: border-box; min-height: 2em; padding: .2em
 .draft:hover { background: var(--ui-hover); }
 .draft.on { border-color: var(--ui-accent); background: rgba(227, 163, 59, .16); }
 .draft img { width: 52px; height: 52px; flex: none; image-rendering: pixelated; background: #0b1a24; border-radius: .35em; }
-.cols.open { min-width: min(640px, 86vw); }
+.cols.open { min-width: min(860px, 90vw); flex-wrap: nowrap; }
+.cols.open > .grow { min-width: 0; }
+.open-preview { flex: 0 0 15em; }
+.ui .open-preview .map-preview-frame { width: 100%; }
 .toast { position: fixed; left: 50%; bottom: 2.4em; transform: translateX(-50%); z-index: 40; padding: .6em 1.2em; border-radius: 2em;
   background: rgba(22, 26, 20, .95); border: 1px solid var(--ui-accent); color: var(--ui-text); box-shadow: 0 .6em 2em rgba(0, 0, 0, .5);
   pointer-events: none; animation: dialog-in .14s ease-out; }
@@ -191,3 +233,4 @@ body.testing .editor, body.testing .ed-top { visibility: hidden; }
   .editor { grid-template-columns: 12.2em 1fr 19em; }
   .ed-brand span, .ed-labelled > span { display: none; }
 }
+.ui.window:has(.cols.open) { max-width: min(64em, 100%); }
