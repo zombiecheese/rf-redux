@@ -2,6 +2,7 @@
 // simple shapes, sized to the art pack's models so they cover the same ground. Each faces north (-y) at heading 0.
 // Parts that move on their own (turret, launcher, rotor, wheels) are kits of their own, turned by the renderer.
 
+import * as THREE from 'three';
 import { Kit } from './kit.js';
 
 const TRACK = 0x34363a;
@@ -117,9 +118,14 @@ export function heli(): VehicleKits {
   }
   const rotor = new Kit();
   rotor.cyl(0, 0, -0.6, 1.4, 1.4, 1.4, GUNMETAL, 8);
-  for (let i = 0; i < 4; i++) rotor.box(0, -13.5, 0, 2.6, 27, 0.4, 0x2d2f33, { turn: (i * Math.PI) / 2 });
+  // Each blade runs out from the hub; a shape turns about its own centre, so place the centre along the blade's line.
+  for (let i = 0; i < 4; i++) {
+    const a = (i * Math.PI) / 2;
+    rotor.box(Math.sin(a) * 13.5, -Math.cos(a) * 13.5, 0, 2.6, 27, 0.4, 0x2d2f33, { turn: a });
+  }
   const tail = new Kit();
-  for (let i = 0; i < 2; i++) tail.box(0, 0, -3.5, 0.4, 1.2, 7, 0x2d2f33, { roll: 0, tilt: (i * Math.PI) / 2 });
+  // Two blades crossed about the hub, centred on it.
+  for (let i = 0; i < 2; i++) tail.add(new THREE.BoxGeometry(0.4, 7, 1.2), 0, 0, 0, 0x2d2f33, { tilt: (i * Math.PI) / 2 });
   return { body, rotor, rotorAt: [0, 0, 12], tail, tailAt: [1.2, 30, 11] };
 }
 
