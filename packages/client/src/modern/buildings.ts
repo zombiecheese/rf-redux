@@ -4,6 +4,7 @@
 
 import type { BuildingDef } from '@rfw/sim';
 import * as THREE from 'three';
+import { ART } from './art.js';
 import { Kit, seeded } from './kit.js';
 
 const CONCRETE = 0xb4b2aa;
@@ -90,7 +91,7 @@ export interface Box {
  */
 const PLAYSET = new Set<Look>([
   'ammo', 'prison', 'flag', 'flagBroken', 'house', 'factory', 'hq', 'outpost', 'hospital', 'fuel', 'gate', 'wall',
-  'wallBroken', 'tent', 'tower', 'towerBase', 'towerBroken', 'watchtower', 'rubble', 'bridge', 'light',
+  'wallBroken', 'tent', 'tower', 'towerBase', 'towerBroken', 'watchtower', 'rubble', 'bridge',
   'bush', 'palm', 'tree', 'cactus', 'stump', 'planter',
 ]);
 
@@ -377,6 +378,16 @@ export function building(def: BuildingDef & { name?: string }, name: string, box
         k.box(...at(t), 0, vertical ? 11 : seg, vertical ? seg : 11, h, CONCRETE);
         k.box(...at(t), h, vertical ? 13 : seg, vertical ? seg : 13, 1.6, CONCRETE_DARK);
         k.box(...at(t - seg / 2), 0, vertical ? 11.4 : 0.6, vertical ? 0.6 : 11.4, h, CONCRETE_DARK);
+        // Fairy lights strung along the outer edge of the coping, sagging between the panels (ART.fairyLights).
+        if (ART.fairyLights && look === 'wall') {
+          for (let j = 0; j < 3; j++) {
+            const u = (j + 0.5) / 3;
+            const sag = Math.sin(u * Math.PI) * 1.4;
+            const [bx, by] = at(t - seg / 2 + u * seg, 6.8);
+            k.box(bx, by, h + 0.6 - sag, vertical ? 0.25 : seg / 3, vertical ? seg / 3 : 0.25, 0.25, 0x2a2a26);
+            k.ball(bx, by, h + 0.1 - sag, 0.55, 'lamp');
+          }
+        }
       }
       break;
     }
@@ -438,7 +449,12 @@ export function building(def: BuildingDef & { name?: string }, name: string, box
       break;
     }
     case 'light':
-      k.cyl(cx + 12, cy - 12, 0, 0.5, 0.7, 14, METAL, 5).box(cx + 12, cy - 13.5, 14, 2, 4, 1, 'lamp');
+      // A solar garden lamp on its stake, standing in for a floodlight: the garden's own, not the toy box's. A black
+      // stake, a frosted lamp that glows at night, a dark cap and the solar panel on top.
+      k.cyl(cx + 12, cy - 13.5, 0, 0.5, 0.65, 15, 0x1e2022, 6);
+      k.cyl(cx + 12, cy - 13.5, 15, 2.2, 2.0, 3.2, 'lamp', 12);
+      k.cyl(cx + 12, cy - 13.5, 18.2, 2.9, 2.6, 0.9, 0x26282c, 12);
+      k.box(cx + 12, cy - 13.5, 19.1, 3.6, 3.6, 0.3, 0x1c2a44);
       break;
   }
   return k.empty ? null : k;
@@ -502,7 +518,10 @@ export function lightOf(name: string, box: Box | null): { x: number; y: number; 
   const reach = (Math.abs(fx) > 0.5 ? (b.x1 - b.x0) : (b.y1 - b.y0)) / 2 + 4;
   const door = (z: number) => ({ x: cx + fx * reach, y: cy + fy * reach, z });
   switch (look) {
-    case 'light': return { x: cx + 12, y: cy - 13.5, z: 12.5, power: 2600, colour: 0xffd890 };
+    // A solar garden lamp's cool white LED.
+    case 'light': return { x: cx + 12, y: cy - 13.5, z: 16.5, power: 2600, colour: 0xeef0ff };
+    // The fairy lights along a wall: warm and dim, one for the run (the renderer lights every other one).
+    case 'wall': return ART.fairyLights ? { x: cx, y: cy, z: b.h + 8, power: 400, colour: 0xffc98a } : null;
     case 'watchtower': return { x: cx, y: cy + 7.2, z: b.h - 9, power: 1800, colour: 0xffc070 };
     case 'house': case 'outpost': return { ...door(8), power: 650, colour: 0xffc070 };
     case 'hq': case 'factory': case 'hospital': case 'fuel': return { ...door(10), power: 1400, colour: 0xffd090 };

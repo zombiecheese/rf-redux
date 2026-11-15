@@ -32,6 +32,7 @@ export async function waterScene(q: URLSearchParams): Promise<never> {
   if (q.get('ao') === '0') (await import('./art.js')).ART.ao = false;
   // &flip=0 draws fire and smoke as soft round spots instead of the flipbooks.
   if (q.get('flip') === '0') (await import('./art.js')).ART.flipbookFx = false;
+  if (q.get('fairy') === '0') (await import('./art.js')).ART.fairyLights = false;
   const modern = new ModernRenderer(assets);
   const night = q.get('night') === '1';
   modern.setNight(night);
