@@ -134,3 +134,85 @@ export function gardenSky(gl: THREE.WebGLRenderer, sun: THREE.Vector3): THREE.Te
   skies.set(gl, target.texture);
   return target.texture;
 }
+
+/**
+ * Burnt, melted plastic for the toys' wrecks: the vertex colours (the side's paint) scorched nearly black in blotches,
+ * with the sticky shine of plastic that has melted and set again.
+ */
+export function charredPlastic(): THREE.MeshPhysicalMaterial {
+  const m = new THREE.MeshPhysicalMaterial({
+    vertexColors: true,
+    roughness: 0.5,
+    metalness: 0,
+    clearcoat: 0.25,
+    clearcoatRoughness: 0.4,
+    specularIntensity: 0.4,
+    envMapIntensity: PLASTIC_SKY,
+  });
+  m.onBeforeCompile = (shader) => {
+    rubber(shader);
+    // Soot in blotches: mostly black, with patches where the side's colour still shows through, darkened.
+    shader.fragmentShader = shader.fragmentShader.replace(
+      '#include <color_fragment>',
+      `#include <color_fragment>
+  float soot = toyNoise(vToyPos * 0.15) * 0.7 + toyNoise(vToyPos * 0.6 + 7.0) * 0.3;
+  diffuseColor.rgb *= mix(0.02, 0.11, smoothstep(0.3, 0.75, soot));`,
+    );
+  };
+  return m;
+}
+
+/**
+ * Melts shapes in place, as one: slumped down toward the ground, spread out at the foot like a puddle, sagging and
+ * lumpy, leaning a little one way. The shapes stand on y = 0 in three.js axes; keep is how much of the height is left.
+ */
+export function slump(geos: readonly THREE.BufferGeometry[], seed = 1, keep = 0.55): void {
+  const box = new THREE.Box3();
+  for (const g of geos) {
+    g.computeBoundingBox();
+    box.union(g.boundingBox!);
+  }
+  const floor = Math.max(0, box.min.y);
+  const h = Math.max(0.01, box.max.y - floor);
+  const cx = (box.min.x + box.max.x) / 2;
+  const cz = (box.min.z + box.max.z) / 2;
+  const reach = Math.max(box.max.x - box.min.x, box.max.z - box.min.z) / 2;
+  const lx = Math.cos(seed * 2.4);
+  const lz = Math.sin(seed * 2.4);
+  const wobble = (x: number, z: number) => Math.sin(x * 0.7 + seed) * Math.cos(z * 0.6 - seed * 1.3) * 0.5 + Math.sin(x * 1.9 + z * 1.4 + seed * 2.1) * 0.25;
+  for (const g of geos) {
+    const pos = g.getAttribute('position') as THREE.BufferAttribute;
+    for (let i = 0; i < pos.count; i++) {
+      const x = pos.getX(i);
+      const z = pos.getZ(i);
+      const t = Math.max(0, Math.min(1, (pos.getY(i) - floor) / h));
+      const w = wobble(x, z);
+      // How far out from the middle, 0 to 1: the edges droop more than the middle as it softens.
+      const out = Math.min(1, Math.hypot(x - cx, z - cz) / Math.max(0.01, reach));
+      // Lower and lumpier the higher it was, the top and the edges sagging most.
+      const y = floor + h * t * (keep + 0.12 * w) - Math.max(0, w) * t * t * h * 0.15 - out * out * t * h * keep * 0.45;
+      // The foot spreads out where the plastic ran, in uneven tongues rather than evenly.
+      const run = wobble(z * 0.8 + 3.1, x * 0.8 - 1.7);
+      const spread = 1 + (1 - t) * (1 - t) * (0.16 + 0.14 * run) + t * 0.06 * w;
+      // Straight edges go wavy.
+      const wx = wobble(pos.getY(i) * 1.3 + 5.0, z) * reach * 0.06;
+      const wz = wobble(x, pos.getY(i) * 1.3 - 2.0) * reach * 0.06;
+      // Everything leans a little one way as it sank.
+      const lean = t * t * reach * 0.12;
+      pos.setXYZ(i, cx + (x - cx) * spread + lean * lx + wx, Math.max(0, y), cz + (z - cz) * spread + lean * lz + wz);
+    }
+    pos.needsUpdate = true;
+    g.boundingBox = null;
+    g.boundingSphere = null;
+  }
+}
+
+/** A built toy's geometry (standing on y = 0) melted by fire, with new normals: a new geometry. */
+export function melted(g: THREE.BufferGeometry, seed = 1): THREE.BufferGeometry {
+  const out = g.clone();
+  slump([out], seed);
+  out.deleteAttribute('normal');
+  out.computeVertexNormals();
+  out.computeBoundingSphere();
+  return out;
+}

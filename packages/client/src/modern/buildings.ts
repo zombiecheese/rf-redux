@@ -19,7 +19,8 @@ const TRUNK = 0x7a5532;
 const METAL = 0x6c7178;
 const GUNMETAL = 0x41454b;
 const HAZARD = 0xe0b81c;
-const RUBBLE = [0x77736b, 0x5f5b54, 0x8a857c, 0x4a4743];
+/** Burnt, melted plastic: soot black, scorched brown, and the toy's own colours gone dark. */
+const CHAR = [0x2a2522, 0x3e3530, 0x54453a, 0x6b5a4a];
 const WALLS = [0xe9dcc2, 0xd9c7a3, 0xf0e6d6, 0xc9b28a];
 const ROOFS = [0xb5523b, 0x9c4632, 0x6f7f8f, 0xc06a3e];
 
@@ -83,11 +84,70 @@ export interface Box {
   oz: number;
 }
 
+/**
+ * The man-made things, which are moulded plastic playset pieces like the toys that fight over them. Plants and rocks
+ * stay as they are (the garden's own, not the toy box's).
+ */
+const PLAYSET = new Set<Look>([
+  'ammo', 'prison', 'flag', 'flagBroken', 'house', 'factory', 'hq', 'outpost', 'hospital', 'fuel', 'gate', 'wall',
+  'wallBroken', 'tent', 'tower', 'towerBase', 'towerBroken', 'watchtower', 'rubble', 'bridge', 'light',
+]);
+
+/** Whether a building by this name is a plastic playset piece (its kit is a toy kit). */
+export function playset(name: string): boolean {
+  return PLAYSET.has(lookOf(name));
+}
+
+/**
+ * A puddle of melted plastic at (x, y), about s across: a thin spread pool with slumped lumps on it, scorched dark,
+ * with a little of the piece's own colour (tint) left in it.
+ */
+function melt(k: Kit, x: number, y: number, s: number, r: () => number, tint: number): void {
+  // The pool: a few flat, overlapping spills, so its edge is ragged rather than a ring.
+  for (let i = 0; i < 4; i++) {
+    const a = r() * Math.PI * 2;
+    const d = i === 0 ? 0 : s * (0.12 + r() * 0.14);
+    const rr = s * (i === 0 ? 0.3 : 0.14 + r() * 0.1);
+    k.cyl(x + Math.cos(a) * d, y + Math.sin(a) * d, 0, rr, rr * 1.08, 0.5 + i * 0.05, i & 1 ? CHAR[1]! : darken(tint, 0.3), 12);
+  }
+  const n = 3 + Math.floor(r() * 3);
+  for (let i = 0; i < n; i++) {
+    const a = r() * Math.PI * 2;
+    const d = r() * s * 0.3;
+    const big = s * (0.16 + r() * 0.14);
+    const c = i === 0 ? darken(tint, 0.55) : i === 1 ? darken(tint, 0.35) : CHAR[1 + (i % 3)]!;
+    k.ball(x + Math.cos(a) * d, y + Math.sin(a) * d, 0.2, big, c, 1, 0.16 + r() * 0.14, { turn: r() * 6 });
+  }
+  // A drip run: a bent strip that sagged as it melted.
+  const a = r() * Math.PI * 2;
+  k.box(x + Math.cos(a) * s * 0.2, y + Math.sin(a) * s * 0.2, 0.4, s * 0.12, s * 0.42, 0.9, darken(tint, 0.45), { turn: a, tilt: 0.25 });
+}
+
+function darken(c: number, f: number): number {
+  return new THREE.Color(c).multiplyScalar(f).getHex();
+}
+
+/** The building a wreck was, by the wreck's name (DEST_HOSP was a hospital), and how tall it stood. */
+function wasBefore(name: string): { name: string; h: number } | null {
+  const n = name.toUpperCase().replace(/^DEST_/, '');
+  if (n === 'STD_DEST') return { name: 'BLDG_N', h: 20 };
+  if (n === 'DESTROYED_TOWER' || n === 'TOWER') return { name: 'TOWER', h: 24 };
+  if (n === 'JAIL' || n === 'PRISON') return { name: 'PRISON_S', h: 15 };
+  if (n === 'HOSP') return { name: 'HOSP_S', h: 18 };
+  if (n === 'AMMO') return { name: 'AMMO', h: 10 };
+  if (n === 'FUEL') return { name: 'FUEL_N', h: 14 };
+  if (n === 'OUTPOST') return { name: 'OUTPOST', h: 12 };
+  if (n === 'TENT') return { name: 'TENT_V', h: 9 };
+  if (n.startsWith('GATE')) return { name: n, h: 20 };
+  if (n.startsWith('WTOWER')) return { name: 'WTOWER_NE', h: 30 };
+  return null;
+}
+
 /** A building's kit at the tile's middle, its body box from the art pack, varied by seed. */
 export function building(def: BuildingDef & { name?: string }, name: string, box: Box | null, seed: number): Kit | null {
   const look = lookOf(name);
   const r = seeded(seed + 17);
-  const k = new Kit();
+  const k = new Kit(PLAYSET.has(look), 2);
   const b = box ?? { x0: -16, x1: 16, y0: -16, y1: 16, h: 12, ox: 0, oy: 0, oz: 0 };
   const w = b.x1 - b.x0;
   const d = b.y1 - b.y0;
@@ -96,7 +156,7 @@ export function building(def: BuildingDef & { name?: string }, name: string, box
   const turn = facing(name);
   // A body turned by its facing: built facing north on a footprint of fw by fd, put back in place.
   const turned = (fw: number, fd: number, make: (k: Kit, fw: number, fd: number) => void) => {
-    const inner = new Kit();
+    const inner = new Kit(k.toy, k.round);
     const side = Math.abs(Math.sin(turn)) > 0.5;
     make(inner, side ? fd : fw, side ? fw : fd);
     k.merge(inner, cx, cy, 0, { turn });
@@ -277,7 +337,7 @@ export function building(def: BuildingDef & { name?: string }, name: string, box
       for (let i = 0; i < segs; i++) {
         const t = -len / 2 + (i + 0.5) * seg;
         if (look === 'wallBroken' && (i === segs >> 1 || (i === (segs >> 1) - 1 && r() < 0.5))) {
-          for (let j = 0; j < 3; j++) k.ball(...at(t + (r() - 0.5) * 6, (r() - 0.5) * 8), 1, 2.4 + r() * 2, RUBBLE[j]!, 0, 0.6);
+          melt(k, ...at(t + (r() - 0.5) * 3, (r() - 0.5) * 3), 12, r, CONCRETE);
           continue;
         }
         const h = b.h - (look === 'wallBroken' ? r() * 6 : 0);
@@ -297,7 +357,7 @@ export function building(def: BuildingDef & { name?: string }, name: string, box
       break;
     case 'towerBroken':
       k.merge(towerBase(b.h * 0.7, r), cx, cy, 0);
-      for (let i = 0; i < 4; i++) k.ball(cx + (r() - 0.5) * 20, cy + (r() - 0.5) * 20, 1, 3 + r() * 2, RUBBLE[i]!, 0, 0.6);
+      melt(k, cx + (r() - 0.5) * 8, cy + (r() - 0.5) * 8, 30, r, CONCRETE);
       break;
     case 'watchtower': {
       const h = b.h;
@@ -310,11 +370,19 @@ export function building(def: BuildingDef & { name?: string }, name: string, box
       break;
     }
     case 'rubble': {
+      // What's left of a plastic building after the fire: the building itself, melted down into a scorched puddle.
+      const was = wasBefore(name);
       const s = Math.max(w, d) * 0.8;
-      k.ball(cx, cy, 0, s * 0.45, 0x6a645b, 1, 0.12);
-      for (let i = 0; i < 9; i++) {
-        k.box(cx + (r() - 0.5) * s * 0.8, cy + (r() - 0.5) * s * 0.8, 0, 2 + r() * 5, 2 + r() * 5, 1 + r() * 3, RUBBLE[i & 3]!, { turn: r() * 3, tilt: (r() - 0.5) * 0.6 });
+      if (was) {
+        Kit.fine = true;
+        // A little smaller than the wreck's footprint, as the plastic ran out from under it.
+        const f = 0.82;
+        const whole = building(def, was.name, { ...b, x0: b.x0 * f, x1: b.x1 * f, y0: b.y0 * f, y1: b.y1 * f, h: Math.max(b.h, was.h) }, seed);
+        Kit.fine = false;
+        if (whole) k.merge(whole.melt(seed, 0.5));
       }
+      melt(k, cx, cy, s, r, was ? CONCRETE : [WALLS[0]!, ROOFS[0]!, CONCRETE][Math.floor(r() * 3)]!);
+      k.burnt = true;
       break;
     }
     case 'stump':
@@ -344,7 +412,7 @@ export function building(def: BuildingDef & { name?: string }, name: string, box
 
 /** A gun tower's concrete base, height h, with the hatch ring the gun sits on. */
 function towerBase(h: number, r: () => number): Kit {
-  const k = new Kit();
+  const k = new Kit(true);
   k.box(0, 0, 0, 30, 30, 3, CONCRETE_DARK);
   k.cyl(0, 0, 3, 11, 13, h - 3, r() < 0.5 ? CONCRETE : 0xa9a69c, 8);
   k.cyl(0, 0, h - 1, 12, 12, 1.2, HAZARD, 8);
@@ -354,11 +422,11 @@ function towerBase(h: number, r: () => number): Kit {
 
 /** A gun tower's head: a turret with twin barrels, turned and pitched by the renderer about (0, 0, 0). */
 export function towerGun(large: boolean): { head: Kit; barrels: Kit } {
-  const head = new Kit();
+  const head = new Kit(true);
   const s = large ? 1.25 : 1;
   head.cyl(0, 0, 0, 6 * s, 7.5 * s, 4.5 * s, 'team', 8);
   head.ball(0, 0, 4.5 * s, 5.5 * s, 'teamDark', 0, 0.55);
-  const barrels = new Kit();
+  const barrels = new Kit(true);
   for (const x of [-2.2, 2.2]) barrels.tube(x * s, -7 * s, 0, 1.1 * s, 12 * s, GUNMETAL, 6);
   barrels.box(0, -1, -1.5 * s, 7 * s, 3, 3 * s, 'teamDark');
   return { head, barrels };
@@ -366,7 +434,7 @@ export function towerGun(large: boolean): { head: Kit; barrels: Kit } {
 
 /** A gate's leaf: a barred panel, length len along x, hinged at x = 0 and reaching to +len. */
 export function gateLeaf(len: number): Kit {
-  const k = new Kit();
+  const k = new Kit(true);
   k.box(len / 2, 0, 1, len, 1.6, 1.4, 'team');
   k.box(len / 2, 0, 13, len, 1.6, 1.4, 'team');
   for (let i = 0; i <= 3; i++) k.box(0.6 + (i * (len - 1.2)) / 3, 0, 1, 1, 1.2, 13, HAZARD);
