@@ -860,7 +860,7 @@ function viewItems(): MenuEntry[] {
     },
     {
       label: 'Quality',
-      hint: seenVisuals() === 'modern' ? 'Modern only: Auto fits it to this device; lower runs smoother, higher looks finer' : 'Modern only: how much detail the 3D view draws',
+      hint: seenVisuals() === 'modern' ? 'Auto fits it to this device; lower runs smoother' : 'Modern only: how much detail the 3D view draws',
       value: () => {
         const q = qualityChoice();
         return q === 'auto' ? `Auto (${PRESET_NAMES[activePreset(handheld)]})` : PRESET_NAMES[q];
