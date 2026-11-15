@@ -165,7 +165,11 @@ export class ModernRenderer {
   private ground: Ground | null = null;
   /** Each chunk's buildings: the playset pieces' (and plants'), the rocks', the rest's and the burnt-out wrecks' meshes, in a group. */
   private readonly chunks: (THREE.Group | null)[] = new Array(CHUNKS * CHUNKS).fill(null);
-  private readonly chunkKeys: string[] = new Array(CHUNKS * CHUNKS).fill('');
+  /** Whether each chunk has been built for this world. */
+  private readonly chunkBuilt: boolean[] = new Array<boolean>(CHUNKS * CHUNKS).fill(false);
+  /** Each tile's building and owner when its chunk was last built, to see which chunks changed without garbage. */
+  private readonly seenBuilding = new Uint8Array(GRID * GRID);
+  private readonly seenOwner = new Int8Array(GRID * GRID);
   private readonly statics = new THREE.Group();
   private readonly dynamic = new THREE.Group();
   readonly fx = new Fx();
@@ -180,7 +184,7 @@ export class ModernRenderer {
   /** Extra moonlight at night, for the level editor (setMoonlight). */
   private moon = 0;
   private readonly sky = new THREE.HemisphereLight(0xcfe8ff, 0x8a6a48, 1.25);
-  /** Headlights for the vehicles at night: a fixed few, so turning them on and off never rebuilds the shaders. */
+  /** Headlights for the vehicles at night: a fixed few, so turning them on and off in a night match never rebuilds the shaders. */
   private readonly heads: THREE.SpotLight[] = [];
   /** Every building's lamp at night, with its light and shadows worked out on the map. */
   private readonly lampMap = new LampMap();
@@ -247,8 +251,9 @@ export class ModernRenderer {
       l.shadow.camera.near = 3;
       l.shadow.camera.updateProjectionMatrix();
       l.shadow.needsUpdate = true;
+      // In the scene only at night (setNight): by day every lit pixel would still pay for four spotlights, their
+      // shadow maps and their beams' grain, all at nothing.
       this.heads.push(l);
-      this.scene.add(l, l.target);
     }
     this.sun.castShadow = true;
     this.sun.shadow.mapSize.set(2048, 2048);
@@ -603,6 +608,11 @@ export class ModernRenderer {
     this.sky.color.setHex(night ? 0x26345c : 0xcfe8ff);
     this.sky.groundColor.setHex(night ? 0x0a0806 : 0x8a6a48);
     this.glow.value = night ? 1 : 0;
+    // Adding or taking out the headlights rebuilds the lit materials' shaders: once a match, as it starts.
+    for (const l of this.heads) {
+      if (night) this.scene.add(l, l.target);
+      else this.scene.remove(l, l.target);
+    }
     this.sun.color.setHex(night ? 0x8ea4e8 : 0xffe6c2);
     this.moonlit();
     this.background();
@@ -740,7 +750,7 @@ export class ModernRenderer {
         disposeChunk(c);
       }
       this.chunks[i] = null;
-      this.chunkKeys[i] = '';
+      this.chunkBuilt[i] = false;
       this.chunkLamps[i] = [];
     }
     this.lampsStale = 'all';
@@ -759,18 +769,24 @@ export class ModernRenderer {
     let ay1 = 0;
     for (let cy = 0; cy < CHUNKS; cy++) {
       for (let cx = 0; cx < CHUNKS; cx++) {
-        // Every patch is built once even with no buildings, for the garden's scatter.
-        let key = 'k';
+        // Every patch is built once even with no buildings, for the garden's scatter; then again only when a
+        // building in it changes (destroyed, or a flag changing hands).
+        const c = cy * CHUNKS + cx;
+        let changed = !this.chunkBuilt[c];
         for (let y = cy * CHUNK; y < cy * CHUNK + CHUNK; y++) {
           for (let x = cx * CHUNK; x < cx * CHUNK + CHUNK; x++) {
             const i = y * GRID + x;
             const b = world.building[i]!;
-            if (b) key += `${i}:${b}:${world.owner[i]};`;
+            const o = b ? world.owner[i]! : 0;
+            if (b !== this.seenBuilding[i] || o !== this.seenOwner[i]) {
+              this.seenBuilding[i] = b;
+              this.seenOwner[i] = o;
+              changed = true;
+            }
           }
         }
-        const c = cy * CHUNKS + cx;
-        if (key === this.chunkKeys[c]) continue;
-        this.chunkKeys[c] = key;
+        if (!changed) continue;
+        this.chunkBuilt[c] = true;
         ax0 = Math.min(ax0, cx * CHUNK);
         ay0 = Math.min(ay0, cy * CHUNK);
         ax1 = Math.max(ax1, (cx + 1) * CHUNK);
@@ -954,7 +970,7 @@ export class ModernRenderer {
     const turrets = new Map(m.turrets.map((t) => [t.tile, t]));
     for (let cy = 0; cy < CHUNKS; cy++) {
       for (let cx = 0; cx < CHUNKS; cx++) {
-        if (!this.chunkKeys[cy * CHUNKS + cx]) continue;
+        if (!this.chunkBuilt[cy * CHUNKS + cx]) continue;
         const x0 = cx * CHUNK * TILE;
         const y0 = cy * CHUNK * TILE;
         if (!cams.some((c) => c.centreX > x0 - 520 && c.centreX < x0 + CHUNK * TILE + 520 && c.pose().y > y0 - 460 && c.pose().y < y0 + CHUNK * TILE + 460)) continue;

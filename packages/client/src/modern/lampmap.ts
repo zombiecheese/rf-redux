@@ -79,7 +79,13 @@ export class LampMap {
     this.glare.minFilter = THREE.LinearFilter;
     this.glare.generateMipmaps = false;
     this.glare.needsUpdate = true;
+    this.texture.onUpdate = () => (this.live = true);
+    this.glare.onUpdate = () => (this.glareLive = true);
   }
+
+  /** Whether each texture is on the graphics card whole: after that a bake sends up only the rows it changed. */
+  private live = false;
+  private glareLive = false;
 
   /**
    * Works out the lamps' light over a rectangle of the map (pixels; all of it when left out): what stands there
@@ -108,6 +114,12 @@ export class LampMap {
         const i = r * SIZE + c;
         for (let k = 0; k < 3; k++) this.data[i * 4 + k] = Math.round(Math.sqrt(Math.min(1, this.light[i * 3 + k]! / LAMP_MAX)) * 255);
         if (this.best[i]! > 0) this.data[i * 4 + 3] = seeds[i]!;
+      }
+    }
+    if ((c1 - c0) * (r1 - r0) < SIZE * SIZE) {
+      for (let r = r0; r < r1; r++) {
+        if (this.live) this.texture.addUpdateRange((r * SIZE + c0) * 4, (c1 - c0) * 4);
+        if (this.glareLive) this.glare.addUpdateRange((r * SIZE + c0) * 4, (c1 - c0) * 4);
       }
     }
     this.texture.needsUpdate = true;

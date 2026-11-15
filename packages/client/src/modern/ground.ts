@@ -83,8 +83,9 @@ export class Ground {
   readonly group = new THREE.Group();
   private readonly cels = new Map<number, CelGround>();
   private readonly image: ImageData;
-  private readonly canvas: HTMLCanvasElement;
-  private readonly texture: THREE.CanvasTexture;
+  /** The painted ground as the texture holds it: the image's rows bottom to top (a texture's v runs north). */
+  private readonly texels: Uint8Array;
+  private readonly texture: THREE.DataTexture;
   private readonly shoreTex: THREE.DataTexture;
   private readonly shore = new Uint8Array(GRID * SHORE_TEX * GRID * SHORE_TEX);
   /** One texel a tile: 255 where a lift's shaft is open and the ground has a hole. */
@@ -96,6 +97,11 @@ export class Ground {
   /** Each point's sand, darker sand and lawn for the photo ground (rows south to north), and its texture. */
   private readonly splat = new Uint8Array(GRID * SPLAT_TEX * GRID * SPLAT_TEX * 4);
   private readonly splatTex: THREE.DataTexture;
+  /** Scratch for paintSplat. */
+  private splatRaw: Float32Array | null = null;
+  /** Whether the ground's and the splat's textures have gone up to the graphics card whole (after that, only changes). */
+  private live = false;
+  private splatLive = false;
   private readonly photo = { value: null as PhotoMaps | null };
   private readonly photoOn: THREE.IUniform = { value: 0 };
   /** How deep the sea is, as the match plays it: the shallows and deep water. */
@@ -109,14 +115,15 @@ export class Ground {
     this.TEX = fine ? 32 : 16;
     this.SIZE = GRID * this.TEX;
     const SIZE = this.SIZE;
-    this.canvas = document.createElement('canvas');
-    this.canvas.width = this.SIZE;
-    this.canvas.height = this.SIZE;
     this.image = new ImageData(this.SIZE, this.SIZE);
+    this.texels = new Uint8Array(this.SIZE * this.SIZE * 4);
     this.terrain.set(world.terrain);
     this.paint(0, 0, GRID, GRID);
-    this.canvas.getContext('2d')!.putImageData(this.image, 0, 0);
-    this.texture = new THREE.CanvasTexture(this.canvas);
+    this.texture = new THREE.DataTexture(this.texels, this.SIZE, this.SIZE, THREE.RGBAFormat, THREE.UnsignedByteType);
+    this.copyTexels(0, 0, this.SIZE, this.SIZE);
+    this.texture.needsUpdate = true;
+    this.texture.onUpdate = () => (this.live = true);
+    this.texture.magFilter = THREE.LinearFilter;
     this.texture.colorSpace = THREE.SRGBColorSpace;
     this.texture.anisotropy = 4;
     this.texture.generateMipmaps = true;
@@ -127,6 +134,7 @@ export class Ground {
     this.pitTex.needsUpdate = true;
     this.splatTex = new THREE.DataTexture(this.splat, GRID * SPLAT_TEX, GRID * SPLAT_TEX, THREE.RGBAFormat, THREE.UnsignedByteType);
     this.splatTex.magFilter = this.splatTex.minFilter = THREE.LinearFilter;
+    this.splatTex.onUpdate = () => (this.splatLive = true);
     // The alpha is the ground's light left after occlusion (paintAo): all of it until then.
     for (let i = 3; i < this.splat.length; i += 4) this.splat[i] = 255;
     this.paintSplat(0, 0, GRID, GRID);
@@ -205,7 +213,8 @@ export class Ground {
       const px1 = Math.min(GRID, x1 + 2);
       const py1 = Math.min(GRID, y1 + 2);
       this.paint(px0, py0, px1, py1);
-      this.canvas.getContext('2d')!.putImageData(this.image, 0, 0, px0 * this.TEX, py0 * this.TEX, (px1 - px0) * this.TEX, (py1 - py0) * this.TEX);
+      // Only the repainted rows' stretch goes up to the graphics card, never the whole 64 MB texture.
+      this.copyTexels(px0 * this.TEX, py0 * this.TEX, px1 * this.TEX, py1 * this.TEX);
       this.texture.needsUpdate = true;
       this.paintSplat(px0, py0, px1, py1);
       this.makeShore();
@@ -222,6 +231,28 @@ export class Ground {
       }
     }
     if (changed) this.pitTex.needsUpdate = true;
+  }
+
+  /** Marks the splat's texels over tiles [x0, x1) x [y0, y1) to go up to the graphics card, and only those once it has the rest. */
+  private splatRows(x0: number, y0: number, x1: number, y1: number): void {
+    const N = GRID * SPLAT_TEX;
+    if (this.splatLive) {
+      for (let sy = y0 * SPLAT_TEX; sy < y1 * SPLAT_TEX; sy++) this.splatTex.addUpdateRange(((N - 1 - sy) * N + x0 * SPLAT_TEX) * 4, (x1 - x0) * SPLAT_TEX * 4);
+    }
+    this.splatTex.needsUpdate = true;
+  }
+
+  /** Copies a rectangle of the image (pixels, rows top to bottom) into the texture's rows, marking them to upload. */
+  private copyTexels(x0: number, y0: number, x1: number, y1: number): void {
+    const S = this.SIZE;
+    const src = this.image.data;
+    for (let y = y0; y < y1; y++) {
+      const from = (y * S + x0) * 4;
+      const to = ((S - 1 - y) * S + x0) * 4;
+      this.texels.set(src.subarray(from, (y * S + x1) * 4), to);
+      // Until the texture is on the graphics card it goes up whole.
+      if (this.live) this.texture.addUpdateRange(to, (x1 - x0) * 4);
+    }
   }
 
   tick(seconds: number): void {
@@ -346,11 +377,13 @@ export class Ground {
   private paintSplat(x0: number, y0: number, x1: number, y1: number): void {
     const N = GRID * SPLAT_TEX;
     const step = this.TEX / SPLAT_TEX;
-    const raw = new Float32Array(N * N * 4);
     const ax0 = Math.max(0, x0 - 1);
     const ay0 = Math.max(0, y0 - 1);
     const ax1 = Math.min(GRID, x1 + 1);
     const ay1 = Math.min(GRID, y1 + 1);
+    // One buffer kept for the match (16 MB), cleared over the area worked on, rather than a new one each time.
+    const raw = (this.splatRaw ??= new Float32Array(N * N * 4));
+    for (let sy = ay0 * SPLAT_TEX; sy < ay1 * SPLAT_TEX; sy++) raw.fill(0, (sy * N + ax0 * SPLAT_TEX) * 4, (sy * N + ax1 * SPLAT_TEX) * 4);
     const slot: Partial<Record<Mat, number>> = { [Mat.Sand]: 0, [Mat.Dirt]: 1, [Mat.Grass]: 2 };
     for (let ty = ay0; ty < ay1; ty++) {
       for (let tx = ax0; tx < ax1; tx++) {
@@ -379,7 +412,7 @@ export class Ground {
         }
       }
     }
-    this.splatTex.needsUpdate = true;
+    this.splatRows(x0, y0, x1, y1);
   }
 
   /** A light 3 x 3 blur of the land's colours and the edge's alpha, so material edges and shores come out smooth. */
@@ -515,7 +548,7 @@ export class Ground {
         this.splat[o] = Math.round((1 - 0.55 * Math.min(1, occ[(sy - ay0) * w + sx - ax0]! * 1.6)) * 255);
       }
     }
-    this.splatTex.needsUpdate = true;
+    this.splatRows(x0, y0, x1, y1);
   }
 
   /** How much of the point (x, y), in game units, is sand, darker sand and lawn, each 0 to 1 (the rest is road or water). */

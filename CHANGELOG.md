@@ -10,6 +10,8 @@ Each release's section below becomes its GitHub release notes (`.github/workflow
 
 ### Changed
 
+- The modern view runs lighter: by day the headlights are out of the scene entirely, so every lit pixel no longer pays for four unlit spotlights, their shadow maps and their beams' grain; when a building is destroyed only the changed rows of the ground, its photo splat and the lamp map go up to the graphics card (it used to re-send the whole 64 MB ground texture, a visible stall on phones); and finding which patches of buildings changed no longer builds 256 strings a frame.
+
 - The modern view's ground is a real garden, from photo scans: sand with beds of soil and patches of gravel, wet sand along the sea, and lawn, at the scale of the toys standing on it. The scans are CC0 from Poly Haven and credited in About. Roads, pads and stripes keep their original painted look.
 - The modern drone feed has a tilt-shift focus: a band across the middle of the picture is sharp and it goes soft toward the top and bottom, as a lens this close to something this small would see it, so the battlefield reads as a miniature. Thermal stays sharp.
 - The modern view's buildings, gun towers, walls, gates and flags are moulded plastic playset pieces, with rounded edges and the toys' plastic sheen. A building that's destroyed melts: it slumps into a scorched puddle of plastic with a little of its colour left. Burnt-out vehicle wrecks melt the same way. Plants and rocks are unchanged for now.
