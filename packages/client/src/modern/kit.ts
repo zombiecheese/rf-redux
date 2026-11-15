@@ -5,12 +5,14 @@
 
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 
 /**
  * A colour, or 'team' for the owner's colour, filled in when the model is made for a side. 'window' and 'lamp' are
- * glass and lamp glass that glow at night: the model's glow attribute marks them for the renderer's material.
+ * glass and lamp glass that glow at night: the model's glow attribute marks them for the renderer's material. 'rubber'
+ * is a toy's black tyres: its matte attribute tells the toy plastic to leave them dull, with no gloss or clear coat.
  */
-export type Paint = number | 'team' | 'teamDark' | 'teamLight' | 'window' | 'lamp';
+export type Paint = number | 'team' | 'teamDark' | 'teamDeep' | 'teamLight' | 'window' | 'lamp' | 'rubber';
 
 export interface Place {
   /** Turn about the up axis, radians, clockwise seen from above (the sim's heading direction). */
@@ -42,9 +44,15 @@ function placing(x: number, y: number, z: number, p: Place = {}, scale = new THR
 export class Kit {
   private readonly pieces: Piece[] = [];
 
+  /**
+   * toy: a moulded plastic toy. Boxes get rounded edges and every shape keeps its own smooth normals, so the
+   * plastic catches the light on its edges instead of showing flat facets.
+   */
+  constructor(readonly toy = false) {}
+
   /** A box standing on z (its base), centred on (x, y), sized w east-west, d north-south, h up. */
   box(x: number, y: number, z: number, w: number, d: number, h: number, paint: Paint, p?: Place): this {
-    const g = new THREE.BoxGeometry(w, h, d);
+    const g = this.toy ? new RoundedBoxGeometry(w, h, d, 2, Math.min(1.1, Math.min(w, h, d) * 0.22)) : new THREE.BoxGeometry(w, h, d);
     g.translate(0, h / 2, 0);
     return this.add(g, x, y, z, paint, p);
   }
@@ -109,6 +117,25 @@ export class Kit {
     return this.add(g, x, y, z, paint, p);
   }
 
+  /**
+   * A printed five-point star lying flat on the surface at height z, point to the north: a toy's moulded or
+   * printed marking.
+   */
+  star(x: number, y: number, z: number, r: number, paint: Paint, p?: Place): this {
+    const shape = new THREE.Shape();
+    for (let i = 0; i < 10; i++) {
+      const a = (i * Math.PI) / 5;
+      const k = i & 1 ? r * 0.42 : r;
+      if (i === 0) shape.moveTo(Math.sin(a) * k, Math.cos(a) * k);
+      else shape.lineTo(Math.sin(a) * k, Math.cos(a) * k);
+    }
+    shape.closePath();
+    const g = new THREE.ExtrudeGeometry(shape, { depth: 0.12, bevelEnabled: false });
+    // Shape y is north (three.js -Z); lying flat, facing up.
+    g.rotateX(-Math.PI / 2);
+    return this.add(g, x, y, z, paint, p);
+  }
+
   /** Any three.js geometry made about the origin in three.js axes, placed at a game point. */
   add(g: THREE.BufferGeometry, x: number, y: number, z: number, paint: Paint, p?: Place): this {
     g.applyMatrix4(placing(x, y, z, p));
@@ -132,8 +159,10 @@ export class Kit {
     const parts = this.pieces.map(({ geo, paint }) => {
       const g = (geo.index ? geo.toNonIndexed() : geo.clone());
       g.deleteAttribute('uv');
-      g.deleteAttribute('normal');
-      g.computeVertexNormals();
+      if (!this.toy || !g.getAttribute('normal')) {
+        g.deleteAttribute('normal');
+        g.computeVertexNormals();
+      }
       const c = new THREE.Color(resolve(paint, team));
       const n = g.getAttribute('position').count;
       const colours = new Float32Array(n * 3);
@@ -144,6 +173,7 @@ export class Kit {
       }
       g.setAttribute('color', new THREE.BufferAttribute(colours, 3));
       g.setAttribute('glow', new THREE.BufferAttribute(new Float32Array(n).fill(paint === 'window' || paint === 'lamp' ? 1 : 0), 1));
+      g.setAttribute('matte', new THREE.BufferAttribute(new Float32Array(n).fill(paint === 'rubber' ? 1 : 0), 1));
       return g;
     });
     if (!parts.length) return new THREE.BufferGeometry();
@@ -159,6 +189,8 @@ export interface TeamPaint {
   main: number;
   dark: number;
   light: number;
+  /** A deep shade, for the toys' detail that would be black or gunmetal on a painted model. */
+  deep?: number;
 }
 
 export const NEUTRAL: TeamPaint = { main: 0x8a8f96, dark: 0x5d6168, light: 0xb9bec4 };
@@ -166,9 +198,11 @@ export const NEUTRAL: TeamPaint = { main: 0x8a8f96, dark: 0x5d6168, light: 0xb9b
 function resolve(p: Paint, t: TeamPaint): number {
   if (p === 'team') return t.main;
   if (p === 'teamDark') return t.dark;
+  if (p === 'teamDeep') return t.deep ?? t.dark;
   if (p === 'teamLight') return t.light;
   if (p === 'window') return 0x7ec2de;
   if (p === 'lamp') return 0xf5efc0;
+  if (p === 'rubber') return 0x1e1f21;
   return p;
 }
 
@@ -179,7 +213,10 @@ export function teamPaint(r: number, g: number, b: number): TeamPaint {
   c.getHSL(hsl);
   const tone = (dl: number, ds: number) => new THREE.Color().setHSL(hsl.h, Math.min(1, hsl.s * ds), Math.max(0, Math.min(1, hsl.l + dl))).getHex();
   // A touch bolder than the flat colour, for the painted-toy look.
-  return { main: tone(0, 1.2), dark: tone(-0.14, 1.2), light: tone(0.14, 1) };
+  // The deep shade scales the lightness rather than taking a fixed amount off, so the four sides' shades come out
+  // alike (a fixed step takes a darker colour such as Green almost to black).
+  const deep = new THREE.Color().setHSL(hsl.h, Math.min(1, hsl.s * 1.1), hsl.l * 0.32).getHex();
+  return { main: tone(0, 1.2), dark: tone(-0.14, 1.2), light: tone(0.14, 1), deep };
 }
 
 /** A small deterministic random sequence for varying scenery by tile. */

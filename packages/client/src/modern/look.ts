@@ -163,9 +163,17 @@ const FRAGMENT = /* glsl */ `
       // A lens: colour fringes growing to the rim.
       vec2 off = d * 2.6 * texel + vec2(burst * (2.0 + 8.0 * glitch) * texel.x, 0.0);
       col = vec3(texture2D(frame, uv + off).r, texture2D(frame, uv).g, texture2D(frame, uv - off).b);
-      // A feed's grade: a little washed out and cool, the blacks lifted a touch.
+      // Highlights bloom a little on the lens: the sun's glint on plastic, fire and lamps.
+      vec3 bloom = vec3(0.0);
+      for (int i = 0; i < 8; i++) {
+        float a = float(i) * 0.785398;
+        vec2 o = vec2(cos(a), sin(a)) * (i < 4 ? 2.5 : 5.5);
+        bloom += max(texture2D(frame, uv + o * texel).rgb - 0.72, 0.0);
+      }
+      col += bloom * 0.09;
+      // A feed's grade: a touch cool, the blacks lifted a little, enough colour left for the toys' plastic to read.
       float g = lum(col);
-      col = mix(vec3(g), col, 0.72);
+      col = mix(vec3(g), col, 0.85);
       col = col * vec3(0.94, 1.0, 0.98) * 0.94 + vec3(0.015, 0.02, 0.02);
       col += grain * 0.06;
     }
