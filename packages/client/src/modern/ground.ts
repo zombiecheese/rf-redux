@@ -127,6 +127,8 @@ export class Ground {
     this.pitTex.needsUpdate = true;
     this.splatTex = new THREE.DataTexture(this.splat, GRID * SPLAT_TEX, GRID * SPLAT_TEX, THREE.RGBAFormat, THREE.UnsignedByteType);
     this.splatTex.magFilter = this.splatTex.minFilter = THREE.LinearFilter;
+    // The alpha is the ground's light left after occlusion (paintAo): all of it until then.
+    for (let i = 3; i < this.splat.length; i += 4) this.splat[i] = 255;
     this.paintSplat(0, 0, GRID, GRID);
     // The garden from photo scans where the device takes it (art.ts), else the painted ground on its own.
     const photo = ART.photoGround;
@@ -370,7 +372,7 @@ export class Ground {
       for (let sx = x0 * SPLAT_TEX; sx < x1 * SPLAT_TEX; sx++) {
         // Rows run south to north in the texture: the map's first row is its northern edge.
         const o = ((N - 1 - sy) * N + sx) * 4;
-        for (let c = 0; c < 4; c++) {
+        for (let c = 0; c < 3; c++) {
           let s = 0;
           for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) s += raw[(Math.min(N - 1, Math.max(0, sy + j)) * N + Math.min(N - 1, Math.max(0, sx + i))) * 4 + c]! * (i || j ? 1 : 4);
           this.splat[o + c] = Math.round(Math.min(1, s / 12) * 255);
@@ -457,6 +459,63 @@ export class Ground {
     }
     for (let i = 0; i < n * n; i++) this.shore[(n - 1 - ((i / n) | 0)) * n + (i % n)] = Math.min(255, cur[i]! * 255 * 1.6);
     this.shoreTex.needsUpdate = true;
+  }
+
+  /**
+   * The ground's ambient occlusion for tiles [x0, x1) x [y0, y1): darker close round each building's foot, by how
+   * tall it stands, fading out over about a tile. foot gives a tile's building's footprint (game units about the
+   * tile's middle) and height, or null where nothing stands. Kept in the splat's alpha, read by the photo ground.
+   */
+  paintAo(x0: number, y0: number, x1: number, y1: number, foot: (tx: number, ty: number) => { x0: number; y0: number; x1: number; y1: number; h: number } | null): void {
+    const N = GRID * SPLAT_TEX;
+    // Work on the area and a margin round it, so a building just outside still shades into it.
+    const M = 2;
+    const ax0 = Math.max(0, x0 - M) * SPLAT_TEX;
+    const ay0 = Math.max(0, y0 - M) * SPLAT_TEX;
+    const ax1 = Math.min(GRID, x1 + M) * SPLAT_TEX;
+    const ay1 = Math.min(GRID, y1 + M) * SPLAT_TEX;
+    const w = ax1 - ax0;
+    const h = ay1 - ay0;
+    let occ = new Float32Array(w * h);
+    for (let ty = Math.max(0, y0 - M); ty < Math.min(GRID, y1 + M); ty++) {
+      for (let tx = Math.max(0, x0 - M); tx < Math.min(GRID, x1 + M); tx++) {
+        const f = foot(tx, ty);
+        if (!f) continue;
+        const k = Math.min(1, f.h / 16);
+        const cx = (tx + 0.5) * TILE;
+        const cy = (ty + 0.5) * TILE;
+        const sx0 = Math.max(ax0, Math.floor(((cx + f.x0) / TILE) * SPLAT_TEX));
+        const sx1 = Math.min(ax1, Math.ceil(((cx + f.x1) / TILE) * SPLAT_TEX));
+        const sy0 = Math.max(ay0, Math.floor(((cy + f.y0) / TILE) * SPLAT_TEX));
+        const sy1 = Math.min(ay1, Math.ceil(((cy + f.y1) / TILE) * SPLAT_TEX));
+        for (let sy = sy0; sy < sy1; sy++) for (let sx = sx0; sx < sx1; sx++) occ[(sy - ay0) * w + sx - ax0] = Math.max(occ[(sy - ay0) * w + sx - ax0]!, k);
+      }
+    }
+    // Spread it out: two box blurs each way, about two thirds of a tile across.
+    const R = 3;
+    const blur = (src: Float32Array, dx: number, dy: number) => {
+      const out = new Float32Array(w * h);
+      for (let y = 0; y < h; y++) {
+        for (let x = 0; x < w; x++) {
+          let s = 0;
+          for (let i = -R; i <= R; i++) {
+            const xx = Math.min(w - 1, Math.max(0, x + i * dx));
+            const yy = Math.min(h - 1, Math.max(0, y + i * dy));
+            s += src[yy * w + xx]!;
+          }
+          out[y * w + x] = s / (2 * R + 1);
+        }
+      }
+      return out;
+    };
+    for (let pass = 0; pass < 2; pass++) occ = blur(blur(occ, 1, 0), 0, 1);
+    for (let sy = y0 * SPLAT_TEX; sy < y1 * SPLAT_TEX; sy++) {
+      for (let sx = x0 * SPLAT_TEX; sx < x1 * SPLAT_TEX; sx++) {
+        const o = ((N - 1 - sy) * N + sx) * 4 + 3;
+        this.splat[o] = Math.round((1 - 0.55 * Math.min(1, occ[(sy - ay0) * w + sx - ax0]! * 1.6)) * 255);
+      }
+    }
+    this.splatTex.needsUpdate = true;
   }
 
   /** How much of the point (x, y), in game units, is sand, darker sand and lawn, each 0 to 1 (the rest is road or water). */

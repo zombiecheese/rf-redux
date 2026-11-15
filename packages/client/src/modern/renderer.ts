@@ -737,6 +737,11 @@ export class ModernRenderer {
   // ---- Buildings ----------------------------------------------------------------------------------------------
 
   private syncChunks(world: World): void {
+    // The tiles whose buildings changed, for the ground's ambient occlusion.
+    let ax0 = GRID;
+    let ay0 = GRID;
+    let ax1 = 0;
+    let ay1 = 0;
     for (let cy = 0; cy < CHUNKS; cy++) {
       for (let cx = 0; cx < CHUNKS; cx++) {
         // Every patch is built once even with no buildings, for the garden's scatter.
@@ -751,6 +756,10 @@ export class ModernRenderer {
         const c = cy * CHUNKS + cx;
         if (key === this.chunkKeys[c]) continue;
         this.chunkKeys[c] = key;
+        ax0 = Math.min(ax0, cx * CHUNK);
+        ay0 = Math.min(ay0, cy * CHUNK);
+        ax1 = Math.max(ax1, (cx + 1) * CHUNK);
+        ay1 = Math.max(ay1, (cy + 1) * CHUNK);
         const old = this.chunks[c];
         if (old) {
           this.statics.remove(old);
@@ -790,6 +799,19 @@ export class ModernRenderer {
         this.statics.add(group);
       }
     }
+    if (ART.ao && this.ground && ax1 > ax0) this.ground.paintAo(ax0, ay0, ax1, ay1, (tx, ty) => this.footOf(world, ty * GRID + tx));
+  }
+
+  /** A tile's building's footprint about the tile's middle and its height, for ambient occlusion; null for none. */
+  private footOf(world: World, i: number): { x0: number; y0: number; x1: number; y1: number; h: number } | null {
+    const bid = world.building[i]!;
+    if (!bid || bid === BROKEN_BRIDGE) return null;
+    const def = world.defs[bid];
+    const box = this.boxes[bid];
+    if (!def || !box) return null;
+    // Plants stand on a thin trunk and the bridge over water: neither shades the ground at its foot.
+    if (/^(none|bush|palm|tree|cactus|stump|bridge|flag|flagBroken|light)$/.test(lookOf(def.name))) return null;
+    return { x0: box.x0 + box.ox, y0: box.y0 + box.oy, x1: box.x1 + box.ox, y1: box.y1 + box.oy, h: box.h };
   }
 
   private tileGeometry(world: World, i: number, lamps: Lamp[]): { g: THREE.BufferGeometry; toy: boolean; burnt: boolean; stone: boolean } | null {
