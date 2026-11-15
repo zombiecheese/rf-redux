@@ -1,8 +1,7 @@
-// The Hall of Fame (F7): one row per map played, kept separately for Training and Tournament games, with the
-// columns of the original's dialog (RFireEng.dll): Level, Map Name, Time, Winner, Draws, Player 1 Wins, Player 2
-// Wins, Total Games. The original's update code is not in the decompiled build, so how the columns fill is
-// inferred: Time is the fastest win on the map and Winner the name that set it. Rows live in localStorage until
-// accounts hold them on the server (the leaderboards card).
+// The Hall of Fame (L): one row per map played, kept separately for Training and Tournament games. It grew from the
+// original's dialog (Level, Map Name, Time, Winner, Draws, Player 1 Wins, Player 2 Wins, Total Games): the wins
+// are counted per side (Brown, Green, Blue, Red: every base on a winning team gets one), and each row says how many
+// bases its map has. Time is the fastest win on the map and Winner the side that set it. Rows live in localStorage.
 
 export type ScoreMode = 'training' | 'tournament';
 
@@ -14,8 +13,11 @@ export interface ScoreRow {
   time: number | null;
   winner: string;
   draws: number;
-  wins: [number, number];
+  /** Wins by base: Brown, Green, Blue, Red. Rows from before 3- and 4-base maps have two. */
+  wins: number[];
   total: number;
+  /** The map's bases; missing on rows from before they were kept (two). */
+  bases?: number;
 }
 
 export type ScoreTable = Record<ScoreMode, ScoreRow[]>;
@@ -31,14 +33,15 @@ export function loadScores(): ScoreTable {
   }
 }
 
-/** How a finished game went: the winning side (0 Brown, 1 Green) or null for a draw. */
+/** How a finished game went: the winning bases (one, or a team of them), none for a draw, and who they were. */
 export interface GameResult {
   mode: ScoreMode;
   mapId: string;
   level: number;
   mapName: string;
-  winner: 0 | 1 | null;
-  names: [string, string];
+  bases: number;
+  winners: number[];
+  winnerName: string;
   ms: number;
 }
 
@@ -47,16 +50,17 @@ export function recordGame(table: ScoreTable, r: GameResult): ScoreTable {
   const rows = table[r.mode];
   let row = rows.find((x) => x.mapId === r.mapId);
   if (!row) {
-    row = { mapId: r.mapId, level: r.level, mapName: r.mapName, time: null, winner: '', draws: 0, wins: [0, 0], total: 0 };
+    row = { mapId: r.mapId, level: r.level, mapName: r.mapName, time: null, winner: '', draws: 0, wins: [], total: 0 };
     rows.push(row);
   }
+  row.bases = r.bases;
   row.total++;
-  if (r.winner === null) row.draws++;
+  if (!r.winners.length) row.draws++;
   else {
-    row.wins[r.winner]++;
+    for (const b of r.winners) row.wins[b] = (row.wins[b] ?? 0) + 1;
     if (row.time === null || r.ms < row.time) {
       row.time = r.ms;
-      row.winner = r.names[r.winner];
+      row.winner = r.winnerName;
     }
   }
   rows.sort((a, b) => a.level - b.level || a.mapId.localeCompare(b.mapId));

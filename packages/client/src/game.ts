@@ -136,6 +136,7 @@ export interface Outcome {
 export interface ResultRow {
   name: string;
   team: number;
+  base: number;
   /** Vehicles lost, enemy flags brought home, and vehicles still in the bunker. */
   lost: number;
   captures: number;
@@ -721,7 +722,7 @@ export class Game {
 
     /** Each player's flags, losses and vehicles left, for an offline match's results. */
     const board = (): ResultRow[] => match.players.map((p) => ({
-      name: playerName(p.id), team: p.team, lost: lost[p.id] ?? 0, captures: captures[p.id] ?? 0,
+      name: playerName(p.id), team: p.team, base: p.base, lost: lost[p.id] ?? 0, captures: captures[p.id] ?? 0,
       left: VEHICLE_KINDS.reduce((n, k) => n + Math.min(99, p.lives[k]), 0), you: p.id < players, bot: p.id >= players,
     }));
     // The match is over when a side has won, or drawn (every base out at once).

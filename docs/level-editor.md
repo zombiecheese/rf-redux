@@ -79,10 +79,10 @@ problem has a button for it (`fixFor` in `editor/guide.ts`): place a base or a f
 the building on a lift or flag site, put land under a lift in the water, clear round a boxed-in lift, use the
 default jeeps, or remove a doubled or misplaced flag site. A fix is one undo step and ignores symmetry.
 
-A **Getting started** checklist sits over the map until the map is playable: paint some land, place two or more
+A **Getting started** checklist sits over the map until the map is playable: paint the land and the sea, place two or more
 base starts, give each base a flag site, clear the errors, and test play it. Each step ticks itself off as the map
 gets there, and clicking one picks its tool or tab. × hides it for good (`rfw-editor-guide`); Help > Getting
-Started brings it back. Holding **K** shows every key over the map; letting go hides it.
+Started brings it back. Holding **K** shows every key over the map; letting go hides it (the status bar says so).
 
 Test Play (P, or the button in the top bar) starts a solo match on the map from a base you pick, with the
 computer playing the others at the skill you choose, with the game's keys (README, Controls), in the view being
