@@ -10,6 +10,7 @@ Each release's section below becomes its GitHub release notes (`.github/workflow
 - The modern drone feed has a tilt-shift focus: a band across the middle of the picture is sharp and it goes soft toward the top and bottom, as a lens this close to something this small would see it, so the battlefield reads as a miniature. Thermal stays sharp.
 - The modern view's buildings, gun towers, walls, gates and flags are moulded plastic playset pieces, with rounded edges and the toys' plastic sheen. A building that's destroyed melts: it slumps into a scorched puddle of plastic with a little of its colour left. Burnt-out vehicle wrecks melt the same way. Plants and rocks are unchanged for now.
 - The modern view's trees, palms, bushes and cacti are moulded plastic playset plants, like the toys. Rocks are real stone, lumpy and photo-scanned, with grit scattered around them. The toys' plastic reflects a photographed garden by day and a lamplit park at night. The photos are CC0 from Poly Haven and credited in About.
+- The modern view's garden has small things scattered on the ground, at the toys' scale: sun-bleached pebbles, tufts of grass, dry leaves and twigs, lying in drifts where the ground suits them and never on roads, in water or under buildings.
 
 ## [0.6.0] - 2026-11-15
 

@@ -98,7 +98,7 @@ const PLAYSET = new Set<Look>([
  * A rock about r across (squashed by sz up): a ball pushed in and out at random, so it is lumpy like a real stone,
  * and the same at every shared corner (the push is a function of the point), so it has no cracks.
  */
-function lump(r: number, sz: number, seed: number): THREE.BufferGeometry {
+export function lump(r: number, sz: number, seed: number): THREE.BufferGeometry {
   const g = new THREE.IcosahedronGeometry(1, 1);
   const pos = g.getAttribute('position') as THREE.BufferAttribute;
   for (let i = 0; i < pos.count; i++) {

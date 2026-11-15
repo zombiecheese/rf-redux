@@ -25,6 +25,8 @@ export async function waterScene(q: URLSearchParams): Promise<never> {
   // &rocks=0 draws the rocks in flat grey, and &sky=0 has the toys reflect the sky drawn in code, to compare.
   if (q.get('rocks') === '0') (await import('./art.js')).ART.photoRocks = false;
   if (q.get('sky') === '0') (await import('./art.js')).ART.photoSky = false;
+  // &scatter=0 leaves the garden's pebbles, grass, leaves and twigs off.
+  if (q.get('scatter') === '0') (await import('./art.js')).ART.scatter = false;
   const modern = new ModernRenderer(assets);
   const night = q.get('night') === '1';
   modern.setNight(night);
