@@ -94,11 +94,6 @@ const PLAYSET = new Set<Look>([
   'bush', 'palm', 'tree', 'cactus', 'stump', 'planter',
 ]);
 
-/** A playset plant's moulded stand: the flat round base a toy tree is cast on, so it stands up on the table. */
-function stand(k: Kit, x: number, y: number, r: number, colour: number): void {
-  k.cyl(x, y, 0, r, r * 1.06, 0.9, colour, 18);
-}
-
 /**
  * A rock about r across (squashed by sz up): a ball pushed in and out at random, so it is lumpy like a real stone,
  * and the same at every shared corner (the push is a function of the point), so it has no cracks.
@@ -190,10 +185,9 @@ export function building(def: BuildingDef & { name?: string }, name: string, box
     case 'none':
       return null;
     case 'bush': {
-      // A moulded shrub: a few smooth leafy lumps on a round stand.
+      // A moulded shrub: a few smooth leafy lumps.
       const n = 2 + Math.floor(r() * 2);
       const s = Math.min(w, d) / 2;
-      stand(k, cx, cy, s * 0.8, LEAF_DARK);
       for (let i = 0; i < n; i++) {
         const a = r() * Math.PI * 2;
         k.ball(cx + Math.cos(a) * s * 0.3, cy + Math.sin(a) * s * 0.3, s * 0.45, s * (0.42 + r() * 0.18), [LEAF, LEAF_DARK, LEAF_LIGHT][i % 3]!, 2, 0.8);
@@ -211,7 +205,6 @@ export function building(def: BuildingDef & { name?: string }, name: string, box
         x += lean * 2;
       }
       const top = h;
-      stand(k, cx, cy, 4.2, LEAF_DARK);
       for (let i = 0; i < 7; i++) {
         const a = (i / 7) * Math.PI * 2 + r();
         k.box(x + Math.sin(a) * 5, y - Math.cos(a) * 5, top - 1.5, 3.2, 11, 0.6, i & 1 ? LEAF : LEAF_LIGHT, { turn: a, tilt: -0.45 });
@@ -221,8 +214,7 @@ export function building(def: BuildingDef & { name?: string }, name: string, box
     }
     case 'tree': {
       const h = b.h * (0.9 + r() * 0.25);
-      // A playset tree: a moulded trunk and a smooth crown of round leafy lumps, on its stand.
-      stand(k, cx, cy, 5, LEAF_DARK);
+      // A playset tree: a moulded trunk and a smooth crown of round leafy lumps.
       k.cyl(cx, cy, 0, 1.3, 2.1, h * 0.58, TRUNK, 10);
       k.ball(cx, cy, h * 0.66, 7.5, LEAF_DARK, 2, 0.85);
       k.ball(cx + 2.8, cy - 2, h * 0.84, 5.6, LEAF, 2, 0.85);
@@ -232,7 +224,6 @@ export function building(def: BuildingDef & { name?: string }, name: string, box
     }
     case 'cactus': {
       const h = Math.max(10, b.h);
-      stand(k, cx, cy, 4.5, 0x4c8a3e);
       k.cyl(cx, cy, 0, 2, 2.3, h, 0x5a9a4a, 10).ball(cx, cy, h, 2, 0x5a9a4a, 0);
       k.cyl(cx + 3.6, cy, h * 0.4, 1.2, 1.2, h * 0.35, 0x5a9a4a, 6).box(cx + 2, cy, h * 0.4, 3, 2, 2, 0x5a9a4a);
       k.cyl(cx - 3.4, cy, h * 0.55, 1.1, 1.1, h * 0.25, 0x5a9a4a, 6).box(cx - 2, cy, h * 0.55, 3, 2, 1.8, 0x5a9a4a);
@@ -428,9 +419,8 @@ export function building(def: BuildingDef & { name?: string }, name: string, box
       break;
     }
     case 'stump':
-      // The tree's moulded stand, with the stub of its trunk where it snapped off.
-      stand(k, cx, cy, 4.5, LEAF_DARK);
-      k.cyl(cx, cy, 0.5, 1.3, 2, 3, TRUNK, 10).ball(cx + 2, cy + 1, 0.8, 2.2, 0x4a3a28, 1, 0.4);
+      // The stub of the tree's trunk where it snapped off.
+      k.cyl(cx, cy, 0, 1.3, 2, 3, TRUNK, 10).ball(cx + 2, cy + 1, 0.5, 2.2, 0x4a3a28, 1, 0.4);
       break;
     case 'bridge': {
       const vertical = /_V$/i.test(name);
