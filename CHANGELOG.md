@@ -4,6 +4,10 @@ Each release's section below becomes its GitHub release notes (`.github/workflow
 
 ## [Unreleased]
 
+### Changed
+
+- The modern view's buildings, gun towers, walls, gates and flags are moulded plastic playset pieces, with rounded edges and the toys' plastic sheen. A building that's destroyed melts: it slumps into a scorched puddle of plastic with a little of its colour left. Burnt-out vehicle wrecks melt the same way. Plants and rocks are unchanged for now.
+
 ## [0.6.0] - 2026-11-15
 
 A friendlier game around the matches: menus dressed for the view you play in, open online lobbies strangers can join, phones that fit, an Esc pause menu, one Match Setup screen, a results screen with Rematch and the replay, a Hall of Fame for every side, and the modern view's toys in moulded plastic in a bunker dug into real earth.

@@ -4,7 +4,8 @@
 
 import { DEEP, GRID, LAND, SHALLOW, groundAt, makeVehicle, type Vehicle, type VehicleKind } from '@rfw/sim';
 import { Camera, layout } from '../camera.js';
-import { lightOf } from './buildings.js';
+import type { Wreck } from '../effects.js';
+import { lightOf, lookOf } from './buildings.js';
 import { bodyBox } from './renderer.js';
 
 const TILE = 32;
@@ -48,6 +49,28 @@ export async function waterScene(q: URLSearchParams): Promise<never> {
       }
       const score = Math.min(shallow, 22) * 2 + Math.min(deep, 18) + Math.min(land, 14) + Math.min(lamps, 4) * (q.get('lamps') === '1' ? 40 : 8);
       if (shallow >= 10 && deep >= 8 && land >= 6 && score > best.score) best = { score, x: tx * TILE + 16, y: ty * TILE + 16, lamps };
+    }
+  }
+  // &base=N looks at that base's start instead (with &follow=none), for its buildings; &burn=1 burns some of them
+  // down and leaves a few burnt-out toys about, to see the wrecks in place.
+  const wrecks: Wreck[] = [];
+  if (q.get('base') !== null) {
+    const start = (world.bases[Number(q.get('base'))] ?? world.bases[0]!).start;
+    best = { score: 0, x: start.tx * TILE + 16, y: start.ty * TILE + 16, lamps: 0 };
+    if (q.get('burn') === '1') {
+      const idOf = (n: string) => world.defs.findIndex((d) => d?.name === n);
+      const burnt: Record<string, string> = { house: 'STD_DEST', factory: 'STD_DEST', hq: 'STD_DEST', outpost: 'DEST_OUTPOST', hospital: 'DEST_HOSP', tower: 'DESTROYED_TOWER', prison: 'DEST_JAIL', ammo: 'DEST_AMMO', fuel: 'DEST_FUEL', tent: 'DEST_TENT', watchtower: 'DEST_WTOWER_NE' };
+      let n = 0;
+      for (let ty = start.ty - 9; ty <= start.ty + 9; ty++) {
+        for (let tx = start.tx - 12; tx <= start.tx + 12; tx++) {
+          const i = ty * GRID + tx;
+          const def = world.defs[world.building[i]!];
+          const to = def && burnt[lookOf(def.name)];
+          if (to && idOf(to) > 0 && n++ % 2 === 0) world.building[i] = idOf(to);
+        }
+      }
+      (['tank', 'jeep', 'asv', 'tank'] as VehicleKind[]).forEach((kind, i) =>
+        wrecks.push({ kind, heading: i * 900000, x: best.x - 90 + i * 60, y: best.y + 70 - (i & 1) * 30, variant: 1 + (i & 1), paint: 0, until: 1e9, grace: 1e9, seen: 0 }));
     }
   }
   // A circle to drive round that stays all in one ground, as near the shore as can be.
@@ -151,7 +174,7 @@ export async function waterScene(q: URLSearchParams): Promise<never> {
     }
     // At make-believe time only the last frames are drawn: the ones before only move the water along.
     const skip = fixed && (frames * 1000) / 60 < wait - 100;
-    modern.draw(match, cams.map((cam, i) => ({ cam, rect: rects[i]!, viewer: 0, skip })), { wrecks: [], splats: [] });
+    modern.draw(match, cams.map((cam, i) => ({ cam, rect: rects[i]!, viewer: 0, skip })), { wrecks, splats: [] });
     ctx.drawImage(modern.canvas, 0, 0);
     requestAnimationFrame(frame);
   };

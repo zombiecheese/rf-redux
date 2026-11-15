@@ -13,7 +13,7 @@ import { building } from './buildings.js';
 import { Kit, NEUTRAL, teamPaint } from './kit.js';
 import { bodyBox } from './renderer.js';
 import * as V from './vehicles.js';
-import { gardenSky, toyPlastic } from './toy.js';
+import { charredPlastic, gardenSky, melted, toyPlastic } from './toy.js';
 import { ONE } from '@rfw/sim';
 import { BunkerScene, SkullScene } from './screens.js';
 
@@ -96,9 +96,16 @@ const labels: { text: string; x: number; y: number }[] = [];
 
 const plastic = toyPlastic();
 plastic.envMap = gardenSky(renderer, new THREE.Vector3(-0.55, 0.85, 0.7));
+const charred = charredPlastic();
+charred.envMap = plastic.envMap;
+// The buildings' plastic, as the renderer's playset material.
+const playsetPlastic = toyPlastic();
+playsetPlastic.roughness = 0.4;
+playsetPlastic.clearcoat = 0.25;
+playsetPlastic.envMap = plastic.envMap;
 const put = (kit: Kit | null, x: number, y: number, team = NEUTRAL, label = '', lift = 0) => {
   if (kit) {
-    const mesh = new THREE.Mesh(kit.build(team), kit.toy ? plastic : material);
+    const mesh = new THREE.Mesh(kit.build(team), kit.burnt ? charred : kit.toy ? (part === 'vehicles' ? plastic : playsetPlastic) : material);
     mesh.position.set(x, lift, y);
     mesh.castShadow = mesh.receiveShadow = true;
     scene.add(mesh);
@@ -120,6 +127,18 @@ if (part === 'vehicles') {
       if (k.rotor) all.merge(k.rotor, ...k.rotorAt!);
       // &tyres=1 shows the jeep on its blown-up tyres, scaled and raised as the renderer does when they inflate.
       const blown = make === V.jeep && new URLSearchParams(location.search).get('tyres') === '1';
+      // &melt=1 shows each body as its burnt-out wreck, melted, as a wreck at rest is drawn.
+      if (new URLSearchParams(location.search).get('melt') === '1') {
+        Kit.fine = true;
+        const body = make().body;
+        Kit.fine = false;
+        const m = new THREE.Mesh(melted(body.build(p), t + 3), charred);
+        m.position.set(t * 70, 0, i * 80);
+        m.castShadow = m.receiveShadow = true;
+        scene.add(m);
+        if (t === 0) labels.push({ text: ['tank', 'jeep', 'asv', 'heli', 'drone'][i]!, x: 0, y: i * 80 + 26 });
+        return;
+      }
       if (!blown) for (const at of k.wheelAt ?? []) all.merge(k.wheels!, ...at);
       put(all, t * 70, i * 80, p, t === 0 ? ['tank', 'jeep', 'asv', 'heli', 'drone'][i] : '', blown ? 2.2 : 0);
       if (blown) {
@@ -168,6 +187,14 @@ if (part === 'vehicles') {
   });
   w = cols * 80;
   h = Math.ceil((to - from + 1) / cols) * 80;
+  // &zoom=x,y,span looks closely at one spot here too, e.g. &from=23&zoom=80,0,170 at a row of houses.
+  const zoom = new URLSearchParams(location.search).get('zoom');
+  if (zoom?.includes(',')) {
+    const [zx, zy, span] = zoom.split(',').map(Number);
+    w = span!;
+    h = span!;
+    focus = [zx!, zy!];
+  }
 }
 const camera = new THREE.PerspectiveCamera(30, innerWidth / innerHeight, 10, 6000);
 const cx = focus ? focus[0] : w / 2 - 40;

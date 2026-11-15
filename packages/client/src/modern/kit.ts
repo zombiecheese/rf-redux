@@ -6,6 +6,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
+import { slump } from './toy.js';
 
 /**
  * A colour, or 'team' for the owner's colour, filled in when the model is made for a side. 'window' and 'lamp' are
@@ -48,18 +49,38 @@ export class Kit {
    * toy: a moulded plastic toy. Boxes get rounded edges and every shape keeps its own smooth normals, so the
    * plastic catches the light on its edges instead of showing flat facets.
    */
-  constructor(readonly toy = false) {}
+  /** Melted by fire (melt()): its shapes get fresh, faceted normals when built. */
+  private molten = false;
+  /** Burnt: drawn in the scorched plastic, not the clean (the renderer's choice of material). */
+  burnt = false;
+
+  /**
+   * While set, kits are made finely cut (boxes and cylinders in many small faces) so that they can be melted
+   * smoothly: set it only around making a kit that will be melted.
+   */
+  static fine = false;
+
+  /** round: the most a toy box's edges are rounded by, in game units. */
+  constructor(readonly toy = false, readonly round = 1.1) {}
+
+  /** Melts the kit's shapes as one, as a toy left in a fire (see slump). */
+  melt(seed: number, keep?: number): this {
+    slump(this.pieces.map((p) => p.geo), seed, keep);
+    this.molten = true;
+    return this;
+  }
 
   /** A box standing on z (its base), centred on (x, y), sized w east-west, d north-south, h up. */
   box(x: number, y: number, z: number, w: number, d: number, h: number, paint: Paint, p?: Place): this {
-    const g = this.toy ? new RoundedBoxGeometry(w, h, d, 2, Math.min(1.1, Math.min(w, h, d) * 0.22)) : new THREE.BoxGeometry(w, h, d);
+    const cut = (n: number) => Math.max(1, Math.min(24, Math.ceil(n / 1.5)));
+    const g = Kit.fine ? new THREE.BoxGeometry(w, h, d, cut(w), cut(h), cut(d)) : this.toy ? new RoundedBoxGeometry(w, h, d, 2, Math.min(this.round, Math.min(w, h, d) * 0.22)) : new THREE.BoxGeometry(w, h, d);
     g.translate(0, h / 2, 0);
     return this.add(g, x, y, z, paint, p);
   }
 
   /** An upright cylinder (or cone, or prism with few sides) standing on z. */
   cyl(x: number, y: number, z: number, rTop: number, rBottom: number, h: number, paint: Paint, sides = 8, p?: Place): this {
-    const g = new THREE.CylinderGeometry(rTop, rBottom, h, sides);
+    const g = new THREE.CylinderGeometry(rTop, rBottom, h, Kit.fine ? Math.max(sides, 12) : sides, Kit.fine ? Math.max(1, Math.min(16, Math.ceil(h / 1.5))) : 1);
     g.translate(0, h / 2, 0);
     return this.add(g, x, y, z, paint, p);
   }
@@ -147,6 +168,7 @@ export class Kit {
   merge(other: Kit, x = 0, y = 0, z = 0, p?: Place): this {
     const m = placing(x, y, z, p).clone();
     for (const piece of other.pieces) this.pieces.push({ geo: piece.geo.clone().applyMatrix4(m), paint: piece.paint });
+    if (other.molten) this.molten = true;
     return this;
   }
 
@@ -159,7 +181,7 @@ export class Kit {
     const parts = this.pieces.map(({ geo, paint }) => {
       const g = (geo.index ? geo.toNonIndexed() : geo.clone());
       g.deleteAttribute('uv');
-      if (!this.toy || !g.getAttribute('normal')) {
+      if (!this.toy || this.molten || !g.getAttribute('normal')) {
         g.deleteAttribute('normal');
         g.computeVertexNormals();
       }
@@ -172,7 +194,7 @@ export class Kit {
         colours[i * 3 + 2] = c.b;
       }
       g.setAttribute('color', new THREE.BufferAttribute(colours, 3));
-      g.setAttribute('glow', new THREE.BufferAttribute(new Float32Array(n).fill(paint === 'window' || paint === 'lamp' ? 1 : 0), 1));
+      g.setAttribute('glow', new THREE.BufferAttribute(new Float32Array(n).fill((paint === 'window' || paint === 'lamp') && !this.burnt ? 1 : 0), 1));
       g.setAttribute('matte', new THREE.BufferAttribute(new Float32Array(n).fill(paint === 'rubber' ? 1 : 0), 1));
       return g;
     });

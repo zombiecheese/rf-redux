@@ -15,7 +15,7 @@ import type { GameAssets, Model } from '../assets.js';
 import { FOCAL, type Camera } from '../camera.js';
 import { drawMark, type Splat, type Wreck as MarkWreck } from '../effects.js';
 import { TEAMS } from '../paint.js';
-import { building, gateLeaf, lightOf, lookOf, towerGun, type Box } from './buildings.js';
+import { building, gateLeaf, lightOf, lookOf, playset, towerGun, type Box } from './buildings.js';
 import { Fx } from './fx.js';
 import { LAMP_REACH, LampMap, lampLight, type Lamp } from './lampmap.js';
 import { LIGHT_TIME, LookPass, THERMAL, grainLights, heatFragment } from './look.js';
@@ -24,7 +24,7 @@ import { Ground, TILE, type SeaInputs } from './ground.js';
 import { WaterMarks } from './water.js';
 import { Kit, NEUTRAL, teamPaint, type TeamPaint } from './kit.js';
 import * as V from './vehicles.js';
-import { PLASTIC_SKY, gardenSky, toyPlastic } from './toy.js';
+import { PLASTIC_SKY, charredPlastic, gardenSky, melted, toyPlastic } from './toy.js';
 import { MODERN_H, MODERN_W, modernLayout, type ModernRect } from './layout.js';
 
 export { MODERN_H, MODERN_W, modernLayout, type ModernRect };
@@ -148,11 +148,15 @@ export class ModernRenderer {
   private readonly material = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.72, metalness: 0.04 });
   /** Vehicles, soldiers and drones: moulded toy plastic, and they run hot on the thermal camera. */
   private readonly hot = toyPlastic();
-  private readonly charred = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.95, color: 0x3a342e });
+  /** Buildings, towers, walls and gates: plastic playset pieces, a little less glossy than the toys. */
+  private readonly playset = playsetPlastic();
+  /** Burnt-out wrecks: the toy melted and scorched. */
+  private readonly charred = charredPlastic();
   private readonly glowMaterial = new THREE.MeshBasicMaterial({ color: 0xffe08a });
   private world: World | null = null;
   private ground: Ground | null = null;
-  private readonly chunks: (THREE.Mesh | null)[] = new Array(CHUNKS * CHUNKS).fill(null);
+  /** Each chunk's buildings: the playset pieces', the plants' and rocks', and the burnt-out wrecks' meshes, in a group. */
+  private readonly chunks: (THREE.Group | null)[] = new Array(CHUNKS * CHUNKS).fill(null);
   private readonly chunkKeys: string[] = new Array(CHUNKS * CHUNKS).fill('');
   private readonly statics = new THREE.Group();
   private readonly dynamic = new THREE.Group();
@@ -208,8 +212,9 @@ export class ModernRenderer {
 
     this.scene.background = new THREE.Color(0x0c2a40);
     this.scene.add(this.sky);
-    this.hot.envMap = gardenSky(this.gl, SUN);
+    this.hot.envMap = this.playset.envMap = this.charred.envMap = gardenSky(this.gl, SUN);
     this.teach(this.material, 0);
+    this.teach(this.playset, 0);
     this.teach(this.hot, 1);
     this.teach(this.charred, 0.55);
     for (let i = 0; i < HEADLIGHTS; i++) {
@@ -592,7 +597,7 @@ export class ModernRenderer {
     this.sky.intensity = this.night ? 0.22 + 0.75 * this.moon : 1.25;
     this.sun.intensity = this.night ? 0.28 + 0.9 * this.moon : 2.7;
     // The plastic reflects the garden by day; at night only a trace of it, as moonlight.
-    this.hot.envMapIntensity = this.night ? 0.03 + 0.2 * this.moon : PLASTIC_SKY;
+    this.hot.envMapIntensity = this.playset.envMapIntensity = this.charred.envMapIntensity = this.night ? 0.03 + 0.2 * this.moon : PLASTIC_SKY;
   }
 
   private waterLight(u: Record<string, THREE.IUniform>): void {
@@ -695,7 +700,7 @@ export class ModernRenderer {
       const c = this.chunks[i];
       if (c) {
         this.statics.remove(c);
-        c.geometry.dispose();
+        disposeChunk(c);
       }
       this.chunks[i] = null;
       this.chunkKeys[i] = '';
@@ -726,32 +731,39 @@ export class ModernRenderer {
         const old = this.chunks[c];
         if (old) {
           this.statics.remove(old);
-          old.geometry.dispose();
+          disposeChunk(old);
           this.chunks[c] = null;
         }
-        const geos: THREE.BufferGeometry[] = [];
+        const toys: THREE.BufferGeometry[] = [];
+        const plants: THREE.BufferGeometry[] = [];
+        const burnt: THREE.BufferGeometry[] = [];
         const lamps: Lamp[] = (this.chunkLamps[c] = []);
         for (let y = cy * CHUNK; y < cy * CHUNK + CHUNK; y++) {
           for (let x = cx * CHUNK; x < cx * CHUNK + CHUNK; x++) {
-            const g = this.tileGeometry(world, y * GRID + x, lamps);
-            if (g) geos.push(g);
+            const t = this.tileGeometry(world, y * GRID + x, lamps);
+            if (t) (t.burnt ? burnt : t.toy ? toys : plants).push(t.g);
           }
         }
         this.staleLamps(cx * CHUNK * TILE, cy * CHUNK * TILE, (cx + 1) * CHUNK * TILE, (cy + 1) * CHUNK * TILE);
-        if (!geos.length) continue;
-        const merged = mergeGeometries(geos, false);
-        for (const g of geos) g.dispose();
-        if (!merged) continue;
-        const mesh = new THREE.Mesh(merged, this.material);
-        mesh.castShadow = true;
-        mesh.receiveShadow = true;
-        this.chunks[c] = mesh;
-        this.statics.add(mesh);
+        const group = new THREE.Group();
+        for (const [geos, material] of [[toys, this.playset], [plants, this.material], [burnt, this.charred]] as const) {
+          if (!geos.length) continue;
+          const merged = mergeGeometries(geos, false);
+          for (const g of geos) g.dispose();
+          if (!merged) continue;
+          const mesh = new THREE.Mesh(merged, material);
+          mesh.castShadow = true;
+          mesh.receiveShadow = true;
+          group.add(mesh);
+        }
+        if (!group.children.length) continue;
+        this.chunks[c] = group;
+        this.statics.add(group);
       }
     }
   }
 
-  private tileGeometry(world: World, i: number, lamps: Lamp[]): THREE.BufferGeometry | null {
+  private tileGeometry(world: World, i: number, lamps: Lamp[]): { g: THREE.BufferGeometry; toy: boolean; burnt: boolean } | null {
     const bid = world.building[i]!;
     if (!bid) return null;
     const def = world.defs[bid];
@@ -776,7 +788,7 @@ export class ModernRenderer {
     if (lamp && !home) lamps.push({ ...lamp, x: lamp.x + ox, y: lamp.y + oy });
     const g = kit.build(owner < 0 ? NEUTRAL : this.paints[owner] ?? NEUTRAL);
     g.translate(ox, 0, oy);
-    return g;
+    return { g, toy: kit.toy, burnt: kit.burnt };
   }
 
   // ---- Things that move ---------------------------------------------------------------------------------------
@@ -893,10 +905,10 @@ export class ModernRenderer {
             const gun = this.pool(key, () => {
               const parts = towerGun(large);
               const g = new THREE.Group();
-              g.add(this.mesh(`${key}:head`, () => parts.head, team));
+              g.add(this.mesh(`${key}:head`, () => parts.head, team, this.playset));
               const b = new THREE.Group();
               b.position.set(0, 4 * (large ? 1.25 : 1), 0);
-              b.add(this.mesh(`${key}:barrels`, () => parts.barrels, team));
+              b.add(this.mesh(`${key}:barrels`, () => parts.barrels, team, this.playset));
               g.add(b);
               return g;
             }).take() as THREE.Group;
@@ -927,11 +939,11 @@ export class ModernRenderer {
       if (moving.has(i)) {
         const def = world.defs[bid];
         const key = `gateposts:${bid}:${owner}`;
-        const posts = def && this.pool(key, () => this.mesh(key, () => building(def, def.name, this.boxes[bid] ?? null, i) ?? new Kit(), team)).take();
+        const posts = def && this.pool(key, () => this.mesh(key, () => building(def, def.name, this.boxes[bid] ?? null, i) ?? new Kit(), team, playset(def.name) ? this.playset : this.material)).take();
         posts?.position.set(cx, 0, cy);
       }
       for (const s of [-1, 1]) {
-        const leaf = this.pool(`leaf:${owner}`, () => this.mesh(`leaf:${owner}`, () => gateLeaf(1), team)).take();
+        const leaf = this.pool(`leaf:${owner}`, () => this.mesh(`leaf:${owner}`, () => gateLeaf(1), team, this.playset)).take();
         leaf.scale.set(len, 1, 1);
         if (bid === GATE_H) {
           leaf.position.set(cx + s * 8, 0, cy);
@@ -965,9 +977,9 @@ export class ModernRenderer {
     for (const f of m.flags) {
       if (!f.revealed || m.eliminated[f.base]) continue;
       const team = this.paints[f.base] ?? NEUTRAL;
-      const o = this.pool(`flag:${f.base}`, () => this.mesh(`flag:${f.base}`, () => new Kit()
-        .cyl(0, 0, 0, 0.5, 0.6, 20, 0xd8d8d8, 6).ball(0, 0, 20.3, 0.9, 0xe0b81c, 0)
-        .box(4.5, 0, 13.5, 9, 0.5, 6, 'team'), team)).take();
+      const o = this.pool(`flag:${f.base}`, () => this.mesh(`flag:${f.base}`, () => new Kit(true)
+        .cyl(0, 0, 0, 0.5, 0.6, 20, 0xd8d8d8, 6).ball(0, 0, 20.3, 0.9, 0xe0b81c, 1)
+        .box(4.5, 0, 13.5, 9, 0.5, 6, 'team'), team, this.playset)).take();
       o.position.set(f.x / 65536, 0, f.y / 65536);
       o.rotation.set(0, Math.sin(m.tick * 0.15 + f.base) * 0.25, 0);
     }
@@ -1240,11 +1252,24 @@ export class ModernRenderer {
 
   private wreck(kind: VehicleKind, base: number, x: number, y: number, z: number, heading: number, dt: number, body: boolean): void {
     const team = this.paints[base] ?? NEUTRAL;
-    const key = `wreck:${kind}:${base}`;
-    const o = this.pool(key, () => this.mesh(`${kind}:${base}:body`, () => VEHICLE_KITS[kind]().body, team, this.charred)).take() as THREE.Mesh;
-    o.material = body ? this.hot : this.charred;
+    // A body still flying from the blast is the toy as it was; one at rest has melted in the fire.
+    const key = `wreck:${kind}:${base}:${body ? 'body' : 'melt'}`;
+    const o = this.pool(key, () => {
+      if (body) return this.mesh(`${kind}:${base}:body`, () => VEHICLE_KITS[kind]().body, team, this.hot);
+      const g = this.geometry(`${kind}:${base}:melt`, () => {
+        Kit.fine = true;
+        const whole = VEHICLE_KITS[kind]().body.build(team);
+        Kit.fine = false;
+        const out = melted(whole, base + kind.length);
+        whole.dispose();
+        return out;
+      });
+      const m = new THREE.Mesh(g, this.charred);
+      m.castShadow = m.receiveShadow = true;
+      return m;
+    }).take() as THREE.Mesh;
     o.position.set(x, z, y);
-    o.rotation.set(0, -radians(heading), body ? 0 : 0.12);
+    o.rotation.set(0, -radians(heading), 0);
     this.fx.trail(x, y, z, !body, dt);
   }
 
@@ -1275,7 +1300,7 @@ export class ModernRenderer {
     this.ground?.dispose();
     this.pass?.dispose();
     this.marks.dispose();
-    for (const c of this.chunks) c?.geometry.dispose();
+    for (const c of this.chunks) if (c) disposeChunk(c);
     for (const g of this.geoCache.values()) g.dispose();
     this.gl.dispose();
     this.gl.forceContextLoss();
@@ -1327,3 +1352,15 @@ function brokenBridge(world: World, i: number): Kit {
 }
 
 export { lookOf };
+
+/** The playset buildings' plastic: the toys' moulding, a touch rougher and with less clear coat on its big walls. */
+function playsetPlastic(): THREE.MeshPhysicalMaterial {
+  const m = toyPlastic();
+  m.roughness = 0.4;
+  m.clearcoat = 0.25;
+  return m;
+}
+
+function disposeChunk(c: THREE.Group): void {
+  for (const o of c.children) (o as THREE.Mesh).geometry.dispose();
+}
