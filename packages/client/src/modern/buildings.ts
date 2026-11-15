@@ -90,7 +90,7 @@ export interface Box {
  */
 const PLAYSET = new Set<Look>([
   'ammo', 'prison', 'flag', 'flagBroken', 'house', 'factory', 'hq', 'outpost', 'hospital', 'fuel', 'gate', 'wall',
-  'wallBroken', 'tent', 'tower', 'towerBase', 'towerBroken', 'watchtower', 'rubble', 'bridge', 'light',
+  'wallBroken', 'tent', 'tower', 'towerBase', 'towerBroken', 'watchtower', 'rubble', 'bridge',
   'bush', 'palm', 'tree', 'cactus', 'stump', 'planter',
 ]);
 
@@ -438,7 +438,12 @@ export function building(def: BuildingDef & { name?: string }, name: string, box
       break;
     }
     case 'light':
-      k.cyl(cx + 12, cy - 12, 0, 0.5, 0.7, 14, METAL, 5).box(cx + 12, cy - 13.5, 14, 2, 4, 1, 'lamp');
+      // A solar garden lamp on its stake, standing in for a floodlight: the garden's own, not the toy box's. A black
+      // stake, a frosted lamp that glows at night, a dark cap and the solar panel on top.
+      k.cyl(cx + 12, cy - 13.5, 0, 0.5, 0.65, 15, 0x1e2022, 6);
+      k.cyl(cx + 12, cy - 13.5, 15, 2.2, 2.0, 3.2, 'lamp', 12);
+      k.cyl(cx + 12, cy - 13.5, 18.2, 2.9, 2.6, 0.9, 0x26282c, 12);
+      k.box(cx + 12, cy - 13.5, 19.1, 3.6, 3.6, 0.3, 0x1c2a44);
       break;
   }
   return k.empty ? null : k;
@@ -502,9 +507,10 @@ export function lightOf(name: string, box: Box | null): { x: number; y: number; 
   const reach = (Math.abs(fx) > 0.5 ? (b.x1 - b.x0) : (b.y1 - b.y0)) / 2 + 4;
   const door = (z: number) => ({ x: cx + fx * reach, y: cy + fy * reach, z });
   switch (look) {
-    case 'light': return { x: cx + 12, y: cy - 13.5, z: 12.5, power: 2600, colour: 0xffd890 };
+    // A solar garden lamp's cool white LED.
+    case 'light': return { x: cx + 12, y: cy - 13.5, z: 16.5, power: 1300, colour: 0xeef0ff };
     case 'watchtower': return { x: cx, y: cy + 7.2, z: b.h - 9, power: 1800, colour: 0xffc070 };
-    case 'house': case 'outpost': return { ...door(8), power: 650, colour: 0xffc070 };
+    case 'house': case 'outpost': return { ...door(8), power: 325, colour: 0xffc070 };
     case 'hq': case 'factory': case 'hospital': case 'fuel': return { ...door(10), power: 1400, colour: 0xffd090 };
     case 'prison': case 'gate': return { x: cx, y: cy, z: b.h + 6, power: 1400, colour: 0xffe0a8 };
     default: return null;
