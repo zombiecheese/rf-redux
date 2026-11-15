@@ -119,6 +119,7 @@ export class Display {
    * (the modern view) with plain smoothing, at any scale.
    */
   present(low: Picture, brightness = 1, smooth = false): void {
+    this.hideModern();
     const dpr = devicePixelRatio || 1;
     const cw = Math.round(innerWidth * dpr);
     const ch = Math.round(innerHeight * dpr);
@@ -221,6 +222,90 @@ export class Display {
     strip(x + w, 0, cw - x - w, ch);
     strip(0, 0, cw, y);
     strip(0, y + h, cw, ch - y - h);
+  }
+
+  /** The modern view's layers over the page, once it has shown: its WebGL picture and the HUD over it. */
+  private modern: { gl: HTMLCanvasElement; hud: HTMLCanvasElement; ctx: CanvasRenderingContext2D } | null = null;
+
+  /** The HUD's canvas, at the screen's own resolution (for copying the finished picture, with modernPicture). */
+  get hudCanvas(): HTMLCanvasElement | null {
+    return this.modern?.hud ?? null;
+  }
+
+  /**
+   * Shows the modern view: its WebGL canvas straight on the page, fitted to the window at w:h with the camo bars
+   * round it, and a transparent HUD canvas over it at the screen's own pixels, so its text and lines stay sharp at
+   * any size. Returns the HUD's context, cleared, drawn in the modern screen's own units (w x h).
+   */
+  presentModern(gl: HTMLCanvasElement, w: number, h: number): CanvasRenderingContext2D {
+    const dpr = devicePixelRatio || 1;
+    const cw = Math.round(innerWidth * dpr);
+    const ch = Math.round(innerHeight * dpr);
+    const { canvas, ctx } = this;
+    if (canvas.width !== cw || canvas.height !== ch) {
+      canvas.width = cw;
+      canvas.height = ch;
+      canvas.style.width = `${innerWidth}px`;
+      canvas.style.height = `${innerHeight}px`;
+      this.barsFor = '';
+    }
+    const scale = Math.min(cw / w, ch / h);
+    const pw = Math.round(w * scale);
+    const ph = Math.round(h * scale);
+    const x = (cw - pw) >> 1;
+    const y = (ch - ph) >> 1;
+    Object.assign(this.rect, { x: x / dpr, y: y / dpr, w: pw / dpr, h: ph / dpr });
+    this.drawBars(cw, ch, x, y, pw, ph);
+    let m = this.modern;
+    if (!m || m.gl !== gl) {
+      m?.hud.remove();
+      const hud = document.createElement('canvas');
+      // Over the page's own canvas (whatever layer it sits in), and never in the way of a tap or click on it.
+      const z = Number.parseInt(getComputedStyle(canvas).zIndex, 10) || 0;
+      for (const [el, k] of [[gl, 1], [hud, 2]] as const) {
+        Object.assign(el.style, { position: 'fixed', zIndex: String(z + k), pointerEvents: 'none', margin: '0', display: 'block' });
+        canvas.after(el);
+      }
+      gl.after(hud);
+      m = this.modern = { gl, hud, ctx: hud.getContext('2d')! };
+    }
+    const { hud } = m;
+    for (const el of [gl, hud]) {
+      Object.assign(el.style, { left: `${x / dpr}px`, top: `${y / dpr}px`, width: `${pw / dpr}px`, height: `${ph / dpr}px`, visibility: '' });
+    }
+    if (hud.width !== pw || hud.height !== ph) {
+      hud.width = pw;
+      hud.height = ph;
+    }
+    const g = m.ctx;
+    g.setTransform(1, 0, 0, 1, 0, 0);
+    g.clearRect(0, 0, pw, ph);
+    g.setTransform(pw / w, 0, 0, ph / h, 0, 0);
+    return g;
+  }
+
+  /** Puts the modern view's last picture, HUD and all, into a 2D context (only in the frame it was drawn). */
+  modernPicture(g: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D, x: number, y: number, w: number, h: number): void {
+    const m = this.modern;
+    if (!m) return;
+    g.drawImage(m.gl, x, y, w, h);
+    g.drawImage(m.hud, x, y, w, h);
+  }
+
+  /** Takes the modern view's layers off the page (the classic view, a menu or a still picture shows instead). */
+  hideModern(): void {
+    const m = this.modern;
+    if (!m || m.hud.style.visibility === 'hidden') return;
+    m.gl.style.visibility = 'hidden';
+    m.hud.style.visibility = 'hidden';
+  }
+
+  /** Takes the display off the page altogether. */
+  remove(): void {
+    this.canvas.remove();
+    this.modern?.hud.remove();
+    this.modern?.gl.remove();
+    this.modern = null;
   }
 
   private drawCrt(low: Picture, x: number, y: number, w: number, h: number, rows: number): void {

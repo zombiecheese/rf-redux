@@ -29,6 +29,7 @@ import { rockMaterial } from './photorock.js';
 import { scatterPatch } from './scatter.js';
 import { ART } from './art.js';
 import { stats } from './stats.js';
+import type { PresetSpec } from '../quality.js';
 import { MODERN_H, MODERN_W, modernLayout, type ModernRect } from './layout.js';
 
 export { MODERN_H, MODERN_W, modernLayout, type ModernRect };
@@ -165,7 +166,11 @@ export class ModernRenderer {
   private ground: Ground | null = null;
   /** Each chunk's buildings: the playset pieces' (and plants'), the rocks', the rest's and the burnt-out wrecks' meshes, in a group. */
   private readonly chunks: (THREE.Group | null)[] = new Array(CHUNKS * CHUNKS).fill(null);
-  private readonly chunkKeys: string[] = new Array(CHUNKS * CHUNKS).fill('');
+  /** Whether each chunk has been built for this world. */
+  private readonly chunkBuilt: boolean[] = new Array<boolean>(CHUNKS * CHUNKS).fill(false);
+  /** Each tile's building and owner when its chunk was last built, to see which chunks changed without garbage. */
+  private readonly seenBuilding = new Uint8Array(GRID * GRID);
+  private readonly seenOwner = new Int8Array(GRID * GRID);
   private readonly statics = new THREE.Group();
   private readonly dynamic = new THREE.Group();
   readonly fx = new Fx();
@@ -180,7 +185,7 @@ export class ModernRenderer {
   /** Extra moonlight at night, for the level editor (setMoonlight). */
   private moon = 0;
   private readonly sky = new THREE.HemisphereLight(0xcfe8ff, 0x8a6a48, 1.25);
-  /** Headlights for the vehicles at night: a fixed few, so turning them on and off never rebuilds the shaders. */
+  /** Headlights for the vehicles at night: a fixed few, so turning them on and off in a night match never rebuilds the shaders. */
   private readonly heads: THREE.SpotLight[] = [];
   /** Every building's lamp at night, with its light and shadows worked out on the map. */
   private readonly lampMap = new LampMap();
@@ -206,7 +211,8 @@ export class ModernRenderer {
   private readonly sea: SeaInputs;
 
   constructor(private readonly assets: GameAssets) {
-    this.gl = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true, powerPreference: 'high-performance' });
+    // The picture is copied (copyTo, or into this.canvas) only in the frame it is drawn, so the browser need not keep it.
+    this.gl = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
     this.gl.setPixelRatio(1);
     this.gl.setSize(MODERN_W, MODERN_H, false);
     this.gl.shadowMap.enabled = true;
@@ -247,8 +253,9 @@ export class ModernRenderer {
       l.shadow.camera.near = 3;
       l.shadow.camera.updateProjectionMatrix();
       l.shadow.needsUpdate = true;
+      // In the scene only at night (setNight): by day every lit pixel would still pay for four spotlights, their
+      // shadow maps and their beams' grain, all at nothing.
       this.heads.push(l);
-      this.scene.add(l, l.target);
     }
     this.sun.castShadow = true;
     this.sun.shadow.mapSize.set(2048, 2048);
@@ -448,7 +455,8 @@ export class ModernRenderer {
     const now = performance.now();
     if (stats) {
       stats.attach(this.gl);
-      stats.describe(`3D ${MODERN_W}x${MODERN_H}${this.night ? ' night' : ' day'}${views.length > 1 ? ` ${views.length} views` : ''}`);
+      const c = this.gl.domElement;
+      stats.describe(`3D ${c.width}x${c.height}${this.qualityName ? ` ${this.qualityName}` : ''}${this.night ? ' night' : ' day'}${views.length > 1 ? ` ${views.length} views` : ''}`);
     }
     LIGHT_TIME.value = (now / 1000) % 1000;
     const dt = Math.min(0.1, (now - this.lastTime) / 1000);
@@ -459,7 +467,7 @@ export class ModernRenderer {
     ground.tick(now / 1000);
     this.syncChunks(m.world);
     this.syncDynamic(m, extras, views.filter((v) => !v.skip).map((v) => v.cam), dt);
-    this.aimHeadlights(m);
+    this.aimHeadlights(m, views);
     this.lightBuildings();
     this.waterFx(m, dt);
     this.fx.step(dt);
@@ -467,7 +475,6 @@ export class ModernRenderer {
     stats?.begin('scene');
     this.marks.render(this.gl, dt);
 
-    const ctx = this.canvas.getContext('2d')!;
     const at = (r: ModernRect) => {
       this.gl.setViewport(r.x, MODERN_H - r.y - r.h, r.w, r.h);
       this.gl.setScissor(r.x, MODERN_H - r.y - r.h, r.w, r.h);
@@ -515,9 +522,64 @@ export class ModernRenderer {
     if (cams.length) (this.pass ??= new LookPass(MODERN_W, MODERN_H)).apply(this.gl, cams, cams.map(() => 0), true, false, now / 1000);
     stats?.end();
     stats?.add('draw', performance.now() - now);
+    if (this.direct) return;
     const copyFrom = performance.now();
-    ctx.drawImage(this.gl.domElement, 0, 0);
+    this.canvas.getContext('2d')!.drawImage(this.gl.domElement, 0, 0);
     stats?.add('present', performance.now() - copyFrom);
+  }
+
+  /**
+   * The match shows the WebGL canvas itself on the page (Display.presentModern), with its HUD on a canvas of its own
+   * over it, so draw skips the copy into this.canvas. Off (the level editor, the galleries, the win scene), every
+   * frame is copied there to draw on and show.
+   */
+  direct = false;
+
+  /** Which headlights throw shadows at night (the quality preset). */
+  private headShadows: PresetSpec['headlightShadows'] = 'all';
+  private spec: PresetSpec | null = null;
+  private qualityName = '';
+
+  /**
+   * The quality preset (quality.ts): the sun's shadow map, the headlights' shadows and the tilt-shift at once; the
+   * garden's scatter rebuilt at once; the ground's photo scans from the next match.
+   */
+  setQuality(spec: PresetSpec, name = ''): void {
+    const was = this.spec;
+    this.spec = spec;
+    this.qualityName = name;
+    this.headShadows = spec.headlightShadows;
+    ART.tiltShift = spec.tiltShift;
+    ART.photoGround = spec.photoGround;
+    ART.groundDetail = spec.groundDetail;
+    if (this.sun.shadow.mapSize.x !== spec.sunShadow) {
+      this.sun.shadow.mapSize.set(spec.sunShadow, spec.sunShadow);
+      this.sun.shadow.map?.dispose();
+      this.sun.shadow.map = null;
+    }
+    if (ART.scatter !== spec.scatter || ART.scatterDensity !== spec.scatterDensity) {
+      ART.scatter = spec.scatter;
+      ART.scatterDensity = spec.scatterDensity;
+      // Build the patches again with the garden's scatter as it is now (their buildings stay as they are).
+      if (was) this.chunkBuilt.fill(false);
+    }
+  }
+
+  /**
+   * The 3D picture's size for one shown `shown` device pixels wide: the preset's size, times the dynamic
+   * resolution's scale (0.6-1). In steps of 1/32 of the modern screen, so it settles rather than jitters.
+   */
+  resolution(shown: number, scale: number): void {
+    const spec = this.spec;
+    if (!spec) return;
+    const wide = Math.max(640, spec.width(shown) * scale);
+    const pr = Math.max(0.5, Math.round((wide / MODERN_W) * 32) / 32);
+    if (pr !== this.gl.getPixelRatio()) this.gl.setPixelRatio(pr);
+  }
+
+  /** The WebGL canvas the picture is drawn on. */
+  get glCanvas(): HTMLCanvasElement {
+    return this.gl.domElement;
   }
 
   /** How hard the drone's stream breaks up over a view now: blasts near what it watches, and hits on its player. */
@@ -603,6 +665,11 @@ export class ModernRenderer {
     this.sky.color.setHex(night ? 0x26345c : 0xcfe8ff);
     this.sky.groundColor.setHex(night ? 0x0a0806 : 0x8a6a48);
     this.glow.value = night ? 1 : 0;
+    // Adding or taking out the headlights rebuilds the lit materials' shaders: once a match, as it starts.
+    for (const l of this.heads) {
+      if (night) this.scene.add(l, l.target);
+      else this.scene.remove(l, l.target);
+    }
     this.sun.color.setHex(night ? 0x8ea4e8 : 0xffe6c2);
     this.moonlit();
     this.background();
@@ -664,8 +731,21 @@ export class ModernRenderer {
   }
 
   /** Points each vehicle's headlights (at night) ahead of it. */
-  private aimHeadlights(m: Match): void {
+  private aimHeadlights(m: Match, views: readonly ModernView[]): void {
     const lit = new Array<boolean>(HEADLIGHTS).fill(false);
+    // Which headlights throw shadows, by the quality preset: all, the ones of the players at this screen, or none.
+    // A change rebuilds the lit shaders, so it is only ever made as the preset changes or a match starts.
+    for (let i = 0; i < HEADLIGHTS; i++) {
+      const cast = this.headShadows === 'all' || (this.headShadows === 'own' && views.some((v) => v.viewer === i));
+      const l = this.heads[i]!;
+      if (l.castShadow !== cast) {
+        l.castShadow = cast;
+        if (!cast) {
+          l.shadow.map?.dispose();
+          l.shadow.map = null;
+        }
+      }
+    }
     if (this.night) {
       for (const p of m.players) {
         const v = p.vehicle;
@@ -691,7 +771,7 @@ export class ModernRenderer {
         l.target.updateMatrixWorld();
         l.updateMatrixWorld();
         // On the thermal camera shadows are not drawn, but a light must have drawn its shadow map once to be used.
-        l.shadow.needsUpdate = !this.thermal || !l.shadow.map;
+        l.shadow.needsUpdate = l.castShadow && (!this.thermal || !l.shadow.map);
         const h = this.sea.heads;
         h.pos[i]!.copy(l.position);
         h.dir[i]!.copy(l.target.position).sub(l.position).normalize();
@@ -740,7 +820,7 @@ export class ModernRenderer {
         disposeChunk(c);
       }
       this.chunks[i] = null;
-      this.chunkKeys[i] = '';
+      this.chunkBuilt[i] = false;
       this.chunkLamps[i] = [];
     }
     this.lampsStale = 'all';
@@ -759,18 +839,24 @@ export class ModernRenderer {
     let ay1 = 0;
     for (let cy = 0; cy < CHUNKS; cy++) {
       for (let cx = 0; cx < CHUNKS; cx++) {
-        // Every patch is built once even with no buildings, for the garden's scatter.
-        let key = 'k';
+        // Every patch is built once even with no buildings, for the garden's scatter; then again only when a
+        // building in it changes (destroyed, or a flag changing hands).
+        const c = cy * CHUNKS + cx;
+        let changed = !this.chunkBuilt[c];
         for (let y = cy * CHUNK; y < cy * CHUNK + CHUNK; y++) {
           for (let x = cx * CHUNK; x < cx * CHUNK + CHUNK; x++) {
             const i = y * GRID + x;
             const b = world.building[i]!;
-            if (b) key += `${i}:${b}:${world.owner[i]};`;
+            const o = b ? world.owner[i]! : 0;
+            if (b !== this.seenBuilding[i] || o !== this.seenOwner[i]) {
+              this.seenBuilding[i] = b;
+              this.seenOwner[i] = o;
+              changed = true;
+            }
           }
         }
-        const c = cy * CHUNKS + cx;
-        if (key === this.chunkKeys[c]) continue;
-        this.chunkKeys[c] = key;
+        if (!changed) continue;
+        this.chunkBuilt[c] = true;
         ax0 = Math.min(ax0, cx * CHUNK);
         ay0 = Math.min(ay0, cy * CHUNK);
         ax1 = Math.max(ax1, (cx + 1) * CHUNK);
@@ -954,7 +1040,7 @@ export class ModernRenderer {
     const turrets = new Map(m.turrets.map((t) => [t.tile, t]));
     for (let cy = 0; cy < CHUNKS; cy++) {
       for (let cx = 0; cx < CHUNKS; cx++) {
-        if (!this.chunkKeys[cy * CHUNKS + cx]) continue;
+        if (!this.chunkBuilt[cy * CHUNKS + cx]) continue;
         const x0 = cx * CHUNK * TILE;
         const y0 = cy * CHUNK * TILE;
         if (!cams.some((c) => c.centreX > x0 - 520 && c.centreX < x0 + CHUNK * TILE + 520 && c.pose().y > y0 - 460 && c.pose().y < y0 + CHUNK * TILE + 460)) continue;

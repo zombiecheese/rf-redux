@@ -95,7 +95,7 @@ export async function testPlay(data: GameData, map: RfwMap, started: () => void,
   } finally {
     removeEventListener('keydown', onKey, { capture: true });
     for (const type of wakeOn) removeEventListener(type, wake, { capture: true });
-    display.canvas.remove();
+    display.remove();
     music.quiet();
   }
 }

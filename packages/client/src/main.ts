@@ -42,6 +42,7 @@ import { winScene, winTier } from './winscene.js';
 import { modernWinScene } from './modern/finale.js';
 import { loadModern } from './modern/load.js';
 import { addTouchControls } from './touch.js';
+import { PRESET_NAMES, activePreset, qualityChoice, setQualityChoice, type QualityChoice } from './quality.js';
 import './ui.css';
 import './themes.css';
 
@@ -856,6 +857,19 @@ function viewItems(): MenuEntry[] {
       value: () => ((host ?? settings.visuals) === 'modern' ? 'Modern' : 'Classic'),
       enabled: () => !host,
       action: () => save({ ...settings, visuals: settings.visuals === 'modern' ? 'retro' : 'modern' }),
+    },
+    {
+      label: 'Quality',
+      hint: seenVisuals() === 'modern' ? 'Auto fits it to this device; lower runs smoother' : 'Modern only: how much detail the 3D view draws',
+      value: () => {
+        const q = qualityChoice();
+        return q === 'auto' ? `Auto (${PRESET_NAMES[activePreset(handheld)]})` : PRESET_NAMES[q];
+      },
+      enabled: () => seenVisuals() === 'modern',
+      action: () => {
+        const order: QualityChoice[] = ['auto', 'low', 'medium', 'high', 'ultra'];
+        setQualityChoice(order[(order.indexOf(qualityChoice()) + 1) % order.length]!);
+      },
     },
     {
       label: 'Picture', hint: seenVisuals() === 'modern' ? 'Classic only: fill the window, or whole pixels' : 'Fill the window, or whole-number pixels only',

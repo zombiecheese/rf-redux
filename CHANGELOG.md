@@ -6,9 +6,13 @@ Each release's section below becomes its GitHub release notes (`.github/workflow
 
 ### Added
 
+- Options > View > Quality for the modern view: Auto, Low, Medium, High or Ultra, each player's own (even online, since it is about the device, not the match) and kept in this browser. The presets change what a frame costs, never the look: the 3D picture's resolution (60% of 720p on Low up to the screen's own on High and Ultra), the sun's shadow map, which headlights throw shadows, the tilt-shift focus and how much of the garden's scatter is drawn. Auto starts on High (Medium on phones and tablets), steps down if the device can't keep up, and remembers what it found. Dynamic resolution then holds 60 frames a second (30 on phones and tablets) by drawing the 3D picture a little smaller while the device falls behind; the HUD stays sharp at the screen's own resolution.
 - `?stats=1` shows a frame-stats panel for tuning the modern view on a real device: frame rate and the worst 1% of frames, draw calls, triangles, data sent to the graphics card, and the graphics card's time for the scene, the drone feed and the bunker or skull screens (where the browser can measure it). Copy puts a one-line report on the clipboard.
 
 ### Changed
+
+- The modern view's picture goes straight onto the page instead of being copied twice a frame through 2D canvases, and its HUD (the machine-vision boxes, read-outs, tactical plot, messages and bunker panels) is drawn on its own layer at the screen's own resolution, so its text stays sharp on large screens and phones.
+- The modern view runs lighter: by day the headlights are out of the scene entirely, so every lit pixel no longer pays for four unlit spotlights, their shadow maps and their beams' grain; when a building is destroyed only the changed rows of the ground, its photo splat and the lamp map go up to the graphics card (it used to re-send the whole 64 MB ground texture, a visible stall on phones); and finding which patches of buildings changed no longer builds 256 strings a frame.
 
 - The modern view's ground is a real garden, from photo scans: sand with beds of soil and patches of gravel, wet sand along the sea, and lawn, at the scale of the toys standing on it. The scans are CC0 from Poly Haven and credited in About. Roads, pads and stripes keep their original painted look.
 - The modern drone feed has a tilt-shift focus: a band across the middle of the picture is sharp and it goes soft toward the top and bottom, as a lens this close to something this small would see it, so the battlefield reads as a miniature. Thermal stays sharp.
