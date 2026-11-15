@@ -210,7 +210,10 @@ export function teamPaint(r: number, g: number, b: number): TeamPaint {
   c.getHSL(hsl);
   const tone = (dl: number, ds: number) => new THREE.Color().setHSL(hsl.h, Math.min(1, hsl.s * ds), Math.max(0, Math.min(1, hsl.l + dl))).getHex();
   // A touch bolder than the flat colour, for the painted-toy look.
-  return { main: tone(0, 1.2), dark: tone(-0.14, 1.2), light: tone(0.14, 1), deep: tone(-0.38, 1.1) };
+  // The deep shade scales the lightness rather than taking a fixed amount off, so the four sides' shades come out
+  // alike (a fixed step takes a darker colour such as Green almost to black).
+  const deep = new THREE.Color().setHSL(hsl.h, Math.min(1, hsl.s * 1.1), hsl.l * 0.32).getHex();
+  return { main: tone(0, 1.2), dark: tone(-0.14, 1.2), light: tone(0.14, 1), deep };
 }
 
 /** A small deterministic random sequence for varying scenery by tile. */
