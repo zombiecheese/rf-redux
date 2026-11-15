@@ -85,13 +85,33 @@ export interface Box {
 }
 
 /**
- * The man-made things, which are moulded plastic playset pieces like the toys that fight over them. Plants and rocks
- * stay as they are (the garden's own, not the toy box's).
+ * The man-made things and the plants, which are moulded plastic playset pieces like the toys that fight over them.
+ * Rocks are real stone (the garden's own, not the toy box's).
  */
 const PLAYSET = new Set<Look>([
   'ammo', 'prison', 'flag', 'flagBroken', 'house', 'factory', 'hq', 'outpost', 'hospital', 'fuel', 'gate', 'wall',
   'wallBroken', 'tent', 'tower', 'towerBase', 'towerBroken', 'watchtower', 'rubble', 'bridge', 'light',
+  'bush', 'palm', 'tree', 'cactus', 'stump', 'planter',
 ]);
+
+/**
+ * A rock about r across (squashed by sz up): a ball pushed in and out at random, so it is lumpy like a real stone,
+ * and the same at every shared corner (the push is a function of the point), so it has no cracks.
+ */
+function lump(r: number, sz: number, seed: number): THREE.BufferGeometry {
+  const g = new THREE.IcosahedronGeometry(1, 1);
+  const pos = g.getAttribute('position') as THREE.BufferAttribute;
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i);
+    const y = pos.getY(i);
+    const z = pos.getZ(i);
+    const h = Math.sin(x * 12.9898 + y * 78.233 + z * 37.719 + seed * 0.618) * 43758.5453;
+    const f = 0.82 + (h - Math.floor(h)) * 0.32;
+    // A flatter bottom, so it sits on the ground rather than on a point.
+    pos.setXYZ(i, x * f * r, Math.max(y * f, -0.35) * r * sz, z * f * r * 1.1);
+  }
+  return g;
+}
 
 /** Whether a building by this name is a plastic playset piece (its kit is a toy kit). */
 export function playset(name: string): boolean {
@@ -165,11 +185,12 @@ export function building(def: BuildingDef & { name?: string }, name: string, box
     case 'none':
       return null;
     case 'bush': {
+      // A moulded shrub: a few smooth leafy lumps.
       const n = 2 + Math.floor(r() * 2);
       const s = Math.min(w, d) / 2;
       for (let i = 0; i < n; i++) {
         const a = r() * Math.PI * 2;
-        k.ball(cx + Math.cos(a) * s * 0.35, cy + Math.sin(a) * s * 0.35, s * 0.45, s * (0.45 + r() * 0.2), [LEAF, LEAF_DARK, LEAF_LIGHT][i % 3]!, 0, 0.8);
+        k.ball(cx + Math.cos(a) * s * 0.3, cy + Math.sin(a) * s * 0.3, s * 0.45, s * (0.42 + r() * 0.18), [LEAF, LEAF_DARK, LEAF_LIGHT][i % 3]!, 2, 0.8);
       }
       break;
     }
@@ -193,24 +214,36 @@ export function building(def: BuildingDef & { name?: string }, name: string, box
     }
     case 'tree': {
       const h = b.h * (0.9 + r() * 0.25);
-      k.cyl(cx, cy, 0, 1.4, 2, h * 0.55, TRUNK, 6);
-      k.ball(cx, cy, h * 0.65, 7.5, LEAF_DARK, 1, 0.85);
-      k.ball(cx + 2.5, cy - 2, h * 0.85, 5.5, LEAF, 1, 0.85);
-      k.ball(cx - 2.5, cy + 1.5, h * 0.8, 5, LEAF_LIGHT, 1, 0.85);
+      // A playset tree: a moulded trunk and a smooth crown of round leafy lumps.
+      k.cyl(cx, cy, 0, 1.3, 2.1, h * 0.58, TRUNK, 10);
+      k.ball(cx, cy, h * 0.66, 7.5, LEAF_DARK, 2, 0.85);
+      k.ball(cx + 2.8, cy - 2, h * 0.84, 5.6, LEAF, 2, 0.85);
+      k.ball(cx - 2.6, cy + 1.8, h * 0.8, 5.2, LEAF_LIGHT, 2, 0.85);
+      k.ball(cx + 0.4, cy + 0.6, h * 0.98, 4.4, LEAF, 2, 0.85);
       break;
     }
     case 'cactus': {
       const h = Math.max(10, b.h);
-      k.cyl(cx, cy, 0, 2, 2.3, h, 0x5a9a4a, 8).ball(cx, cy, h, 2, 0x5a9a4a, 0);
+      k.cyl(cx, cy, 0, 2, 2.3, h, 0x5a9a4a, 10).ball(cx, cy, h, 2, 0x5a9a4a, 0);
       k.cyl(cx + 3.6, cy, h * 0.4, 1.2, 1.2, h * 0.35, 0x5a9a4a, 6).box(cx + 2, cy, h * 0.4, 3, 2, 2, 0x5a9a4a);
       k.cyl(cx - 3.4, cy, h * 0.55, 1.1, 1.1, h * 0.25, 0x5a9a4a, 6).box(cx - 2, cy, h * 0.55, 3, 2, 1.8, 0x5a9a4a);
       break;
     }
     case 'rock': {
+      // Real stones, in the photo-scanned rock: a big one with a smaller one or two leaning on it, and grit around.
+      k.stone = true;
       const n = 1 + Math.floor(r() * 3);
       for (let i = 0; i < n; i++) {
-        const s = 4 + r() * 4.5;
-        k.ball(cx + (r() - 0.5) * 8, cy + (r() - 0.5) * 8, s * 0.3, s, i & 1 ? STONE : ROCK, 0, 0.6 + r() * 0.3, { turn: r() * 6 });
+        const s = (i === 0 ? 5.5 : 3) + r() * 3.5;
+        const x = cx + (i === 0 ? 0 : (r() - 0.5) * 10);
+        const y = cy + (i === 0 ? 0 : (r() - 0.5) * 10);
+        k.add(lump(s, 0.55 + r() * 0.3, seed + i * 7), x, y, s * 0.15, i & 1 ? STONE : ROCK, { turn: r() * 6, roll: (r() - 0.5) * 0.3 });
+      }
+      for (let i = 0; i < 4; i++) {
+        const a = r() * Math.PI * 2;
+        const d = 7 + r() * 5;
+        const s = 0.8 + r() * 1;
+        k.add(lump(s, 0.6, seed + 40 + i), cx + Math.cos(a) * d, cy + Math.sin(a) * d, 0, i & 1 ? STONE : ROCK, { turn: r() * 6 });
       }
       break;
     }
@@ -386,7 +419,8 @@ export function building(def: BuildingDef & { name?: string }, name: string, box
       break;
     }
     case 'stump':
-      k.cyl(cx, cy, 0, 1.4, 2, 3, TRUNK, 6).ball(cx + 2, cy + 1, 0.5, 2.5, 0x4a3a28, 0, 0.4);
+      // The stub of the tree's trunk where it snapped off.
+      k.cyl(cx, cy, 0, 1.3, 2, 3, TRUNK, 10).ball(cx + 2, cy + 1, 0.5, 2.2, 0x4a3a28, 1, 0.4);
       break;
     case 'bridge': {
       const vertical = /_V$/i.test(name);

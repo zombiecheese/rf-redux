@@ -8,4 +8,8 @@ export const ART = {
   photoGround: true,
   /** The photo scans' size in texels a side: 1024, or 512 to save memory and bandwidth. */
   groundDetail: 1024 as 1024 | 512,
+  /** Rocks from a photo scan of real stone (photorock.ts); off, they are flat grey. */
+  photoRocks: true,
+  /** The toys' reflections of a photographed garden (and a park at night); off, of a sky drawn in code. */
+  photoSky: true,
 };

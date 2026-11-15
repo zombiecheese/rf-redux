@@ -13,7 +13,9 @@ import { building } from './buildings.js';
 import { Kit, NEUTRAL, teamPaint } from './kit.js';
 import { bodyBox } from './renderer.js';
 import * as V from './vehicles.js';
-import { charredPlastic, gardenSky, melted, toyPlastic } from './toy.js';
+import { PHOTO_SKY_TURN, charredPlastic, gardenSky, melted, photoSky, toyPlastic } from './toy.js';
+import { ART } from './art.js';
+import { rockMaterial } from './photorock.js';
 import { ONE } from '@rfw/sim';
 import { BunkerScene, SkullScene } from './screens.js';
 
@@ -103,9 +105,18 @@ const playsetPlastic = toyPlastic();
 playsetPlastic.roughness = 0.4;
 playsetPlastic.clearcoat = 0.25;
 playsetPlastic.envMap = plastic.envMap;
+const stone = rockMaterial();
+// The photographed garden sky, as the renderer reflects in its plastic once it has loaded.
+if (ART.photoSky && new URLSearchParams(location.search).get('sky') !== '0') {
+  const day = (await photoSky(renderer)).day;
+  for (const m of [plastic, charred, playsetPlastic]) {
+    m.envMap = day;
+    m.envMapRotation.y = PHOTO_SKY_TURN;
+  }
+}
 const put = (kit: Kit | null, x: number, y: number, team = NEUTRAL, label = '', lift = 0) => {
   if (kit) {
-    const mesh = new THREE.Mesh(kit.build(team), kit.burnt ? charred : kit.toy ? (part === 'vehicles' ? plastic : playsetPlastic) : material);
+    const mesh = new THREE.Mesh(kit.build(team), kit.burnt ? charred : kit.stone ? stone : kit.toy ? (part === 'vehicles' ? plastic : playsetPlastic) : material);
     mesh.position.set(x, lift, y);
     mesh.castShadow = mesh.receiveShadow = true;
     scene.add(mesh);
@@ -203,6 +214,7 @@ camera.position.set(cx, Math.max(w, h) * 1.25, cy + Math.max(w, h) * 0.9);
 camera.lookAt(cx, 0, cy);
 sun.target.position.set(cx, 0, cy);
 sun.position.set(cx - 400, 900, cy + 500);
+await stone.userData.ready;
 renderer.render(scene, camera);
 const overlay = document.createElement('canvas');
 overlay.width = innerWidth;
