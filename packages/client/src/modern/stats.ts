@@ -24,27 +24,24 @@ interface TimerExt {
   GPU_DISJOINT_EXT: number;
 }
 
-/** Bytes of a texture upload, from texImage2D's or texSubImage2D's arguments (an estimate: 4 bytes a texel). */
-function uploadBytes(args: unknown[]): number {
-  // (target, level, internalformat, width, height, border, format, type, pixels)
-  // (target, level, xoffset, yoffset, width, height, format, type, pixels)
-  // (target, level, internalformat, format, type, source) and (target, level, x, y, format, type, source)
+/** Bytes of a texture upload, from its arguments (an estimate: 4 bytes a texel). */
+function uploadBytes(name: string, args: unknown[]): number {
+  const last = args[args.length - 1];
   // No pixels: the texture's memory set aside (a render target, say), nothing sent.
-  if (args[args.length - 1] === null || args[args.length - 1] === undefined) return 0;
-  const src = args[args.length - 1] as { width?: number; height?: number; videoWidth?: number; videoHeight?: number; byteLength?: number } | null;
-  if (src && typeof src === 'object') {
-    if (typeof src.byteLength === 'number') return src.byteLength;
-    const w = src.videoWidth ?? src.width ?? 0;
-    const h = src.videoHeight ?? src.height ?? 0;
-    if (w && h) return w * h * 4;
+  if (last === null || last === undefined) return 0;
+  const n = (i: number) => (typeof args[i] === 'number' ? (args[i] as number) : 0);
+  // With the size given: texImage2D(target, level, internalformat, width, height, border, format, type, pixels)
+  // and texSubImage2D(target, level, x, y, width, height, format, type, pixels). The pixels may be a whole
+  // texture's buffer of which only these rows go up, so the size counts, not the buffer's.
+  if (args.length >= 9) {
+    if (name === 'texImage2D') return n(3) * n(4) * 4;
+    if (name === 'texSubImage2D') return n(4) * n(5) * 4;
+    if (name === 'texImage3D') return n(3) * n(4) * n(5) * 4;
+    if (name === 'texSubImage3D') return n(5) * n(6) * n(7) * 4;
   }
-  const nums = args.filter((a) => typeof a === 'number') as number[];
-  if (nums.length >= 6) {
-    // The width and height are the 4th and 5th numbers for texImage2D, the 5th and 6th for texSubImage2D.
-    const [w, h] = nums.length >= 8 ? [nums[3]!, nums[4]!] : [nums[4]!, nums[5]!];
-    return w * h * 4;
-  }
-  return 0;
+  const src = last as { width?: number; height?: number; videoWidth?: number; videoHeight?: number; byteLength?: number };
+  if (typeof src.byteLength === 'number') return src.byteLength;
+  return (src.videoWidth ?? src.width ?? 0) * (src.videoHeight ?? src.height ?? 0) * 4;
 }
 
 export class FrameStats {
@@ -104,7 +101,7 @@ export class FrameStats {
         if (name === 'bufferData' || name === 'bufferSubData') {
           const d = a[name === 'bufferData' ? 1 : 2] as { byteLength?: number } | number;
           this.uploads += typeof d === 'number' ? d : d?.byteLength ?? 0;
-        } else this.uploads += uploadBytes(a);
+        } else this.uploads += uploadBytes(name, a);
         return own.apply(gl, a);
       };
     };
