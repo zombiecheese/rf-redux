@@ -6,7 +6,7 @@ Each release's section below becomes its GitHub release notes (`.github/workflow
 
 ## [0.7.0] - 2026-11-15
 
-The modern view's battlefield becomes a real back garden, from photo scans, with moulded plastic buildings and plants that melt into puddles when destroyed, and it runs faster: Auto quality presets, dynamic resolution that holds the frame rate, a HUD that stays sharp on any screen, and no stutter the first time a vehicle is destroyed.
+The modern view's battlefield becomes a real back garden, from photo scans, with moulded plastic buildings and plants, and buildings and wrecks that melt into puddles, and it runs faster: Auto quality presets, dynamic resolution that holds the frame rate, a HUD that stays sharp on any screen, and no stutter the first time a vehicle is destroyed.
 
 ### Added
 
