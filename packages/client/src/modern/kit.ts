@@ -9,9 +9,10 @@ import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeom
 
 /**
  * A colour, or 'team' for the owner's colour, filled in when the model is made for a side. 'window' and 'lamp' are
- * glass and lamp glass that glow at night: the model's glow attribute marks them for the renderer's material.
+ * glass and lamp glass that glow at night: the model's glow attribute marks them for the renderer's material. 'rubber'
+ * is a toy's black tyres: its matte attribute tells the toy plastic to leave them dull, with no gloss or clear coat.
  */
-export type Paint = number | 'team' | 'teamDark' | 'teamDeep' | 'teamLight' | 'window' | 'lamp';
+export type Paint = number | 'team' | 'teamDark' | 'teamDeep' | 'teamLight' | 'window' | 'lamp' | 'rubber';
 
 export interface Place {
   /** Turn about the up axis, radians, clockwise seen from above (the sim's heading direction). */
@@ -172,6 +173,7 @@ export class Kit {
       }
       g.setAttribute('color', new THREE.BufferAttribute(colours, 3));
       g.setAttribute('glow', new THREE.BufferAttribute(new Float32Array(n).fill(paint === 'window' || paint === 'lamp' ? 1 : 0), 1));
+      g.setAttribute('matte', new THREE.BufferAttribute(new Float32Array(n).fill(paint === 'rubber' ? 1 : 0), 1));
       return g;
     });
     if (!parts.length) return new THREE.BufferGeometry();
@@ -200,6 +202,7 @@ function resolve(p: Paint, t: TeamPaint): number {
   if (p === 'teamLight') return t.light;
   if (p === 'window') return 0x7ec2de;
   if (p === 'lamp') return 0xf5efc0;
+  if (p === 'rubber') return 0x1e1f21;
   return p;
 }
 

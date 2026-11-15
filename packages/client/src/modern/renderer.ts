@@ -262,7 +262,10 @@ export class ModernRenderer {
   private teach(material: THREE.Material, heat: number): void {
     // The closures read alike, so tell three.js each heat needs its own program.
     material.customProgramCacheKey = () => `heat:${heat}`;
-    material.onBeforeCompile = (shader) => {
+    // The toy plastic's own change (matte rubber) comes first.
+    const own = material.onBeforeCompile.bind(material);
+    material.onBeforeCompile = (shader, gl) => {
+      own(shader, gl);
       shader.uniforms.nightGlow = this.glow;
       shader.uniforms.thermal = THERMAL;
       shader.vertexShader = shader.vertexShader

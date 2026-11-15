@@ -8,9 +8,12 @@ import * as THREE from 'three';
 /** How strongly the plastic reflects the garden sky by day. */
 export const PLASTIC_SKY = 0.22;
 
-/** The moulded plastic for a side's toys (vertex colours carry the side's paint). */
+/**
+ * The moulded plastic for a side's toys (vertex colours carry the side's paint). Parts painted 'rubber' (the kits'
+ * matte attribute) come out as dull rubber instead: rough, with no clear coat and little shine.
+ */
 export function toyPlastic(): THREE.MeshPhysicalMaterial {
-  return new THREE.MeshPhysicalMaterial({
+  const m = new THREE.MeshPhysicalMaterial({
     vertexColors: true,
     roughness: 0.3,
     metalness: 0,
@@ -20,6 +23,52 @@ export function toyPlastic(): THREE.MeshPhysicalMaterial {
     // Enough of the garden for a sheen and glints, not so much that it washes out the side's colour.
     envMapIntensity: PLASTIC_SKY,
   });
+  m.onBeforeCompile = rubber;
+  return m;
+}
+
+/**
+ * The shader change for the toys' surface: coloured plastic gets the fine, slightly uneven grain of a moulded toy (a
+ * small wobble in the normal and the shine, fixed to the model so it never swims as the toy moves), and parts painted
+ * 'rubber' come out matte. A material's other onBeforeCompile should call it first.
+ */
+export function rubber(shader: THREE.WebGLProgramParametersWithUniforms): void {
+  shader.vertexShader = shader.vertexShader.replace(
+    'void main() {',
+    'attribute float matte;\nvarying float vMatte;\nvarying vec3 vToyPos;\nvoid main() {\n  vMatte = matte;\n  vToyPos = position;',
+  );
+  shader.fragmentShader = shader.fragmentShader
+    .replace('void main() {', `varying float vMatte;
+varying vec3 vToyPos;
+float toyHash(vec3 p) { return fract(sin(dot(p, vec3(127.1, 311.7, 74.7))) * 43758.5453); }
+float toyNoise(vec3 p) {
+  vec3 i = floor(p);
+  vec3 f = fract(p);
+  f = f * f * (3.0 - 2.0 * f);
+  return mix(
+    mix(mix(toyHash(i), toyHash(i + vec3(1, 0, 0)), f.x), mix(toyHash(i + vec3(0, 1, 0)), toyHash(i + vec3(1, 1, 0)), f.x), f.y),
+    mix(mix(toyHash(i + vec3(0, 0, 1)), toyHash(i + vec3(1, 0, 1)), f.x), mix(toyHash(i + vec3(0, 1, 1)), toyHash(i + vec3(1, 1, 1)), f.x), f.y),
+    f.z);
+}
+void main() {`)
+    .replace(
+      '#include <roughnessmap_fragment>',
+      `#include <roughnessmap_fragment>
+  vec3 toyP = vToyPos * 3.1;
+  float toyGrain = toyNoise(toyP) * 0.65 + toyNoise(toyP * 2.3 + 11.0) * 0.35;
+  roughnessFactor = mix(roughnessFactor + (toyGrain - 0.5) * 0.22, 0.93, vMatte);`,
+    )
+    .replace(
+      '#include <normal_fragment_maps>',
+      `#include <normal_fragment_maps>
+  vec3 toyBump = vec3(toyNoise(toyP + 3.7), toyNoise(toyP + 19.1), toyNoise(toyP + 41.3)) - 0.5;
+  vec3 toyFine = vec3(toyNoise(toyP * 3.7 + 5.1), toyNoise(toyP * 3.7 + 23.9), toyNoise(toyP * 3.7 + 47.2)) - 0.5;
+  normal = normalize(normal + (toyBump * 0.2 + toyFine * 0.12) * (1.0 - vMatte));`,
+    )
+    .replace(
+      '#include <lights_physical_fragment>',
+      '#include <lights_physical_fragment>\n  material.clearcoat *= 1.0 - vMatte;\n  material.specularColor *= 1.0 - 0.7 * vMatte;\n  material.specularF90 *= 1.0 - 0.7 * vMatte;',
+    );
 }
 
 const SKY_VERTEX = /* glsl */ `

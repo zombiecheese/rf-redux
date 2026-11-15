@@ -144,6 +144,12 @@ if (part === 'vehicles') {
     w = 36;
     h = 36;
     focus = [318, 360];
+  } else if (zoom !== null && zoom.includes(',')) {
+    // &zoom=x,y,span looks closely at one spot, e.g. &zoom=0,0,30 at the Brown tank.
+    const [zx, zy, span] = zoom.split(',').map(Number);
+    w = span!;
+    h = span!;
+    focus = [zx!, zy!];
   } else if (zoom !== null) {
     w = 200;
     h = 70;
