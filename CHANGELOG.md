@@ -4,6 +4,10 @@ Each release's section below becomes its GitHub release notes (`.github/workflow
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-11-15
+
+The modern view's battlefield becomes a real back garden, from photo scans, with moulded plastic buildings and plants that melt into puddles when destroyed, and it runs faster: Auto quality presets, dynamic resolution that holds the frame rate, a HUD that stays sharp on any screen, and no stutter the first time a vehicle is destroyed.
+
 ### Added
 
 - Options > View > Quality for the modern view: Auto, Low, Medium, High or Ultra, each player's own (even online, since it is about the device, not the match) and kept in this browser. The presets change what a frame costs, never the look: the 3D picture's resolution (60% of 720p on Low up to the screen's own on High and Ultra), the sun's shadow map, which headlights throw shadows, the tilt-shift focus and how much of the garden's scatter is drawn. Auto starts on High (Medium on phones and tablets), steps down if the device can't keep up, and remembers what it found. Dynamic resolution then holds 60 frames a second (30 on phones and tablets) by drawing the 3D picture a little smaller while the device falls behind; the HUD stays sharp at the screen's own resolution.
@@ -13,10 +17,9 @@ Each release's section below becomes its GitHub release notes (`.github/workflow
 
 - The modern view's picture goes straight onto the page instead of being copied twice a frame through 2D canvases, and its HUD (the machine-vision boxes, read-outs, tactical plot, messages and bunker panels) is drawn on its own layer at the screen's own resolution, so its text stays sharp on large screens and phones.
 - The modern view runs lighter: by day the headlights are out of the scene entirely, so every lit pixel no longer pays for four unlit spotlights, their shadow maps and their beams' grain; when a building is destroyed only the changed rows of the ground, its photo splat and the lamp map go up to the graphics card (it used to re-send the whole 64 MB ground texture, a visible stall on phones); and finding which patches of buildings changed no longer builds 256 strings a frame.
-
 - The modern view's ground is a real garden, from photo scans: sand with beds of soil and patches of gravel, wet sand along the sea, and lawn, at the scale of the toys standing on it. The scans are CC0 from Poly Haven and credited in About. Roads, pads and stripes keep their original painted look.
 - The modern drone feed has a tilt-shift focus: a band across the middle of the picture is sharp and it goes soft toward the top and bottom, as a lens this close to something this small would see it, so the battlefield reads as a miniature. Thermal stays sharp.
-- The modern view's buildings, gun towers, walls, gates and flags are moulded plastic playset pieces, with rounded edges and the toys' plastic sheen. A building that's destroyed melts: it slumps into a scorched puddle of plastic with a little of its colour left. Burnt-out vehicle wrecks melt the same way. Plants and rocks are unchanged for now.
+- The modern view's buildings, gun towers, walls, gates and flags are moulded plastic playset pieces, with rounded edges and the toys' plastic sheen. A building that's destroyed melts: it slumps into a scorched puddle of plastic with a little of its colour left. Burnt-out vehicle wrecks melt the same way.
 - The modern view's trees, palms, bushes and cacti are moulded plastic playset plants, like the toys. Rocks are real stone, lumpy and photo-scanned, with grit scattered around them. The toys' plastic reflects a photographed garden by day and a lamplit park at night. The photos are CC0 from Poly Haven and credited in About.
 - The modern view's garden has small things scattered on the ground, at the toys' scale: sun-bleached pebbles, tufts of grass, dry leaves and twigs, lying in drifts where the ground suits them and never on roads, in water or under buildings.
 - The modern view's things sit on the ground: the ground darkens close round each building's foot, by how tall it stands, and every model darkens toward its base (ambient occlusion, worked out ahead so it costs nothing a frame).
@@ -197,7 +200,8 @@ The first release: a browser remake of Return Fire (1995) that plays like the or
 
 - A Docker Compose stack with one image, `ghcr.io/zombiecheese/rf-redux`, published for every version tag together with a compose file, an `.env` template and a Caddyfile for HTTPS ([docs/deploy.md](docs/deploy.md)).
 
-[Unreleased]: https://github.com/zombiecheese/rf-redux/compare/v0.6.0...HEAD
+[Unreleased]: https://github.com/zombiecheese/rf-redux/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/zombiecheese/rf-redux/releases/tag/v0.7.0
 [0.6.0]: https://github.com/zombiecheese/rf-redux/releases/tag/v0.6.0
 [0.5.3]: https://github.com/zombiecheese/rf-redux/releases/tag/v0.5.3
 [0.5.2]: https://github.com/zombiecheese/rf-redux/releases/tag/v0.5.2
