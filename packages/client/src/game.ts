@@ -777,6 +777,8 @@ export class Game {
         else if (!signal.aborted) {
           try {
             modern = new mod.ModernRenderer(assets);
+            // Straight onto the page, with the HUD over it at the screen's own resolution.
+            modern.direct = true;
           } catch (err) {
             console.error('The modern view could not start:', err);
             giveUpModern();
@@ -900,7 +902,7 @@ export class Game {
         modern.draw(match, cameras.map((cam, i) => ({ cam, rect: rects[i]!, viewer: v[i]!, skip: !field[i], screen: screens[i] })), extras);
         modernRects = rects;
         const hudFrom = performance.now();
-        const g = modern.canvas.getContext('2d')!;
+        const g = display.presentModern(modern.glCanvas, MODERN_W, MODERN_H);
         g.imageSmoothingEnabled = false;
         if (cameras.length > 1) {
           g.fillStyle = '#10130f';
@@ -954,15 +956,13 @@ export class Game {
         }
         if (result) drawBanner(g, result, MODERN_W, online ? 60 : 200);
         stats?.add('hud', performance.now() - hudFrom);
-        const presentFrom = performance.now();
-        display.present(modern.canvas, 1, true);
-        stats?.add('present', performance.now() - presentFrom);
         if (outcome) {
-          // The win sequence fades out from this picture.
+          // The win sequence fades out from this picture (the modern win scene from the renderer's own canvas).
           const pc = this.picture.getContext('2d')!;
           pc.fillStyle = '#000';
           pc.fillRect(0, 0, SCREEN_W, SCREEN_H);
-          pc.drawImage(modern.canvas, 0, (SCREEN_H - (SCREEN_W * MODERN_H) / MODERN_W) / 2, SCREEN_W, (SCREEN_W * MODERN_H) / MODERN_W);
+          display.modernPicture(pc, 0, (SCREEN_H - (SCREEN_W * MODERN_H) / MODERN_W) / 2, SCREEN_W, (SCREEN_W * MODERN_H) / MODERN_W);
+          display.modernPicture(modern.canvas.getContext('2d')!, 0, 0, MODERN_W, MODERN_H);
         }
       } else {
         display.present(this.picture);
@@ -976,6 +976,8 @@ export class Game {
         endedAt ??= now;
         // Online, wait a moment longer for the server's result if it has not come yet.
         if (now - endedAt >= END_HOLD_MS && (!online || outcome.result || now - endedAt >= END_HOLD_MS * 2)) {
+          // The win scene draws on the renderer's own canvas again.
+          if (modern) modern.direct = false;
           this.finale = { match, assets, modern: useModern && modern ? { renderer: modern, extras } : null };
           this.abort.abort();
           sound.reset();
@@ -993,6 +995,7 @@ export class Game {
     };
     this.raf = requestAnimationFrame(loop);
     if (this.o.handheld) signal.addEventListener('abort', () => setTouchMode(null));
+    signal.addEventListener('abort', () => display.hideModern());
     if (replay) {
       const k = REPLAY_KEYS;
       say(`Replay: ${keyName(k.slower[0])} ${keyName(k.faster[0])} speed, ${keyName(k.back[0])} ${keyName(k.forward[0])} jump`);

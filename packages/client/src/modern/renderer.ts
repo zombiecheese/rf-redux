@@ -210,7 +210,8 @@ export class ModernRenderer {
   private readonly sea: SeaInputs;
 
   constructor(private readonly assets: GameAssets) {
-    this.gl = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true, powerPreference: 'high-performance' });
+    // The picture is copied (copyTo, or into this.canvas) only in the frame it is drawn, so the browser need not keep it.
+    this.gl = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
     this.gl.setPixelRatio(1);
     this.gl.setSize(MODERN_W, MODERN_H, false);
     this.gl.shadowMap.enabled = true;
@@ -472,7 +473,6 @@ export class ModernRenderer {
     stats?.begin('scene');
     this.marks.render(this.gl, dt);
 
-    const ctx = this.canvas.getContext('2d')!;
     const at = (r: ModernRect) => {
       this.gl.setViewport(r.x, MODERN_H - r.y - r.h, r.w, r.h);
       this.gl.setScissor(r.x, MODERN_H - r.y - r.h, r.w, r.h);
@@ -520,9 +520,22 @@ export class ModernRenderer {
     if (cams.length) (this.pass ??= new LookPass(MODERN_W, MODERN_H)).apply(this.gl, cams, cams.map(() => 0), true, false, now / 1000);
     stats?.end();
     stats?.add('draw', performance.now() - now);
+    if (this.direct) return;
     const copyFrom = performance.now();
-    ctx.drawImage(this.gl.domElement, 0, 0);
+    this.canvas.getContext('2d')!.drawImage(this.gl.domElement, 0, 0);
     stats?.add('present', performance.now() - copyFrom);
+  }
+
+  /**
+   * The match shows the WebGL canvas itself on the page (Display.presentModern), with its HUD on a canvas of its own
+   * over it, so draw skips the copy into this.canvas. Off (the level editor, the galleries, the win scene), every
+   * frame is copied there to draw on and show.
+   */
+  direct = false;
+
+  /** The WebGL canvas the picture is drawn on. */
+  get glCanvas(): HTMLCanvasElement {
+    return this.gl.domElement;
   }
 
   /** How hard the drone's stream breaks up over a view now: blasts near what it watches, and hits on its player. */
