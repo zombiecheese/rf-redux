@@ -8,7 +8,7 @@ import * as THREE from 'three';
 import { Kit, type Paint } from './kit.js';
 
 const TRACK: Paint = 'teamDeep';
-const TRACK_LIGHT: Paint = 'team';
+const TRACK_LIGHT: Paint = 'teamDark';
 const METAL: Paint = 'teamDark';
 const GUNMETAL: Paint = 'teamDeep';
 const BLADE: Paint = 'teamDeep';
