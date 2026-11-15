@@ -41,7 +41,7 @@ import { MODERN_H, MODERN_W, modernAvailable, modernLayout, type ModernRect } fr
 import type { ModernRenderer, ModernScreen } from './modern/renderer.js';
 import type { ModernFinale } from './modern/finale.js';
 import { giveUpModern, loadModern, modernFailed, modernLoaded } from './modern/load.js';
-import { bunkerBayAt, dimView, drawBanner, drawLinkUp, drawBunkerPanel, drawChatLines, drawLog, drawFeed, drawModernHud, drawName, drawNote, drawScoreTable } from './modern/hud.js';
+import { bunkerBayAt, dimView, drawBanner, drawLinkUp, drawBunkerPanel, drawChatLines, drawLog, drawFeed, drawModernHud, drawName, drawNote, drawScoreTable, setTouchHud } from './modern/hud.js';
 import { TEAMS } from './paint.js';
 
 
@@ -861,6 +861,8 @@ export class Game {
       display.sides = v.map((p) => match.players[p]!.base);
       if (useModern && modern) {
         const rects = modernLayout(cameras.length);
+        // On a phone or tablet the HUD's text grows to stay readable at the size the picture is shown.
+        setTouchHud(!!this.o.handheld, display.rect.w ? display.rect.w / MODERN_W : 1);
         const night = nightNow();
         // The modern view is always the drone's feed; thermal is the player's to switch in the match.
         // The thermal camera is for the dark: by day there is none.

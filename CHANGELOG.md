@@ -8,6 +8,12 @@ Each release's section below becomes its GitHub release notes (`.github/workflow
 
 - The modern view's toys are moulded plastic, like a box of army men: each side's vehicles and soldiers are moulded all in its own colour, with rounded edges, the fine grain of moulded plastic, a glossy coat that catches the sky and the sun, matte black rubber tyres, clear canopies and printed white stars. Detail that would be black on a painted model (tracks, guns, rotor blades, seats, the soldiers' trousers, helmets and rifles) is a deep shade of the side's colour. The soldiers stand on little moulded bases. The bunker's parked vehicles and the skull screen's lives match.
 - The modern view's sun is a warmer, lower afternoon sun that casts longer shadows, the drone feed keeps more of the colour, and bright highlights bloom a little on its lens.
+- The menus, dialogs and lobby are dressed to match the view you play in. Classic gets hard-edged olive panels with pixel-wide bevels and hard shadows, lettered in the game's own pixel font. Modern gets the drone's hardware look: dark screens with corner brackets and scan lines, thin frames, monospace read-outs, amber for what is picked, and tags like the computer vision's. The layouts are unchanged, and the level editor keeps its plain panels.
+- A new online lobby's empty seats start open, so it shows in Find a Game with room and a Join button, and Quick Match can fill it. The computer plays any seat still open when the host starts, so hosting alone still works; a closed seat leaves its base out.
+- The lobby's Teams picker shows the layout the seats are in (the one picked in Host a Game to begin with), or Custom once a seat is moved to another team.
+- Find a Game says how many open seats a lobby has, and the host's footer says when the computer will play open seats instead of "Everyone is ready" with nobody else there.
+- Phones held sideways: the title menu fits with nothing overlapping (the logo shrinks, the hints give way), and a dialog's buttons (Create Lobby, OK, Cancel...) sit in a bar that stays in view while the rest scrolls, on every screen size.
+- On a phone or tablet the modern view's HUD text is drawn larger so it can be read, the tactical plot moves to the top right clear of the turret and weapon buttons, messages, notes and chat start below the buttons along the top, and in the bunker the link read-out moves left, clear of Launch.
 
 ## [0.5.3] - 2026-11-15
 
