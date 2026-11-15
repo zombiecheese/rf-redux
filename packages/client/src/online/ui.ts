@@ -191,7 +191,16 @@ const button = (label: string, onClick: () => void, cls = 'btn') => {
 /** "2 players + 1 computer" from a lobby summary. */
 function seatsText(l: LobbySummary): string {
   const taken = `${l.players} player${l.players === 1 ? '' : 's'}${l.bots ? ` + ${l.bots} computer` : ''}`;
-  return l.free ? `${taken}, ${l.free} free` : `${taken}, full`;
+  return l.free ? `${taken}, ${l.free} open seat${l.free === 1 ? '' : 's'}` : `${taken}, full`;
+}
+
+/** The preset a lobby's seats are in now ("2v2", "1v1"...), or '' when the host has moved seats into a mix of their own. */
+export function currentLayout(slots: readonly LobbySlot[]): string {
+  const counts = new Map<number, number>();
+  for (const s of slots) if (s.kind !== 'closed') counts.set(s.team, (counts.get(s.team) ?? 0) + 1);
+  const mine = [...counts.values()].sort((a, b) => b - a).join(',');
+  const match = layoutsFor(slots.length).find((x) => [...x.teams].sort((a, b) => b - a).join(',') === mine);
+  return match ? match.teams.join(',') : '';
 }
 
 /** The lobby browser: open lobbies, live, each with Join and Watch. Resolves with what to do. */
@@ -487,8 +496,11 @@ export class LobbyWindow {
       const maps = this.maps.length ? this.maps : [{ id: l.mapId, name: l.mapName, bases: l.slots.length }];
       const change = button('Change Map…', () => void pickMap(maps, l.mapId).then((id) => id && this.net.send({ t: 'settings', mapId: id })));
       const layout = el('select', {});
-      layout.add(new Option('Choose…', ''));
-      for (const x of layoutsFor(l.slots.length)) layout.add(new Option(x.name, x.teams.join(',')));
+      // Shows the layout the seats are in now; moving a seat to another team below makes it Custom.
+      const now = currentLayout(l.slots);
+      if (!now) layout.add(new Option('Custom', '', true, true));
+      for (const x of layoutsFor(l.slots.length)) layout.add(new Option(x.name, x.teams.join(','), false, x.teams.join(',') === now));
+      layout.title = 'Deals the seats into teams; each seat\'s own Team picker fine-tunes it';
       layout.addEventListener('change', () => layout.value && this.net.send({ t: 'settings', teams: layout.value.split(',').map(Number) }));
       const skill = skillSelect(l.difficulty);
       skill.title = 'Match difficulty: drones, random mines, and the computer players\' starting skill';
@@ -538,7 +550,11 @@ export class LobbyWindow {
     const humans = l.slots.filter((s) => s.kind === 'human' && s.user!.id !== l.owner);
     if (waiting && owner) {
       const notReady = humans.filter((s) => !s.ready).length;
-      this.controls.append(el('span', { class: 'hint' }, notReady ? `Waiting for ${notReady} player${notReady === 1 ? '' : 's'} to be ready` : 'Everyone is ready'),
+      const open = l.slots.filter((s) => s.kind === 'open').length;
+      const hint = notReady ? `Waiting for ${notReady} player${notReady === 1 ? '' : 's'} to be ready`
+        : open ? `${open} open seat${open === 1 ? '' : 's'}: the computer plays ${open === 1 ? 'it' : 'them'} if nobody joins`
+        : humans.length ? 'Everyone is ready' : 'Ready to start';
+      this.controls.append(el('span', { class: 'hint' }, hint),
         button('Start Match', () => this.net.send({ t: 'start' }), 'btn default'));
     } else if (waiting && mine) {
       this.controls.append(el('span', { class: 'hint' }, mine.ready ? 'Waiting for the host to start' : 'Press Ready when you are set'),
@@ -564,8 +580,9 @@ export class LobbyWindow {
     if (s.kind === 'human') who = el('span', { class: 'seat-name' }, s.user!.name, s.user!.id === me ? badge('You', 'you') : '', s.user!.id === l.owner ? badge('Host') : '');
     else if (edit) {
       const kind = el('select', { ariaLabel: 'Seat' });
-      for (const [v, label] of [['open', 'Open seat'], ['bot', 'Computer'], ['closed', 'Closed']] as const) kind.add(new Option(label, v, false, v === s.kind));
+      for (const [v, label] of [['open', 'Open seat'], ['bot', 'Computer'], ['closed', 'Closed (no base)']] as const) kind.add(new Option(label, v, false, v === s.kind));
       kind.addEventListener('change', () => this.net.send({ t: 'slot', slot: i, kind: kind.value as 'open' | 'bot' | 'closed' }));
+      kind.title = 'Open: anyone can join here, and the computer plays it if nobody does. Computer: always the computer. Closed: this base sits the match out.';
       who = kind;
     } else if (s.kind === 'open' && l.state === 'waiting') who = button('Sit Here', () => this.net.send({ t: 'seat', slot: i }), 'btn default');
     else who = el('span', { class: 'seat-name muted' }, s.kind === 'bot' ? 'Computer' : s.kind === 'open' ? 'Open seat' : 'Closed');

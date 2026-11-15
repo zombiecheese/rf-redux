@@ -37,11 +37,11 @@ body[data-screen=game] .main-menu { justify-content: center; background: rgba(0,
 .menu-head { display: flex; align-items: center; gap: .4em; min-height: 2em; padding: 0 .2em; }
 .menu-title { font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--ui-accent); }
 /* The pixel-art logo (logo.ts), at whole-pixel scale where the panel allows. */
-.menu-logo { display: block; width: 100%; max-width: 320px; margin: 0 auto; image-rendering: pixelated; }
+.menu-logo { flex: none; display: block; width: 100%; max-width: 320px; margin: 0 auto; image-rendering: pixelated; }
 .mi-back { width: 2em; height: 2em; border-radius: 50%; border: 1px solid var(--ui-line); background: var(--ui-raise); font-size: 1.1em; line-height: 1; cursor: pointer; }
 .mi-back:hover { background: var(--ui-hover); }
-.menu-list { display: flex; flex-direction: column; gap: .35em; overflow: auto; padding: .15em; }
-.mi { display: flex; align-items: center; justify-content: space-between; gap: .8em; min-height: 2.6em; padding: .45em .9em; text-align: left;
+.menu-list { display: flex; flex-direction: column; gap: .35em; overflow: auto; padding: .15em; min-height: 0; }
+.mi { flex: none; display: flex; align-items: center; justify-content: space-between; gap: .8em; min-height: 2.6em; padding: .45em .9em; text-align: left;
   background: var(--ui-raise); border: 1px solid transparent; border-radius: var(--ui-radius); cursor: pointer;
   transition: background .1s, border-color .1s, transform .1s; touch-action: manipulation; }
 .mi:hover, .mi:focus-visible { background: var(--ui-hover); border-color: var(--ui-accent); outline: none; }
@@ -97,6 +97,9 @@ body.replay .thermal-fab { display: none; }
 .ui p { margin: 0; max-width: 48ch; }
 .ui .hint { color: var(--ui-muted); font-size: .85em; }
 .ui .buttons { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: .5em; }
+/* A dialog's own buttons: a bar under its body that never scrolls away. */
+.ui.window > .buttons { flex: none; padding: .6em 1.1em .8em; border-top: 1px solid var(--ui-line); }
+.ui.window > .buttons:empty { display: none; }
 .ui .btn { min-height: 2.3em; padding: .35em 1em; border-radius: var(--ui-radius); border: 1px solid var(--ui-line); background: var(--ui-raise);
   font-weight: 600; cursor: pointer; touch-action: manipulation; white-space: nowrap; }
 .ui .btn:hover { background: var(--ui-hover); }
@@ -322,8 +325,22 @@ body.replay .thermal-fab { display: none; }
 }
 @media (max-height: 460px) {
   .ui .field { grid-template-columns: auto 1fr; }
-  .menu-panel { width: min(20em, 52vw); }
+  .menu-panel { width: min(20em, 52vw); gap: .35em; padding: .6em; }
+  /* The logo keeps its shape but gives up height, so every entry fits under it. */
+  .menu-logo { width: auto; max-width: 100%; height: 17vh; object-fit: contain; }
   .mi { min-height: 2.3em; padding: .3em .8em; }
+  /* Every entry of the title menu fits without scrolling: the hints give way, but not a greyed entry's reason. */
+  .mi:not(:disabled) .mi-hint { display: none; }
+  /* Host a Game: the map list and preview share the little height there is. */
+  .ui .host .map-list { max-height: 30vh; }
+  .ui .host .map-picker-body .map-preview-frame { width: min(100%, 24vh); }
+  .ui.window > .body { padding: .6em 1em .7em; gap: .6em; }
+  .ui.window > .buttons { padding: .45em 1em .55em; }
+}
+@media (max-height: 380px) {
+  .menu-logo { height: 14vh; }
+  .mi { min-height: 2.1em; padding: .25em .8em; }
+  .menu-list { gap: .25em; }
 }
 
 /* ---- The admin panel (admin/panel.ts): full screen over the game, below its dialogs ---- */

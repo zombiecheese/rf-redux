@@ -4,6 +4,14 @@ Each release's section below becomes its GitHub release notes (`.github/workflow
 
 ## [Unreleased]
 
+### Changed
+
+- A new online lobby's empty seats start open, so it shows in Find a Game with room and a Join button, and Quick Match can fill it. The computer plays any seat still open when the host starts, so hosting alone still works; a closed seat leaves its base out.
+- The lobby's Teams picker shows the layout the seats are in (the one picked in Host a Game to begin with), or Custom once a seat is moved to another team.
+- Find a Game says how many open seats a lobby has, and the host's footer says when the computer will play open seats instead of "Everyone is ready" with nobody else there.
+- Phones held sideways: the title menu fits with nothing overlapping (the logo shrinks, the hints give way), and a dialog's buttons (Create Lobby, OK, Cancel...) sit in a bar that stays in view while the rest scrolls, on every screen size.
+- On a phone or tablet the modern view's HUD text is drawn larger so it can be read, the tactical plot moves to the top right clear of the turret and weapon buttons, messages, notes and chat start below the buttons along the top, and in the bunker the link read-out moves left, clear of Launch.
+
 ## [0.5.3] - 2026-11-15
 
 The modern view's sea comes alive: shallow and deep water clearly told apart, wakes and spray from every vehicle, helicopter downwash, and the moon, lamps, headlights and blasts reflected on the water at night.
