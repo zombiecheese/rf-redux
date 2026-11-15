@@ -7,6 +7,11 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 import { slump } from './toy.js';
+import { ART } from './art.js';
+
+/** How high above a model's foot its ambient occlusion reaches (game units), and how dark it is right at the foot. */
+const FOOT = 4;
+const FOOT_DARK = 0.38;
 
 /**
  * A colour, or 'team' for the owner's colour, filled in when the model is made for a side. 'window' and 'lamp' are
@@ -189,11 +194,16 @@ export class Kit {
       }
       const c = new THREE.Color(resolve(paint, team));
       const n = g.getAttribute('position').count;
+      const pos = g.getAttribute('position');
       const colours = new Float32Array(n * 3);
       for (let i = 0; i < n; i++) {
-        colours[i * 3] = c.r;
-        colours[i * 3 + 1] = c.g;
-        colours[i * 3 + 2] = c.b;
+        // Ambient occlusion toward the model's foot: darker where it meets the ground, as light can't reach in.
+        const y = pos.getY(i);
+        const t = Math.min(1, Math.max(0, y / FOOT));
+        const ao = ART.ao ? 1 - FOOT_DARK * (1 - t * t * (3 - 2 * t)) : 1;
+        colours[i * 3] = c.r * ao;
+        colours[i * 3 + 1] = c.g * ao;
+        colours[i * 3 + 2] = c.b * ao;
       }
       g.setAttribute('color', new THREE.BufferAttribute(colours, 3));
       g.setAttribute('glow', new THREE.BufferAttribute(new Float32Array(n).fill((paint === 'window' || paint === 'lamp') && !this.burnt ? 1 : 0), 1));

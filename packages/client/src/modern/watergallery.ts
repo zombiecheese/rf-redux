@@ -27,6 +27,8 @@ export async function waterScene(q: URLSearchParams): Promise<never> {
   if (q.get('sky') === '0') (await import('./art.js')).ART.photoSky = false;
   // &scatter=0 leaves the garden's pebbles, grass, leaves and twigs off.
   if (q.get('scatter') === '0') (await import('./art.js')).ART.scatter = false;
+  // &ao=0 leaves out the ambient occlusion round buildings' feet and at every model's foot.
+  if (q.get('ao') === '0') (await import('./art.js')).ART.ao = false;
   const modern = new ModernRenderer(assets);
   const night = q.get('night') === '1';
   modern.setNight(night);

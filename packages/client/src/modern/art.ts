@@ -16,4 +16,10 @@ export const ART = {
   scatter: true,
   /** How many of them, from 0.25 to 1 (a slower device can take fewer). */
   scatterDensity: 1,
+  /**
+   * Ambient occlusion: the ground darkens where it meets a building's foot, and every model darkens toward its own
+   * base, so things sit on the ground instead of floating over it. Both are worked out ahead (no cost a frame); the
+   * ground's needs ART.photoGround.
+   */
+  ao: true,
 };

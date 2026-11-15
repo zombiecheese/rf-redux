@@ -162,6 +162,9 @@ void main() {`)
   }`)
     .replace('#include <roughnessmap_fragment>', `#include <roughnessmap_fragment>
   roughnessFactor = mix(photoRough, roughnessFactor, photoKeep);`)
+    // The ground's ambient occlusion round buildings' feet (the splat's alpha; 1 where nothing is near).
+    .replace('#include <color_fragment>', `#include <color_fragment>
+  diffuseColor.rgb *= texture2D(photoSplat, vMapUv).a;`)
     .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
   if (photoKeep < 1.0) {
     // The ground lies flat: the scan's x is east, its y north (-z), its up +y.
