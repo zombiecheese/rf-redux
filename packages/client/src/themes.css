@@ -1,0 +1,253 @@
+/*
+ * The menus' two looks, following the view the player picked (body[data-visuals], set from Style / Options > View,
+ * or the host's pick in an online match). The layout is ui.css's; only the dressing changes.
+ *
+ * Classic: the pixel art's level of detail. Hard-edged olive panels with bevels a game pixel wide, a drop shadow
+ * with no blur, and the game's own 5 x 7 letters (fonts/rf-pixel.woff, built from font.ts by tools/pixel-font).
+ *
+ * Modern: the drone and military hardware the modern view is seen through. Dark screens with corner brackets and
+ * faint scan lines, thin frames, monospace read-outs in the feed's off-white ink, amber for what is picked, and
+ * tags like the computer vision's (SYS, MENU).
+ *
+ * Only the game page loads this file: the level editor keeps the plain panels.
+ */
+
+@font-face { font-family: 'RF Pixel'; src: url('./fonts/rf-pixel.woff') format('woff'); font-display: block; }
+
+/* ================================================================================================================
+   Classic
+   ================================================================================================================ */
+
+body[data-visuals=retro] {
+  /* Whole pixels: the letters are 9 font pixels tall, so the size is a multiple of 9 and each one lands on the grid. */
+  --ui-size: max(18px, round(down, 3vmin, 9px));
+  --px: calc(var(--ui-size) / 9);
+  --ui-panel: #262a1b;
+  --ui-raise: #353b25;
+  --ui-hover: #4a5232;
+  --ui-line: #0b0c07;
+  --ui-text: #f2ead2;
+  --ui-muted: #b2ad8c;
+  --ui-accent: #e8b040;
+  --ui-accent-ink: #1a1408;
+  --ui-good: #8fd06a;
+  --ui-bad: #d9573a;
+  --ui-radius: 0;
+  --hi: rgba(255, 246, 214, .2);
+  --lo: rgba(0, 0, 0, .5);
+}
+body[data-visuals=retro] .ui { font: var(--ui-size)/1.12 'RF Pixel', ui-monospace, monospace; -webkit-font-smoothing: none; letter-spacing: 0; }
+body[data-visuals=retro] .ui :focus-visible { outline: var(--px) solid var(--ui-accent); outline-offset: var(--px); }
+
+/* Panels: a black outline, a bevel, a hard shadow, and a 2 x 2 dither over the olive. */
+body[data-visuals=retro] .menu-panel,
+body[data-visuals=retro] .ui.window {
+  border: var(--px) solid #0b0c07; border-radius: 0; backdrop-filter: none; animation: none;
+  background: repeating-conic-gradient(rgba(0, 0, 0, .1) 0 25%, transparent 0 50%) 0 0 / calc(var(--px) * 2) calc(var(--px) * 2), var(--ui-panel);
+  box-shadow: inset var(--px) var(--px) 0 #59613f, inset calc(var(--px) * -1) calc(var(--px) * -1) 0 #14160d, calc(var(--px) * 3) calc(var(--px) * 3) 0 rgba(0, 0, 0, .65);
+}
+body[data-visuals=retro] .ui .titlebar { background: #3c4428; color: var(--ui-accent); text-transform: uppercase; letter-spacing: 0;
+  border-bottom: var(--px) solid #0b0c07; box-shadow: inset 0 var(--px) 0 #6a7449; }
+body[data-visuals=retro] .ui.window > .buttons { border-top: var(--px) solid #0b0c07; background: rgba(0, 0, 0, .18); }
+body[data-visuals=retro] .menu-title { letter-spacing: 0; }
+
+/* Everything pressable is a raised block; pressed, it sinks. */
+body[data-visuals=retro] .mi,
+body[data-visuals=retro] .mi-back,
+body[data-visuals=retro] .ui .btn,
+body[data-visuals=retro] .ui .close,
+body[data-visuals=retro] .ui .radio,
+body[data-visuals=retro] .ui .view-card,
+body[data-visuals=retro] .ui .map-row,
+body[data-visuals=retro] .ui .lobby-row,
+body[data-visuals=retro] .admin-nav button,
+body[data-visuals=retro] .ui .act {
+  border: var(--px) solid #0b0c07; border-radius: 0; background-color: var(--ui-raise); transition: none;
+  box-shadow: inset var(--px) var(--px) 0 var(--hi), inset calc(var(--px) * -1) calc(var(--px) * -1) 0 var(--lo);
+}
+body[data-visuals=retro] .mi:hover, body[data-visuals=retro] .mi:focus-visible,
+body[data-visuals=retro] .ui .btn:hover, body[data-visuals=retro] .ui .radio:hover, body[data-visuals=retro] .ui .map-row:hover,
+body[data-visuals=retro] .ui .view-card:hover:not(:disabled), body[data-visuals=retro] .mi-back:hover {
+  background-color: var(--ui-hover); border-color: #0b0c07; outline: none;
+}
+body[data-visuals=retro] .mi:active, body[data-visuals=retro] .ui .btn:active, body[data-visuals=retro] .ui .radio:active {
+  transform: none; box-shadow: inset var(--px) var(--px) 0 var(--lo), inset calc(var(--px) * -1) calc(var(--px) * -1) 0 var(--hi);
+}
+body[data-visuals=retro] .mi.primary,
+body[data-visuals=retro] .ui .btn.default,
+body[data-visuals=retro] .ui .radio:has(input:checked),
+body[data-visuals=retro] .ui .map-row.picked,
+body[data-visuals=retro] .ui .view-card.picked,
+body[data-visuals=retro] .admin-nav button.on,
+body[data-visuals=retro] .ui .act.primary {
+  background-color: var(--ui-accent); color: var(--ui-accent-ink); border-color: #0b0c07;
+  box-shadow: inset var(--px) var(--px) 0 #ffe29a, inset calc(var(--px) * -1) calc(var(--px) * -1) 0 #9a6a14;
+}
+body[data-visuals=retro] .mi.primary:hover, body[data-visuals=retro] .mi.primary:focus-visible,
+body[data-visuals=retro] .ui .btn.default:hover { background-color: #f4c45c; border-color: #0b0c07; }
+body[data-visuals=retro] .ui .btn.quiet { background-color: var(--ui-raise); }
+body[data-visuals=retro] .ui .close:hover { background-color: var(--ui-bad); color: #fff; }
+body[data-visuals=retro] .mi-key:not(:empty) { border: var(--px) solid currentColor; border-radius: 0; }
+body[data-visuals=retro] .mi-value { border-radius: 0; background: #0b0c07; color: var(--ui-accent); }
+body[data-visuals=retro] .mi-hint { opacity: 1; color: var(--ui-muted); }
+body[data-visuals=retro] .mi.primary .mi-hint { color: #5a3f0c; }
+
+/* Fields sink into the panel. */
+body[data-visuals=retro] .ui input[type=text], body[data-visuals=retro] .ui input[type=email], body[data-visuals=retro] .ui input[type=password],
+body[data-visuals=retro] .ui input[type=search], body[data-visuals=retro] .ui input[type=number], body[data-visuals=retro] .ui select,
+body[data-visuals=retro] .ui textarea, body[data-visuals=retro] .ui .listview, body[data-visuals=retro] .ui .chatlog,
+body[data-visuals=retro] .ui .code {
+  border: var(--px) solid #0b0c07; border-radius: 0; background-color: #12140c;
+  box-shadow: inset var(--px) var(--px) 0 var(--lo), inset calc(var(--px) * -1) calc(var(--px) * -1) 0 rgba(255, 246, 214, .12);
+}
+body[data-visuals=retro] .ui fieldset { border: var(--px) solid #0b0c07; border-radius: 0; box-shadow: inset var(--px) var(--px) 0 rgba(255, 246, 214, .08); }
+body[data-visuals=retro] .ui .badge { border-radius: 0; }
+body[data-visuals=retro] .ui .seat { border-radius: 0; border: var(--px) solid #0b0c07; border-left: calc(var(--px) * 3) solid var(--side);
+  box-shadow: inset var(--px) var(--px) 0 var(--hi), inset calc(var(--px) * -1) calc(var(--px) * -1) 0 var(--lo); }
+body[data-visuals=retro] .ui .map-preview-frame, body[data-visuals=retro] .ui .view-card img, body[data-visuals=retro] .ui .view-card .view-both {
+  border-radius: 0; }
+body[data-visuals=retro] .ui .grid th { background: #1b1e13; }
+body[data-visuals=retro] .toast { border-radius: 0; border: var(--px) solid #0b0c07; border-left: calc(var(--px) * 3) solid var(--ui-accent);
+  box-shadow: calc(var(--px) * 2) calc(var(--px) * 2) 0 rgba(0, 0, 0, .6); }
+
+/* Small print stays on the pixel grid: the same size as the rest, quieter in colour. */
+body[data-visuals=retro] .mi-hint, body[data-visuals=retro] .menu-foot, body[data-visuals=retro] .ui .hint,
+body[data-visuals=retro] .ui .badge, body[data-visuals=retro] .ui .caption, body[data-visuals=retro] .ui legend,
+body[data-visuals=retro] .ui small, body[data-visuals=retro] .mi-key, body[data-visuals=retro] .mi-value,
+body[data-visuals=retro] .ui .lobby-row-meta, body[data-visuals=retro] .ui .map-preview-meta, body[data-visuals=retro] .ui .map-preview-bases,
+body[data-visuals=retro] .ui .seat-side, body[data-visuals=retro] .ui .lobby-main h3, body[data-visuals=retro] .ui .invite-label,
+body[data-visuals=retro] .ui .map-group, body[data-visuals=retro] .ui .grid th, body[data-visuals=retro] .lobby-layer .window,
+body[data-visuals=retro] .ui .lobby-settings .field > span:first-child, body[data-visuals=retro] .ui .match-setup .field > span:first-child,
+body[data-visuals=retro] .ui .chatlog, body[data-visuals=retro] .ui .btn.small, body[data-visuals=retro] .ui .lobby-invite .btn {
+  font-size: 1em; letter-spacing: 0;
+}
+/* The pixel letters are wider than the plain font: the menu panel gets the room back. */
+body[data-visuals=retro] .menu-panel { width: min(26em, 52vw); }
+
+/* ================================================================================================================
+   Modern
+   ================================================================================================================ */
+
+body[data-visuals=modern] {
+  --ui-panel: rgba(6, 10, 12, .86);
+  --ui-raise: rgba(236, 242, 232, .04);
+  --ui-hover: rgba(236, 242, 232, .1);
+  --ui-line: rgba(236, 242, 232, .26);
+  --ui-text: #ecf2e8;
+  --ui-muted: #8e9b93;
+  --ui-accent: #ffc44a;
+  --ui-accent-ink: #0b0f10;
+  --ui-good: #7dffa0;
+  --ui-bad: #ff5a46;
+  --ui-radius: 0;
+  --ink: #ecf2e8;
+  --cv: #62e0ff;
+  --mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, "Liberation Mono", monospace;
+  /* Corner brackets, as on the drone feed: drawn as eight thin bars round a box. */
+  --brackets:
+    linear-gradient(var(--ink), var(--ink)) top left / 1.1em 2px no-repeat, linear-gradient(var(--ink), var(--ink)) top left / 2px 1.1em no-repeat,
+    linear-gradient(var(--ink), var(--ink)) top right / 1.1em 2px no-repeat, linear-gradient(var(--ink), var(--ink)) top right / 2px 1.1em no-repeat,
+    linear-gradient(var(--ink), var(--ink)) bottom left / 1.1em 2px no-repeat, linear-gradient(var(--ink), var(--ink)) bottom left / 2px 1.1em no-repeat,
+    linear-gradient(var(--ink), var(--ink)) bottom right / 1.1em 2px no-repeat, linear-gradient(var(--ink), var(--ink)) bottom right / 2px 1.1em no-repeat;
+  --scan: repeating-linear-gradient(0deg, rgba(236, 242, 232, .028) 0 1px, transparent 1px 3px);
+}
+body[data-visuals=modern] .ui { font-family: var(--mono); letter-spacing: .01em; }
+
+/* Screens: a thin frame, brackets at the corners, scan lines over a near-black glass. */
+body[data-visuals=modern] .menu-panel,
+body[data-visuals=modern] .ui.window {
+  border: 1px solid var(--ui-line); border-radius: 0; background: var(--brackets), var(--scan), var(--ui-panel);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, .5), 0 1.2em 3em rgba(0, 0, 0, .55);
+}
+body[data-visuals=modern] .ui .titlebar { text-transform: uppercase; letter-spacing: .14em; font-size: .9em; color: var(--ink);
+  border-bottom: 1px solid var(--ui-line); gap: .7em; }
+/* The window's tag, as the computer vision labels its read-outs. */
+body[data-visuals=modern] .ui .titlebar > span:first-child::before { content: 'SYS'; display: inline-block; margin-right: .8em; padding: .05em .4em;
+  background: var(--ink); color: var(--ui-accent-ink); font-size: .78em; font-weight: 800; letter-spacing: .08em; vertical-align: .1em; }
+body[data-visuals=modern] .ui .lobby-heading .lobby-title::before { content: 'NET'; display: inline-block; margin-right: .7em; padding: .05em .4em;
+  background: var(--cv); color: var(--ui-accent-ink); font-size: .7em; font-weight: 800; letter-spacing: .08em; vertical-align: .15em; }
+body[data-visuals=modern] .ui .titlebar .lobby-title { text-transform: none; letter-spacing: .04em; }
+body[data-visuals=modern] .ui.window > .buttons { border-top: 1px solid var(--ui-line); }
+body[data-visuals=modern] .menu-head { border-bottom: 1px solid var(--ui-line); padding-bottom: .4em; }
+body[data-visuals=modern] .menu-title { color: var(--ink); letter-spacing: .2em; }
+body[data-visuals=modern] .menu-title::before { content: 'MENU'; margin-right: .7em; padding: .05em .4em; background: var(--ui-accent); color: var(--ui-accent-ink);
+  font-size: .72em; letter-spacing: .08em; vertical-align: .15em; }
+body[data-visuals=modern] .menu-head:has(.menu-logo) { border-bottom: 0; }
+body[data-visuals=modern] .menu-foot { font-size: .72em; letter-spacing: .1em; text-transform: uppercase; }
+body[data-visuals=modern] .menu-foot::before { content: '\25CF  LINK  '; color: var(--ui-good); white-space: pre; }
+
+/* Controls: thin outlines that light up when in the crosshairs; what is picked goes amber. */
+body[data-visuals=modern] .mi,
+body[data-visuals=modern] .mi-back,
+body[data-visuals=modern] .ui .btn,
+body[data-visuals=modern] .ui .close,
+body[data-visuals=modern] .ui .radio,
+body[data-visuals=modern] .ui .view-card,
+body[data-visuals=modern] .ui .map-row,
+body[data-visuals=modern] .ui .lobby-row,
+body[data-visuals=modern] .admin-nav button,
+body[data-visuals=modern] .ui .act {
+  border: 1px solid var(--ui-line); border-radius: 0; background-color: var(--ui-raise); text-transform: uppercase; letter-spacing: .06em;
+}
+body[data-visuals=modern] .mi { border-left: 2px solid rgba(236, 242, 232, .45); }
+body[data-visuals=modern] .mi:hover, body[data-visuals=modern] .mi:focus-visible {
+  border-color: var(--ink); background: var(--brackets), var(--ui-hover); background-size: .6em 1px, 1px .6em, .6em 1px, 1px .6em, .6em 1px, 1px .6em, .6em 1px, 1px .6em, auto;
+}
+body[data-visuals=modern] .ui .btn:hover, body[data-visuals=modern] .ui .radio:hover, body[data-visuals=modern] .ui .map-row:hover,
+body[data-visuals=modern] .ui .view-card:hover:not(:disabled), body[data-visuals=modern] .mi-back:hover { border-color: var(--ink); background-color: var(--ui-hover); }
+body[data-visuals=modern] .mi.primary,
+body[data-visuals=modern] .ui .map-row.picked,
+body[data-visuals=modern] .ui .view-card.picked {
+  background-color: rgba(255, 196, 74, .12); color: var(--ui-accent); border-color: var(--ui-accent); border-left-width: 2px; box-shadow: none;
+}
+body[data-visuals=modern] .mi.primary:hover, body[data-visuals=modern] .mi.primary:focus-visible { background-color: rgba(255, 196, 74, .2); border-color: var(--ui-accent); }
+body[data-visuals=modern] .mi.primary .mi-label::before { content: '\25B6 '; font-size: .75em; vertical-align: .1em; }
+body[data-visuals=modern] .ui .btn.default,
+body[data-visuals=modern] .ui .radio:has(input:checked),
+body[data-visuals=modern] .admin-nav button.on,
+body[data-visuals=modern] .ui .act.primary { background-color: var(--ui-accent); color: var(--ui-accent-ink); border-color: var(--ui-accent); }
+body[data-visuals=modern] .ui .btn.default:hover { background-color: #ffd37a; }
+body[data-visuals=modern] .ui .close { font-family: var(--mono); }
+body[data-visuals=modern] .ui .close:hover { background-color: var(--ui-bad); border-color: var(--ui-bad); }
+body[data-visuals=modern] .mi-label { letter-spacing: .08em; }
+body[data-visuals=modern] .mi-hint { text-transform: none; letter-spacing: .02em; }
+body[data-visuals=modern] .mi-key:not(:empty) { border-radius: 0; }
+body[data-visuals=modern] .mi-value { border-radius: 0; background: transparent; border: 1px solid currentColor; color: var(--cv); }
+body[data-visuals=modern] .ui .lobby-row-meta, body[data-visuals=modern] .ui .lobby-row .lobby-row-name { text-transform: none; }
+
+/* Fields: dark wells with a thin frame. */
+body[data-visuals=modern] .ui input[type=text], body[data-visuals=modern] .ui input[type=email], body[data-visuals=modern] .ui input[type=password],
+body[data-visuals=modern] .ui input[type=search], body[data-visuals=modern] .ui input[type=number], body[data-visuals=modern] .ui select,
+body[data-visuals=modern] .ui textarea, body[data-visuals=modern] .ui .listview, body[data-visuals=modern] .ui .chatlog {
+  border-radius: 0; background-color: rgba(0, 0, 0, .55); border: 1px solid var(--ui-line);
+}
+body[data-visuals=modern] .ui input:focus, body[data-visuals=modern] .ui select:focus { border-color: var(--ui-accent); }
+body[data-visuals=modern] .ui fieldset { border-radius: 0; border-style: dashed; }
+body[data-visuals=modern] .ui legend, body[data-visuals=modern] .ui .caption, body[data-visuals=modern] .ui .lobby-main h3,
+body[data-visuals=modern] .ui .lobby-settings .field > span:first-child, body[data-visuals=modern] .ui .match-setup .field > span:first-child { color: var(--cv); }
+body[data-visuals=modern] .ui .badge { border-radius: 0; text-transform: uppercase; letter-spacing: .06em; border: 1px solid currentColor; background: transparent; }
+body[data-visuals=modern] .ui .badge.you { background: var(--ui-accent); border-color: var(--ui-accent); }
+body[data-visuals=modern] .ui .seat { border-radius: 0; background: linear-gradient(90deg, color-mix(in srgb, var(--side) 16%, transparent), rgba(0, 0, 0, .25) 70%); }
+body[data-visuals=modern] .ui .code { border-radius: 0; border: 1px solid var(--ui-accent); background: rgba(0, 0, 0, .55); }
+body[data-visuals=modern] .ui .map-preview-frame, body[data-visuals=modern] .ui .view-card img, body[data-visuals=modern] .ui .view-card .view-both { border-radius: 0; }
+body[data-visuals=modern] .ui .grid th { background: #0a0f11; color: var(--cv); text-transform: uppercase; letter-spacing: .08em; }
+body[data-visuals=modern] .ui .scroll, body[data-visuals=modern] .ui .lobby-list, body[data-visuals=modern] .ui .map-list { border-radius: 0; }
+body[data-visuals=modern] .ui.window .result-title { color: var(--ui-accent); text-transform: uppercase; letter-spacing: .08em; }
+body[data-visuals=modern] .toast { border-radius: 0; background: rgba(6, 10, 12, .86); border: 1px solid var(--ui-line); border-left: 2px solid var(--ink); }
+
+/* ================================================================================================================
+   Both: the title menu keeps every entry in view at 1280 × 720 (the logo gives up a little height).
+   ================================================================================================================ */
+body[data-visuals] .menu-logo { width: auto; max-width: 100%; max-height: 21vh; object-fit: contain; }
+body[data-visuals=retro] .mi { padding: .3em .8em; gap: .6em; }
+body[data-visuals=retro] .mi-hint { line-height: 1.05; }
+body[data-visuals=retro] .ui .seat-side select { min-width: 6.2em; }
+body[data-visuals=modern] .mi { padding: .38em .9em; }
+/* A phone held sideways: the pixel letters keep their size, so the entries lose their padding instead. */
+@media (max-height: 460px) {
+  body[data-visuals=retro] .mi { min-height: 0; padding: .14em .6em; }
+  body[data-visuals=retro] .menu-panel { gap: .25em; padding: .45em; }
+  body[data-visuals=retro] .menu-list { gap: .2em; }
+  body[data-visuals=retro] .menu-logo { max-height: 12vh; }
+  body[data-visuals=retro] .mi:disabled .mi-hint { display: none; }
+}

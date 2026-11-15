@@ -6,6 +6,7 @@ Each release's section below becomes its GitHub release notes (`.github/workflow
 
 ### Changed
 
+- The menus, dialogs and lobby are dressed to match the view you play in. Classic gets hard-edged olive panels with pixel-wide bevels and hard shadows, lettered in the game's own pixel font. Modern gets the drone's hardware look: dark screens with corner brackets and scan lines, thin frames, monospace read-outs, amber for what is picked, and tags like the computer vision's. The layouts are unchanged, and the level editor keeps its plain panels.
 - A new online lobby's empty seats start open, so it shows in Find a Game with room and a Join button, and Quick Match can fill it. The computer plays any seat still open when the host starts, so hosting alone still works; a closed seat leaves its base out.
 - The lobby's Teams picker shows the layout the seats are in (the one picked in Host a Game to begin with), or Custom once a seat is moved to another team.
 - Find a Game says how many open seats a lobby has, and the host's footer says when the computer will play open seats instead of "Everyone is ready" with nobody else there.
