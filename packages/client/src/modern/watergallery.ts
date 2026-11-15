@@ -17,9 +17,12 @@ export async function waterScene(q: URLSearchParams): Promise<never> {
   const assets = await loadAssets(q.get('map') ?? 'rfmap101');
   const world = buildWorld(assets.map, assets.defs, assets.shore);
   const match = createMatch(world, assets.map, world.bases.map((b) => ({ base: b.id, team: b.id })), 1, { difficulty: 5 });
-  const modern = new ModernRenderer(assets);
   // &tilt=0 turns the feed's tilt-shift focus off, to compare.
   if (q.get('tilt') === '0') (await import('./art.js')).ART.tiltShift = false;
+  // &photo=0 paints the ground in flat colours instead of the photo scans, and &detail=512 loads the smaller scans.
+  if (q.get('photo') === '0') (await import('./art.js')).ART.photoGround = false;
+  if (q.get('detail') === '512') (await import('./art.js')).ART.groundDetail = 512;
+  const modern = new ModernRenderer(assets);
   const night = q.get('night') === '1';
   modern.setNight(night);
   modern.setLook(true, q.get('thermal') === '1');

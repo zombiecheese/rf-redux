@@ -7,6 +7,8 @@
 import * as THREE from 'three';
 import { LIGHT_TIME, THERMAL, grainLights } from './look.js';
 import { DepthMap, RINGS } from './water.js';
+import { ART } from './art.js';
+import { photoMaps, photoShader, type PhotoMaps } from './photoground.js';
 import { GRID, NO_TERRAIN, type World } from '@rfw/sim';
 import type { GameAssets } from '../assets.js';
 
@@ -14,6 +16,8 @@ export const TILE = 32;
 /** Sea mask resolution: texels a tile. */
 const SHORE_TEX = 4;
 const WATER_CEL = 2;
+/** The photo ground's material map (the splat): texels a tile. */
+const SPLAT_TEX = 8;
 
 const enum Mat { Water, Sand, Dirt, Grass, Road, RoadLight, Wood, Keep }
 
@@ -89,6 +93,11 @@ export class Ground {
   private readonly terrain = new Uint8Array(GRID * GRID);
   private readonly noise = [noiseTile(256, 8, 7), noiseTile(256, 32, 11)];
   readonly water: THREE.ShaderMaterial;
+  /** Each point's sand, darker sand and lawn for the photo ground (rows south to north), and its texture. */
+  private readonly splat = new Uint8Array(GRID * SPLAT_TEX * GRID * SPLAT_TEX * 4);
+  private readonly splatTex: THREE.DataTexture;
+  private readonly photo = { value: null as PhotoMaps | null };
+  private readonly photoOn: THREE.IUniform = { value: 0 };
   /** How deep the sea is, as the match plays it: the shallows and deep water. */
   private readonly depth: DepthMap;
   /** Ground texels a tile: the art's own 32 where the GPU takes a 4096 texture, else 16. */
@@ -116,8 +125,22 @@ export class Ground {
     this.pitTex = new THREE.DataTexture(this.pits, GRID, GRID, THREE.RedFormat, THREE.UnsignedByteType);
     // Rows run south to north: row 0 is the map's southern edge, where a texture's v is 0.
     this.pitTex.needsUpdate = true;
-    const mat = new THREE.MeshLambertMaterial({ map: this.texture, alphaTest: 0.5 });
+    this.splatTex = new THREE.DataTexture(this.splat, GRID * SPLAT_TEX, GRID * SPLAT_TEX, THREE.RGBAFormat, THREE.UnsignedByteType);
+    this.splatTex.magFilter = this.splatTex.minFilter = THREE.LinearFilter;
+    this.paintSplat(0, 0, GRID, GRID);
+    // The garden from photo scans where the device takes it (art.ts), else the painted ground on its own.
+    const photo = ART.photoGround;
+    const mat = photo
+      ? new THREE.MeshStandardMaterial({ map: this.texture, alphaTest: 0.5, roughness: 0.95, metalness: 0 })
+      : new THREE.MeshLambertMaterial({ map: this.texture, alphaTest: 0.5 });
+    if (photo) {
+      void photoMaps().then((m) => {
+        this.photo.value = m;
+        this.photoOn.value = 1;
+      });
+    }
     mat.onBeforeCompile = (shader) => {
+      if (photo) photoShader(shader, this.splatTex, this.photo, this.photoOn, GRID * TILE);
       shader.uniforms.pits = { value: this.pitTex };
       shader.uniforms.thermal = THERMAL;
       shader.fragmentShader = shader.fragmentShader
@@ -182,6 +205,7 @@ export class Ground {
       this.paint(px0, py0, px1, py1);
       this.canvas.getContext('2d')!.putImageData(this.image, 0, 0, px0 * this.TEX, py0 * this.TEX, (px1 - px0) * this.TEX, (py1 - py0) * this.TEX);
       this.texture.needsUpdate = true;
+      this.paintSplat(px0, py0, px1, py1);
       this.makeShore();
       if (wet) this.depth.update(world, x0, y0, x1 + 1, y1 + 1);
     }
@@ -313,6 +337,49 @@ export class Ground {
     this.soften(x0 * this.TEX, y0 * this.TEX, x1 * this.TEX, y1 * this.TEX);
   }
 
+  /**
+   * The photo ground's splat for tiles [x0, x1) x [y0, y1): each texel's share of sand, darker sand and lawn among
+   * the art's texels it covers, softened a texel across so materials meet in a blend.
+   */
+  private paintSplat(x0: number, y0: number, x1: number, y1: number): void {
+    const N = GRID * SPLAT_TEX;
+    const step = this.TEX / SPLAT_TEX;
+    const raw = new Float32Array(N * N * 4);
+    const ax0 = Math.max(0, x0 - 1);
+    const ay0 = Math.max(0, y0 - 1);
+    const ax1 = Math.min(GRID, x1 + 1);
+    const ay1 = Math.min(GRID, y1 + 1);
+    const slot: Partial<Record<Mat, number>> = { [Mat.Sand]: 0, [Mat.Dirt]: 1, [Mat.Grass]: 2 };
+    for (let ty = ay0; ty < ay1; ty++) {
+      for (let tx = ax0; tx < ax1; tx++) {
+        const t = this.terrain[ty * GRID + tx]!;
+        const g = this.celGround(t === NO_TERRAIN ? WATER_CEL : t & 127);
+        for (let y = 0; y < this.TEX; y++) {
+          for (let x = 0; x < this.TEX; x++) {
+            const k = slot[g.mat[y * this.TEX + x]! as Mat];
+            if (k === undefined) continue;
+            const sx = tx * SPLAT_TEX + Math.floor(x / step);
+            const sy = ty * SPLAT_TEX + Math.floor(y / step);
+            const at = (sy * N + sx) * 4 + k;
+            raw[at] = raw[at]! + 1 / (step * step);
+          }
+        }
+      }
+    }
+    for (let sy = y0 * SPLAT_TEX; sy < y1 * SPLAT_TEX; sy++) {
+      for (let sx = x0 * SPLAT_TEX; sx < x1 * SPLAT_TEX; sx++) {
+        // Rows run south to north in the texture: the map's first row is its northern edge.
+        const o = ((N - 1 - sy) * N + sx) * 4;
+        for (let c = 0; c < 4; c++) {
+          let s = 0;
+          for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) s += raw[(Math.min(N - 1, Math.max(0, sy + j)) * N + Math.min(N - 1, Math.max(0, sx + i))) * 4 + c]! * (i || j ? 1 : 4);
+          this.splat[o + c] = Math.round(Math.min(1, s / 12) * 255);
+        }
+      }
+    }
+    this.splatTex.needsUpdate = true;
+  }
+
   /** A light 3 x 3 blur of the land's colours and the edge's alpha, so material edges and shores come out smooth. */
   private soften(x0: number, y0: number, x1: number, y1: number): void {
     const px = this.image.data;
@@ -394,6 +461,7 @@ export class Ground {
 
   dispose(): void {
     this.texture.dispose();
+    this.splatTex.dispose();
     this.shoreTex.dispose();
     this.pitTex.dispose();
     this.depth.dispose();

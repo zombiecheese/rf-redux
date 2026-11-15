@@ -7,4 +7,6 @@ Every picture and sound here is made for Return Fire: Redux. Nothing from the or
 may be put here, beyond two things: its measurements (`pack/*.json`) and its 104
 two-player map layouts (`pack/maps/`).
 
+The modern view's ground is the one exception: photo scans published as CC0, credited in [pack/cc0](pack/cc0/README.md).
+
 [docs/assets.md](../../docs/assets.md) describes the pack, how each part is made and those two things.
