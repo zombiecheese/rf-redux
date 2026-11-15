@@ -4,6 +4,7 @@
 
 import * as THREE from 'three';
 import { THERMAL } from './look.js';
+import { ART } from './art.js';
 
 const MAX_POINTS = 4000;
 const MAX_CHUNKS = 600;
@@ -55,6 +56,83 @@ function spotTexture(): THREE.Texture {
   return t;
 }
 
+/** Smooth value noise and a few octaves of it, for the flipbooks' clouds. */
+function vnoise(x: number, y: number): number {
+  const hash = (i: number, j: number) => {
+    const h = Math.sin(i * 127.1 + j * 311.7) * 43758.5453;
+    return h - Math.floor(h);
+  };
+  const i = Math.floor(x);
+  const j = Math.floor(y);
+  const fx = x - i;
+  const fy = y - j;
+  const u = fx * fx * (3 - 2 * fx);
+  const v = fy * fy * (3 - 2 * fy);
+  const a = hash(i, j) + (hash(i + 1, j) - hash(i, j)) * u;
+  const b = hash(i, j + 1) + (hash(i + 1, j + 1) - hash(i, j + 1)) * u;
+  return a + (b - a) * v;
+}
+function fbm(x: number, y: number): number {
+  return vnoise(x, y) * 0.5 + vnoise(x * 2.03, y * 2.03) * 0.25 + vnoise(x * 4.1, y * 4.1) * 0.15 + vnoise(x * 8.3, y * 8.3) * 0.1;
+}
+
+/** Frames in a flipbook a side (4 x 4 = 16 frames), and each frame's size in texels. */
+const FLIP = 4;
+const FRAME = 96;
+
+/**
+ * A flipbook of a billowing puff over its life, drawn in code: frame 0 a tight, dense knot, the last a thin, torn
+ * wisp. fire: ragged tongues with a hot core (colour comes from each particle's tint); else smoke, lit from above so
+ * each puff has a bright top and a shaded underside.
+ */
+function flipbook(fire: boolean): THREE.Texture {
+  const size = FLIP * FRAME;
+  const c = document.createElement('canvas');
+  c.width = c.height = size;
+  const g = c.getContext('2d')!;
+  const img = g.createImageData(size, size);
+  for (let f = 0; f < FLIP * FLIP; f++) {
+    const t = f / (FLIP * FLIP - 1);
+    // Cell (f % 4, f / 4) in the texture's uv, whose v runs up: the canvas's rows run down, so the rows are flipped.
+    const ox = (f % FLIP) * FRAME;
+    const oy = (FLIP - 1 - Math.floor(f / FLIP)) * FRAME;
+    for (let y = 0; y < FRAME; y++) {
+      for (let x = 0; x < FRAME; x++) {
+        const u = (x + 0.5) / FRAME - 0.5;
+        // Up the frame is up the puff: the canvas's row 0 is its top.
+        const v = 0.5 - (y + 0.5) / FRAME;
+        const r = Math.hypot(u, v) * 2;
+        const n = fbm(u * 4 + 11 + t * 1.3, v * 4 - t * 2.2 + 3);
+        let a: number;
+        let shade = 1;
+        if (fire) {
+          // Tongues licking up, thinning as the flame dies.
+          const edge = 0.8 - t * 0.35 + (v > 0 ? v * 0.5 : 0);
+          a = Math.max(0, Math.min(1, (n * 1.3 - r / edge + 0.35) * 3));
+          a *= 1 - t * 0.5;
+        } else {
+          // A puff that swells and tears apart as it goes.
+          const edge = 0.75 + t * 0.2;
+          a = Math.max(0, Math.min(1, (n * 1.2 - r / edge + 0.25 - t * 0.25) * 2.4));
+          // Sunlit from above, shadowed below, with the folds of the cloud.
+          shade = Math.max(0.3, Math.min(1.25, 0.75 + v * 1.0 + (n - 0.5) * 0.9));
+        }
+        const o = ((oy + y) * size + ox + x) * 4;
+        const lum = Math.round(Math.min(1, shade) * 255);
+        img.data[o] = lum;
+        img.data[o + 1] = lum;
+        img.data[o + 2] = lum;
+        img.data[o + 3] = Math.round(a * 255);
+      }
+    }
+  }
+  g.putImageData(img, 0, 0);
+  const tex = new THREE.CanvasTexture(c);
+  tex.generateMipmaps = false;
+  tex.minFilter = THREE.LinearFilter;
+  return tex;
+}
+
 function scorchTexture(): THREE.Texture {
   const c = document.createElement('canvas');
   c.width = c.height = 64;
@@ -68,29 +146,50 @@ function scorchTexture(): THREE.Texture {
   return new THREE.CanvasTexture(c);
 }
 
+/** A shard of broken plastic: an irregular, sharp-cornered flake about 1 across, thin, with its broken edges. */
+function shard(): THREE.BufferGeometry {
+  const shape = new THREE.Shape();
+  const pts: [number, number][] = [[-0.5, -0.35], [0.1, -0.5], [0.5, -0.1], [0.3, 0.45], [-0.25, 0.3]];
+  shape.moveTo(...pts[0]!);
+  for (const p of pts.slice(1)) shape.lineTo(...p);
+  shape.closePath();
+  const g = new THREE.ExtrudeGeometry(shape, { depth: 1, bevelEnabled: false });
+  // Lying flat, its thickness up (the instance squashes it).
+  g.translate(0, 0, -0.5);
+  g.rotateX(-Math.PI / 2);
+  return g;
+}
+
 /** One batch of points drawn in one call: positions in three.js axes, a colour, alpha and size each. */
 class PointBatch {
   readonly points: THREE.Points;
   private readonly pos = new Float32Array(MAX_POINTS * 3);
   private readonly col = new Float32Array(MAX_POINTS * 4);
   private readonly size = new Float32Array(MAX_POINTS);
+  /** Each point's age through its life (0 to 1) and its own turn (0 to 1). */
+  private readonly anim = new Float32Array(MAX_POINTS * 2);
   private readonly geo = new THREE.BufferGeometry();
   readonly material: THREE.ShaderMaterial;
   count = 0;
 
-  constructor(texture: THREE.Texture, additive: boolean) {
+  /** flip: texture is a flipbook (FLIP x FLIP frames played over each point's life), not a single spot. */
+  constructor(texture: THREE.Texture, additive: boolean, flip = false) {
     this.geo.setAttribute('position', new THREE.BufferAttribute(this.pos, 3).setUsage(THREE.DynamicDrawUsage));
     this.geo.setAttribute('tint', new THREE.BufferAttribute(this.col, 4).setUsage(THREE.DynamicDrawUsage));
     this.geo.setAttribute('size', new THREE.BufferAttribute(this.size, 1).setUsage(THREE.DynamicDrawUsage));
+    this.geo.setAttribute('anim', new THREE.BufferAttribute(this.anim, 2).setUsage(THREE.DynamicDrawUsage));
     this.material = new THREE.ShaderMaterial({
       uniforms: { map: { value: texture }, scale: { value: 400 }, thermal: THERMAL },
       vertexShader: /* glsl */ `
         attribute vec4 tint;
         attribute float size;
+        attribute vec2 anim;
         uniform float scale;
         varying vec4 vTint;
+        varying vec2 vAnim;
         void main() {
           vTint = tint;
+          vAnim = anim;
           vec4 mv = modelViewMatrix * vec4(position, 1.0);
           gl_PointSize = size * scale / -mv.z;
           gl_Position = projectionMatrix * mv;
@@ -99,12 +198,22 @@ class PointBatch {
         uniform sampler2D map;
         uniform float thermal;
         varying vec4 vTint;
+        varying vec2 vAnim;
         void main() {
-          float a = texture2D(map, gl_PointCoord).a * vTint.a;
+          ${flip ? `// The frame for this point's age, turned by its own angle so no two puffs look alike.
+          vec2 pc = gl_PointCoord - 0.5;
+          pc.y = -pc.y;
+          float turn = vAnim.y * 6.2831853;
+          pc = mat2(cos(turn), sin(turn), -sin(turn), cos(turn)) * pc * 1.15 + 0.5;
+          if (pc.x < 0.0 || pc.y < 0.0 || pc.x > 1.0 || pc.y > 1.0) discard;
+          float frame = floor(vAnim.x * ${(FLIP * FLIP).toFixed(1)} - 0.001);
+          vec2 cell = vec2(mod(frame, ${FLIP.toFixed(1)}), floor(frame / ${FLIP.toFixed(1)}));
+          vec4 tex = texture2D(map, (pc * 0.98 + 0.01 + cell) / ${FLIP.toFixed(1)});` : 'vec4 tex = texture2D(map, gl_PointCoord);'}
+          float a = tex.a * vTint.a;
           // Smoke hardly shows on the thermal camera; fire burns white.
           ${additive ? '' : 'a *= 1.0 - thermal * 0.7;'}
           if (a < 0.01) discard;
-          gl_FragColor = vec4(vTint.rgb, a);
+          gl_FragColor = vec4(vTint.rgb * tex.rgb, a);
         }`,
       transparent: true,
       depthWrite: false,
@@ -131,11 +240,15 @@ class PointBatch {
     this.col[i * 4 + 2] = p.b;
     this.col[i * 4 + 3] = p.alpha * Math.max(0, Math.min(1, fade));
     this.size[i] = p.size0 + (p.size1 - p.size0) * t;
+    this.anim[i * 2] = t;
+    // Each particle's own turn, from what is already random about it (its size and life), so it keeps it.
+    const h = Math.sin(p.size0 * 12.9898 + p.life * 78.233) * 43758.5453;
+    this.anim[i * 2 + 1] = h - Math.floor(h);
   }
 
   commit(): void {
     this.geo.setDrawRange(0, this.count);
-    for (const name of ['position', 'tint', 'size']) (this.geo.getAttribute(name) as THREE.BufferAttribute).needsUpdate = true;
+    for (const name of ['position', 'tint', 'size', 'anim']) (this.geo.getAttribute(name) as THREE.BufferAttribute).needsUpdate = true;
   }
 }
 
@@ -149,6 +262,8 @@ export class Fx {
   private readonly soft: Particle[] = [];
   private readonly chunks: Chunk[] = [];
   private readonly chunkMesh: THREE.InstancedMesh;
+  /** The plastic of the shards, which the renderer gives the garden sky to reflect. */
+  readonly shardMaterial = new THREE.MeshPhysicalMaterial({ roughness: 0.32, metalness: 0, clearcoat: 0.4, clearcoatRoughness: 0.25 });
   private readonly emitters: Emitter[] = [];
   private readonly scorch: THREE.Mesh[] = [];
   private scorchNext = 0;
@@ -161,11 +276,13 @@ export class Fx {
 
   constructor() {
     const spot = spotTexture();
-    this.glow = new PointBatch(spot, true);
-    this.smoke = new PointBatch(spot, false);
+    // Fire and smoke from flipbooks of billowing puffs (ART.flipbookFx), else soft round spots.
+    const flip = ART.flipbookFx;
+    this.glow = new PointBatch(flip ? flipbook(true) : spot, true, flip);
+    this.smoke = new PointBatch(flip ? flipbook(false) : spot, false, flip);
     this.group.add(this.smoke.points, this.glow.points);
-    const box = new THREE.BoxGeometry(1, 1, 1);
-    this.chunkMesh = new THREE.InstancedMesh(box, new THREE.MeshStandardMaterial({ roughness: 0.9 }), MAX_CHUNKS);
+    // Debris is shards of broken plastic: thin, sharp-cornered splinters with the toys' gloss.
+    this.chunkMesh = new THREE.InstancedMesh(shard(), this.shardMaterial, MAX_CHUNKS);
     this.chunkMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     this.chunkMesh.castShadow = true;
     this.chunkMesh.count = 0;
@@ -415,7 +532,8 @@ export class Fx {
         e.next += e.every;
         this.soft.push({
           x: e.x + rand(-3, 3), y: e.y + rand(-3, 3), z: e.z, vx: rand(-2, 2), vy: rand(-2, 2), vz: rand(12, 20), age: 0, life: rand(1.8, 2.8),
-          size0: 6, size1: 24, r: 0.2, g: 0.19, b: 0.18, alpha: 0.6, drag: 0.4, rise: 6, gravity: 0,
+          // Burning plastic's smoke: thick and sooty, lit grey on top where the sun catches it.
+          size0: 7, size1: 30, r: 0.34, g: 0.32, b: 0.3, alpha: 0.8, drag: 0.4, rise: 6, gravity: 0,
         });
       }
     }
@@ -439,8 +557,8 @@ export class Fx {
       c.x += c.vx * dt;
       c.y += c.vy * dt;
       c.z += c.vz * dt;
-      if (c.z < c.size / 2) {
-        c.z = c.size / 2;
+      if (c.z < c.size * 0.12) {
+        c.z = c.size * 0.12;
         c.vz = Math.abs(c.vz) * 0.3;
         c.vx *= 0.6;
         c.vy *= 0.6;
@@ -451,7 +569,7 @@ export class Fx {
       this.e.set(c.ax * c.rot, c.ay * c.rot, c.rot);
       this.q.setFromEuler(this.e);
       const s = c.size * shrink;
-      this.m4.compose(new THREE.Vector3(c.x, c.z, c.y), this.q, new THREE.Vector3(s, s * 0.7, s));
+      this.m4.compose(new THREE.Vector3(c.x, c.z, c.y), this.q, new THREE.Vector3(s, s * 0.22, s * 0.8));
       this.chunkMesh.setMatrixAt(n, this.m4);
       this.chunkMesh.setColorAt(n, c.colour);
       n++;
