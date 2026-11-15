@@ -4,6 +4,10 @@ Each release's section below becomes its GitHub release notes (`.github/workflow
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-11-15
+
+A friendlier game around the matches: menus dressed for the view you play in, open online lobbies strangers can join, phones that fit, an Esc pause menu, one Match Setup screen, a results screen with Rematch and the replay, a Hall of Fame for every side, and the modern view's toys in moulded plastic in a bunker dug into real earth.
+
 ### Changed
 
 - The modern view's toys are moulded plastic, like a box of army men: each side's vehicles and soldiers are moulded all in its own colour, with rounded edges, the fine grain of moulded plastic, a glossy coat that catches the sky and the sun, matte black rubber tyres, clear canopies and printed white stars. Detail that would be black on a painted model (tracks, guns, rotor blades, seats, the soldiers' trousers, helmets and rifles) is a deep shade of the side's colour. The soldiers stand on little moulded bases. The bunker's parked vehicles and the skull screen's lives match.
@@ -20,6 +24,16 @@ Each release's section below becomes its GitHub release notes (`.github/workflow
 - Pausing holds the match's last frame under a pause card instead of a blank screen: FEED PAUSED over the frozen drone feed in the modern view, a pixel PAUSED panel in the classic one, with the keys to resume or open the menu.
 - Local matches are set up on one screen, Match Setup, laid out like an online lobby: the map by level with its preview on the left, and the names, difficulty, time of day, teams (on a map with three or four bases) and view on the right. It replaces the Player Selector, the Level Selector and the separate Teams dialog.
 - Every match ends on a results screen after the win scene: who won, the time, and each player's flags brought home, vehicles lost and vehicles left. Offline it offers Rematch (same map and settings), Watch Replay and Title Screen; online it goes back to the lobby.
+- The view is called Classic or Modern everywhere (the title's Style, Options > View, Match Setup), and Picture is greyed out in the modern view with "Classic only", since it only scales the classic picture.
+- Dialogs that only show something close with Close (Help, About, System Info, Hall of Fame); ones that change settings have Save and Cancel (Sound, Controls).
+- The "Signed in as" line shows on the main menu and under Online only, Online has a hint like the other entries, and Options > Instruments is left out on a server without a SoundFont instead of offering a choice that does nothing.
+- Options > Controls says what the second and third buttons do in each vehicle, and its list fades at the bottom when there is more to scroll.
+- The Hall of Fame counts wins for each side (Brown, Green, Blue, Red; every base on a winning team gets one) instead of Player 1 and Player 2, says how many bases each map has, and names the whole winning team.
+- The classic title menu is a little narrower, leaving more of the title picture in view.
+- Modern view: the flag arrows on maps with three or four bases no longer pile their labels on top of each other. Only the nearest of a base's possible flag sites is labelled with its distance, and labels that would overlap move apart.
+- Modern view: a hit on your own vehicle breaks the drone feed up to at most 70%, so you can still see who is shooting.
+- Modern bunker: the chosen vehicle's card is drawn larger, and the other cards shrink to their name and how many are left.
+- Level editor: the Preview starts on Modern, like the game, until you pick another; the status bar shows "K: keys"; and the Getting Started step is now "Paint the land and the sea", ticked once the map has a coast (a new map is all land, so it used to tick at once).
 
 ## [0.5.3] - 2026-11-15
 
@@ -161,7 +175,8 @@ The first release: a browser remake of Return Fire (1995) that plays like the or
 
 - A Docker Compose stack with one image, `ghcr.io/zombiecheese/rf-redux`, published for every version tag together with a compose file, an `.env` template and a Caddyfile for HTTPS ([docs/deploy.md](docs/deploy.md)).
 
-[Unreleased]: https://github.com/zombiecheese/rf-redux/compare/v0.5.3...HEAD
+[Unreleased]: https://github.com/zombiecheese/rf-redux/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/zombiecheese/rf-redux/releases/tag/v0.6.0
 [0.5.3]: https://github.com/zombiecheese/rf-redux/releases/tag/v0.5.3
 [0.5.2]: https://github.com/zombiecheese/rf-redux/releases/tag/v0.5.2
 [0.5.1]: https://github.com/zombiecheese/rf-redux/releases/tag/v0.5.1

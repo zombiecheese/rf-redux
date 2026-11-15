@@ -110,10 +110,10 @@ export class Checklist {
     this.key = '';
   }
 
-  update(doc: EditorDoc, problems: readonly MapProblem[], draftId: string, landTiles: number): void {
+  update(doc: EditorDoc, problems: readonly MapProblem[], draftId: string, coast: boolean): void {
     const errors = problems.filter((p) => p.level === 'error').length;
     const steps: { id: string; text: string; done: boolean }[] = [
-      { id: 'land', text: 'Paint some land', done: landTiles > 0 },
+      { id: 'land', text: 'Paint the land and the sea', done: coast },
       { id: 'start', text: 'Place two or more base starts', done: doc.bases.length >= 2 },
       { id: 'flag', text: 'Give each base a flag site', done: doc.bases.length > 0 && doc.bases.every((b) => b.flagSites.length > 0) },
       { id: 'problems', text: errors ? `Fix the ${errors === 1 ? 'error' : `${errors} errors`} in Problems` : 'No errors in Problems', done: doc.bases.length > 0 && !errors },

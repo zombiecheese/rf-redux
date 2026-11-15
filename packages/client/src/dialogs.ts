@@ -10,6 +10,7 @@ import { formatTime, type ScoreMode, type ScoreTable } from './scores.js';
 import { layoutsFor, teamsForLayout } from '@rfw/net';
 import type { Settings, TeamChoice } from './settings.js';
 import { modernAvailable } from './modern/layout.js';
+import { TEAMS as SIDES } from './paint.js';
 
 export function el<K extends keyof HTMLElementTagNameMap>(tag: K, props: Partial<HTMLElementTagNameMap[K]> & { class?: string } = {},
   ...children: (Node | string)[]): HTMLElementTagNameMap[K] {
@@ -219,7 +220,7 @@ export interface ViewChoice {
 /** The views a player picks from: classic pixels or the modern 3D view, each with a picture of it in play. */
 export const VIEW_CHOICES: ViewChoice[] = [
   { value: 'retro', label: 'Classic', hint: 'The original pixel look', image: 'retro' },
-  { value: 'modern', label: 'Modern', hint: '3D drone feed at 720p', image: 'modern' },
+  { value: 'modern', label: 'Modern', hint: 'The 3D drone feed', image: 'modern' },
 ];
 
 /**
@@ -404,17 +405,29 @@ export function teamsFor(choice: TeamChoice, bases: number, players: 1 | 2): num
 /** Match Setup's group of maps with three or four bases. */
 const MULTI = 10;
 
-/** Hall of Fame (L): the original's columns, for Training or Tournament games. */
+/** Hall of Fame (L): each map's best time and wins by side, for Training or Tournament games. */
 export async function hallOfFame(table: ScoreTable, start: ScoreMode): Promise<void> {
   let mode = start;
   const grid = el('table', { class: 'grid' });
-  const head = ['Level', 'Map Name', 'Time', 'Winner', 'Draws', 'Player 1 Wins', 'Player 2 Wins', 'Total Games'];
+  // Wins by side, each in its colour; a side that has no base on the map shows a dash.
+  const head = ['Level', 'Map', 'Bases', 'Best', 'Winner', ...SIDES.map((s) => s.name), 'Draws', 'Games'];
   const fill = () => {
-    grid.replaceChildren(el('thead', {}, el('tr', {}, ...head.map((h) => el('th', {}, h)))));
+    grid.replaceChildren(el('thead', {}, el('tr', {}, ...head.map((h, i) => {
+      const th = el('th', { class: i >= 5 ? 'num' : '' }, h);
+      const side = SIDES[i - 5];
+      if (side) {
+        th.style.color = side.css;
+        th.title = `${side.name}'s wins`;
+      }
+      return th;
+    }))));
     const tbody = el('tbody');
     for (const r of table[mode]) {
-      tbody.append(el('tr', {}, ...[r.level, r.mapName, formatTime(r.time), r.winner, r.draws, r.wins[0], r.wins[1], r.total]
-        .map((v) => el('td', {}, String(v)))));
+      const bases = r.bases ?? 2;
+      const group = r.level === MULTI ? '3 & 4' : r.level === 0 ? 'Add-On' : String(r.level);
+      tbody.append(el('tr', {}, ...[group, r.mapName, String(bases), formatTime(r.time), r.winner].map((v) => el('td', {}, v)),
+        ...SIDES.map((_, b) => el('td', { class: 'num' }, b < bases ? String(r.wins[b] ?? 0) : '–')),
+        ...[r.draws, r.total].map((v) => el('td', { class: 'num' }, String(v)))));
     }
     if (!table[mode].length) tbody.append(el('tr', {}, el('td', { colSpan: head.length, class: 'none' }, 'No games yet')));
     grid.append(tbody);
@@ -426,7 +439,7 @@ export async function hallOfFame(table: ScoreTable, start: ScoreMode): Promise<v
     mode = modes.querySelector<HTMLInputElement>('input:checked')!.value as ScoreMode;
     fill();
   });
-  await dialog('Hall of Fame', el('div', {}, el('div', { class: 'scroll' }, grid), modes), [['Close', 'ok']]);
+  await dialog('Hall of Fame', el('div', { class: 'stack hall-of-fame' }, el('div', { class: 'scroll' }, grid), el('span', { class: 'hint' }, 'Wins by side: every base on a winning team gets one. Best is the fastest win.'), modes), [['Close', 'ok']]);
 }
 
 /** The game's version, from the root package.json (vite.config.ts). */
@@ -462,14 +475,14 @@ export async function about(): Promise<void> {
     el('p', {}, 'Music: the classic view plays the project\'s own band arrangements of public-domain marches and calls; the modern view has its own hardcore and metalcore soundtrack. Sampled instruments use the GeneralUser GS SoundFont by S. Christian Collins. The modern view is drawn with three.js.'),
     el('p', {}, 'Source code and releases: ', link('https://github.com/zombiecheese/rf-redux', 'github.com/zombiecheese/rf-redux'), '.'),
     el('p', { class: 'hint' }, 'Return Fire is a trademark of its owners. This is a fan remake, not connected with them.')),
-  [['OK', 'ok']]);
+  [['Close', 'ok']]);
 }
 
 /** Help Topics: how to play, the views, sound, online and every key. The keys are built from keys.ts, so they cannot go stale. */
 export async function helpTopics(): Promise<void> {
   await dialog('Return Fire: Redux Help', tabbed('help-tab', [
     ['How to Play', howToPlay()], ['Keys', keysPage()], ['Views', viewsPage()], ['Online', onlinePage()], ['More', morePage()],
-  ]), [['OK', 'ok']]);
+  ]), [['Close', 'ok']]);
 }
 
 function howToPlay(): HTMLElement {
@@ -600,7 +613,7 @@ export async function systemInfo(server: ServerInfo, s: Settings): Promise<void>
     ['Processors', String(navigator.hardwareConcurrency ?? '?')],
   ];
   await dialog('System Info', el('table', { class: 'grid sysinfo' }, el('tbody', {}, ...rows.map(([a, b]) => el('tr', {}, el('th', {}, a), el('td', {}, b))))),
-    [['OK', 'ok']]);
+    [['Close', 'ok']]);
 }
 
 /** A message with OK, for errors and notices. */

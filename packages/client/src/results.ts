@@ -48,7 +48,7 @@ export function resultsScreen(v: ResultsView, buttons: [string, string][]): Prom
 /** An online match's results, from the server's count. */
 export function onlineView(r: MatchResult, start: MatchStart): ResultsView {
   const rows: ResultRow[] = r.seats.map((s) => ({
-    name: s.name, team: s.team, lost: s.lost, captures: s.captures, left: s.left, you: s.player === start.you, bot: s.bot, quit: s.quit,
+    name: s.name, team: s.team, base: s.base, lost: s.lost, captures: s.captures, left: s.left, you: s.player === start.you, bot: s.bot, quit: s.quit,
   }));
   const title = r.aborted ? `Game over: ${r.aborted}` : (r.timeLimit ? 'Time limit: ' : '') + winnerTitle(rows, r.winner, true);
   return { title, ms: r.ticks * TICK_MS, rows, winner: r.aborted ? null : r.winner };

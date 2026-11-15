@@ -122,7 +122,7 @@ body[data-visuals=retro] .ui .chatlog, body[data-visuals=retro] .ui .btn.small, 
   font-size: 1em; letter-spacing: 0;
 }
 /* The pixel letters are wider than the plain font: the menu panel gets the room back. */
-body[data-visuals=retro] .menu-panel { width: min(26em, 52vw); }
+body[data-visuals=retro] .menu-panel { width: min(24em, 46vw); }
 
 /* ================================================================================================================
    Modern

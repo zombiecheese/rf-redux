@@ -210,9 +210,10 @@ class Editor {
       const saved = JSON.parse(localStorage.getItem(VIEW_KEY) ?? '{}') as { look?: Look; mode?: ViewMode; moonlight?: boolean };
       if (saved.moonlight === false) this.view.moonlight = false;
       if (saved.mode === 'top' || saved.mode === 'tilted') this.view.mode = saved.mode;
-      if (saved.look && LOOKS.some((l) => l.id === saved.look)) this.view.setLook(saved.look);
+      // The preview starts in the game's own default, Modern (Classic without WebGL), until another is picked.
+      this.view.setLook(saved.look && LOOKS.some((l) => l.id === saved.look) ? saved.look : 'modern');
     } catch {
-      // The defaults: classic, top down.
+      this.view.setLook('modern');
     }
     this.layout();
     requestAnimationFrame(() => {
@@ -614,10 +615,15 @@ class Editor {
   // ---- Getting started -------------------------------------------------------------------------------------------
 
   private refreshGuide(): void {
-    let land = 0;
+    // A new map is all land, so the step is done once there is both land and sea: the coast has been drawn.
+    let land = false;
+    let sea = false;
     const t = this.doc.terrain;
-    for (let i = 0; i < t.length && !land; i++) if (this.painter.pure(t[i]! & 127) === GROUNDS.land) land++;
-    this.guide.update(this.doc, this.problems, this.draftId, land);
+    for (let i = 0; i < t.length && !(land && sea); i++) {
+      if (this.painter.pure(t[i]! & 127) === GROUNDS.land) land = true;
+      else sea = true;
+    }
+    this.guide.update(this.doc, this.problems, this.draftId, land && sea);
   }
 
   private showGuide(): void {
@@ -726,7 +732,7 @@ class Editor {
       const f = this.doc.flagAt(c.x, c.y);
       if (f >= 0) parts.push(`base ${f + 1} flag site`);
     }
-    parts.push(`${this.doc.width} × ${this.doc.height} tiles`, `zoom ${Math.round(this.view.scale * 100)}%`);
+    parts.push(`${this.doc.width} × ${this.doc.height} tiles`, `zoom ${Math.round(this.view.scale * 100)}%`, 'K: keys');
     const text = parts.join(' · ');
     if (this.statusbar.textContent !== text) this.statusbar.textContent = text;
     const name = this.doc.meta.name;

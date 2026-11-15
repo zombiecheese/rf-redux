@@ -3,7 +3,7 @@
 
 import { dialog, el } from './dialogs.js';
 import {
-  ACTIONS, ACTION_LABELS, DEFAULT_BINDINGS, bindings, keyName, rebind, setBindings, type Action, type Bindings, type Half,
+  ACTIONS, ACTION_HINTS, ACTION_LABELS, DEFAULT_BINDINGS, bindings, keyName, rebind, setBindings, type Action, type Bindings, type Half,
 } from './keys.js';
 import type { Settings, Volume } from './settings.js';
 
@@ -32,7 +32,7 @@ export async function soundDialog(start: Volume, apply: (v: Volume) => void): Pr
   const body = el('div', { class: 'stack' },
     slider('Master', 'master'), slider('Effects', 'effects'), slider('Music', 'music'),
     el('label', { class: 'check' }, mute, 'Mute everything (V in a game)'));
-  const r = await dialog('Sound', body, [['OK', 'ok'], ['Cancel', 'cancel']]);
+  const r = await dialog('Sound', body, [['Save', 'ok'], ['Cancel', 'cancel']]);
   if (r !== 'ok') {
     apply(start);
     return null;
@@ -105,7 +105,7 @@ export async function controlsDialog(): Promise<Settings['keys'] | null> {
     buttons.set(`${half}:${a}`, btn);
     return btn;
   };
-  const rows = ACTIONS.map((a) => el('tr', {}, el('td', {}, ACTION_LABELS[a]), el('td', {}, keyButton('left', a)), el('td', {}, keyButton('right', a))));
+  const rows = ACTIONS.map((a) => el('tr', {}, el('td', {}, ACTION_LABELS[a], ACTION_HINTS[a] ? el('small', { class: 'hint key-hint' }, ACTION_HINTS[a]) : ''), el('td', {}, keyButton('left', a)), el('td', {}, keyButton('right', a))));
   const reset = el('button', { type: 'button', class: 'btn quiet small' }, 'Original keys');
   reset.addEventListener('click', () => {
     stopWaiting();
@@ -121,7 +121,7 @@ export async function controlsDialog(): Promise<Settings['keys'] | null> {
     message,
     el('p', { class: 'hint' }, 'In Training and online either hand works. Shortcuts, chat and the menu keys keep their own keys.'),
     reset);
-  const r = await dialog('Controls', body, [['OK', 'ok'], ['Cancel', 'cancel']]);
+  const r = await dialog('Controls', body, [['Save', 'ok'], ['Cancel', 'cancel']]);
   if (r !== 'ok') return null;
   const keys = changedKeys(b);
   setBindings(keys);
