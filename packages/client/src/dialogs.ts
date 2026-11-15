@@ -152,7 +152,8 @@ export function dialogOpen(): boolean {
 }
 
 /**
- * A modal dialog window. Resolves with the pressed button's value, or null for Cancel, Esc or the close box.
+ * A modal dialog window. Its buttons sit in a bar under the body, which scrolls on its own, so they stay in view on
+ * a short screen (a phone held sideways). Resolves with the pressed button's value, or null for Cancel, Esc or the close box.
  * Enter presses the first button.
  */
 export function dialog(title: string, body: HTMLElement, buttons: [string, string][]): Promise<string | null> {
@@ -160,7 +161,7 @@ export function dialog(title: string, body: HTMLElement, buttons: [string, strin
     const close = el('button', { type: 'button', class: 'close', ariaLabel: 'Close' }, '×');
     const row = el('div', { class: 'buttons' });
     const win = el('div', { class: `${skin} window`, role: 'dialog' } as Partial<HTMLElement>,
-      el('div', { class: 'titlebar' }, el('span', {}, title), close), el('div', { class: 'body' }, body, row));
+      el('div', { class: 'titlebar' }, el('span', {}, title), close), el('div', { class: 'body' }, body), row);
     win.setAttribute('aria-label', title);
     const layer = el('div', { class: 'dialog-layer' }, win);
     const done = (v: string | null) => {

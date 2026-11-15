@@ -4,6 +4,7 @@
 - `packages/server`: Node game server (serves the client, the art pack and the optional `/generated/` extras; lockstep matches, accounts, lobbies, chat, map library and the admin API on SQLite via `node:sqlite`).
 - Docs: `docs/` (assets, deploy, online, level-editor, music, map-format). Update them, the README and the wiki pages in `wiki/` (the players' and hosts' guide, published to the repository's wiki from `main`), with any change they describe, and note user-facing changes under `[Unreleased]` in `CHANGELOG.md`.
 - `npm test`, `npm run typecheck`, `npm run dev`, `npm run build && npm start`.
+- The classic menus' pixel font (`packages/client/src/fonts/rf-pixel.woff`) is built from the in-game 5 x 7 font in `font.ts` by `python3 tools/pixel-font/build.py` (needs `pip install fonttools`); rebuild it after changing those letters.
 - Art, sounds, models and maps are the project's own, built by `npm run art` (`tools/build-art.mjs`, sources in `tools/art/`) into `assets/art/pack/`, which is committed. The game runs from it with no import of the original. `assets/generated/` is an optional, git-ignored extras folder (soundfont, `.mid` overrides).
 - Deploys as a Docker Compose stack (`docker-compose.yml`, `docs/deploy.md`); one image, built from `packages/` and the art pack. It must hold nothing from the original beyond the two things named below.
 - The sim uses integer fixed-point maths that mirrors the original (tile = 2^21 units, pixel = 2^16, 64 headings). Never introduce floats into sim state; the server and every client must stay bit-identical.

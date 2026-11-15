@@ -42,6 +42,7 @@ import { modernWinScene } from './modern/finale.js';
 import { loadModern } from './modern/load.js';
 import { addTouchControls } from './touch.js';
 import './ui.css';
+import './themes.css';
 
 modernUi();
 

@@ -36,8 +36,29 @@ function rounded(g: CanvasRenderingContext2D, x: number, y: number, w: number, h
 /** Where a point of the map shows in the picture (canvas pixels), or null behind the camera. */
 export type Projector = (x: number, y: number, z: number) => { x: number; y: number } | null;
 
-const CV_FONT = '600 11px ui-monospace, "SFMono-Regular", Menlo, Consolas, "Liberation Mono", monospace';
-const CV_BIG = '700 12px ui-monospace, "SFMono-Regular", Menlo, Consolas, "Liberation Mono", monospace';
+const CV_MONO = 'ui-monospace, "SFMono-Regular", Menlo, Consolas, "Liberation Mono", monospace';
+
+/**
+ * The HUD on a phone or tablet. The modern picture is drawn at 1280×720 and shrunk to fit the screen, so on a phone
+ * its text would be a few pixels tall: there every read-out is drawn larger (`text`, 1 on a desktop), and the parts
+ * the on-screen controls would cover move clear of them: the tactical plot goes to the top right (the turret and
+ * weapon buttons are at the bottom right), and the messages, notes and chat start below the buttons along the top.
+ */
+const touchHud = { on: false, text: 1 };
+
+/**
+ * Sets the HUD for touch: `shown` is how many screen pixels one pixel of the modern picture takes (under 1 on a
+ * phone). The text is made big enough to read there, up to 1.8 times its desktop size.
+ */
+export function setTouchHud(on: boolean, shown = 1): void {
+  touchHud.on = on;
+  touchHud.text = on ? Math.min(1.8, Math.max(1, 10 / (11 * shown))) : 1;
+}
+
+/** A read-out font, its size grown on a phone. */
+const cv = (weight: number, px: number) => `${weight} ${Math.round(px * touchHud.text)}px ${CV_MONO}`;
+/** Where the top-of-screen read-outs start: below the on-screen buttons on a touch screen. */
+const TOUCH_TOP = 84;
 const OWN = '#f2f6f0';
 const FRIEND = '#62e0ff';
 const HOSTILE = '#ff5a46';
@@ -138,7 +159,9 @@ export function drawModernHud(g: CanvasRenderingContext2D, m: Match, rect: Moder
   g.translate(rect.x, rect.y);
   g.scale(scale, scale);
   const r = v && RADAR[v.kind];
-  if (v && r) radar(g, m, v, r, rect.w / scale - 26, rect.h / scale - 26, team, teamOf);
+  // On a touch screen the turret and weapon buttons cover the bottom right: the plot goes to the top right instead,
+  // under the feed's clock (its label above it, so it starts a little lower).
+  if (v && r) radar(g, m, v, r, rect.w / scale - 26, touchHud.on ? 30 + 78 * touchHud.text + (170 * r.h) / r.w : rect.h / scale - 26, team, teamOf);
   g.restore();
 }
 
@@ -178,8 +201,9 @@ function guides(
   const cx = rect.x + rect.w / 2;
   const cy = rect.y + rect.h / 2;
   const near = goals.map((t) => ({ ...t, d: Math.hypot(t.x - vx, t.y - vy) })).sort((a, b) => a.d - b.d).slice(0, 6);
+  const T = touchHud.text;
   g.save();
-  g.font = CV_FONT;
+  g.font = cv(600, 11);
   g.textBaseline = 'middle';
   g.shadowColor = 'rgba(0, 0, 0, 0.7)';
   g.shadowBlur = 2;
@@ -215,7 +239,7 @@ function guides(
     const lx = Math.max(rect.x + 6, Math.min(rect.x + rect.w - tw - 14, ax - dx * 26 - tw / 2 - 4));
     const ly = Math.max(rect.y + 10, Math.min(rect.y + rect.h - 10, ay - dy * 22));
     g.fillStyle = 'rgba(6, 10, 12, 0.6)';
-    g.fillRect(lx, ly - 7, tw + 8, 14);
+    g.fillRect(lx, ly - 7 * T, tw + 8, 14 * T);
     g.fillStyle = t.css;
     g.textAlign = 'left';
     g.fillText(text, lx + 4, ly);
@@ -302,7 +326,9 @@ function box(g: CanvasRenderingContext2D, rect: ModernRect, t: Track, project: P
   // A faint fill marks the detection.
   g.fillStyle = t.css === OWN ? 'rgba(242, 246, 240, 0.05)' : t.css === FRIEND ? 'rgba(98, 224, 255, 0.06)' : 'rgba(255, 90, 70, 0.07)';
   g.fillRect(x0, y0, x1 - x0, y1 - y0);
-  g.font = CV_FONT;
+  const T = touchHud.text;
+  const lh = 13 * T;
+  g.font = cv(600, 11);
   g.textBaseline = 'bottom';
   g.textAlign = 'left';
   const head = `${t.label} ${confidence(t.seed, tick)}`;
@@ -310,22 +336,23 @@ function box(g: CanvasRenderingContext2D, rect: ModernRect, t: Track, project: P
   const state = c ? `INTEGRITY ${Math.round(t.frac! * 100)}% ${c.word}` : '';
   const lines = c ? 2 : 1;
   g.fillStyle = 'rgba(6, 10, 12, 0.6)';
-  g.fillRect(x0, y0 - 2 - lines * 13, Math.max(g.measureText(head).width, g.measureText(state).width) + 8, lines * 13);
+  g.fillRect(x0, y0 - 2 - lines * lh, Math.max(g.measureText(head).width, g.measureText(state).width) + 8, lines * lh);
   g.fillStyle = t.css;
-  g.fillText(head, x0 + 4, y0 - 2 - (lines - 1) * 13);
+  g.fillText(head, x0 + 4, y0 - 2 - (lines - 1) * lh);
   if (c) {
     g.fillStyle = c.css;
     g.fillText(state, x0 + 4, y0 - 2);
   }
   if (t.side) {
-    g.font = CV_BIG;
+    g.font = cv(700, 12);
     g.textBaseline = 'top';
     const sx = x1 + 8;
+    const sh = 15 * T;
     t.side.forEach((r, i) => {
       g.fillStyle = 'rgba(6, 10, 12, 0.55)';
-      g.fillRect(sx - 3, y0 + i * 15, g.measureText(r.text).width + 6, 15);
+      g.fillRect(sx - 3, y0 + i * sh, g.measureText(r.text).width + 6, sh);
       g.fillStyle = r.css ?? OWN;
-      g.fillText(r.text, sx, y0 + 1 + i * 15);
+      g.fillText(r.text, sx, y0 + 1 + i * sh);
     });
   }
 }
@@ -404,11 +431,12 @@ function radar(
   g.closePath();
   g.fill();
   g.restore();
-  g.font = CV_FONT;
+  g.font = cv(600, 11);
   g.fillStyle = 'rgba(98, 224, 255, 0.85)';
   g.textBaseline = 'bottom';
-  g.textAlign = 'left';
-  g.fillText(`TACTICAL  ${contacts} HOSTILE`, x, y - 4);
+  // Lined up on the plot's right edge, so a label grown for a phone stays on screen.
+  g.textAlign = 'right';
+  g.fillText(`TACTICAL  ${contacts} HOSTILE`, x + sw, y - 4);
   g.restore();
 }
 
@@ -444,11 +472,12 @@ function coastMap(m: Match): HTMLCanvasElement {
 /** A player's name over their vehicle, online (as the retro view's drawNames). */
 export function drawName(g: CanvasRenderingContext2D, name: string, x: number, y: number, css: string): void {
   g.save();
-  g.font = `700 14px ${FONT}`;
+  const T = touchHud.text;
+  g.font = `700 ${Math.round(14 * T)}px ${FONT}`;
   g.textAlign = 'center';
   g.textBaseline = 'bottom';
   const w = g.measureText(name).width + 14;
-  rounded(g, x - w / 2, y - 22, w, 20, 10);
+  rounded(g, x - w / 2, y - 22 * T, w, 20 * T, 10 * T);
   g.fillStyle = 'rgba(16, 19, 15, 0.7)';
   g.fill();
   g.fillStyle = css;
@@ -760,12 +789,12 @@ export function drawBunkerPanel(g: CanvasRenderingContext2D, rect: ModernRect, a
       `UNIT  ${NAMES[chosen].toUpperCase()}`,
     ]
     : ['LIFT  STANDBY', `POS   ${ELEVATOR_REST_PX} / ${ELEVATOR_REST_PX}`, 'DOORS SEALED', `PWR   ${(48 + 0.6 * wander(t, 6)).toFixed(1)} V`];
-  const block = (lines: readonly string[], tag: string, x: number, align: 'left' | 'right') => {
+  const block = (lines: readonly string[], tag: string, x: number, align: 'left' | 'right', above = 0) => {
     g.font = `600 ${Math.round(11 * s)}px ${MONO}`;
     const w = Math.max(...lines.map((l) => g.measureText(l).width)) + 20 * s;
     const h = lines.length * 14 * s + 12 * s;
     const bx = align === 'left' ? x : x - w;
-    const by = rect.y + rect.h - h - 22 * s;
+    const by = rect.y + rect.h - (h + 22 * s) * (above + 1);
     readout(g, bx, by, w, h, tag);
     g.fillStyle = INK;
     g.textAlign = 'left';
@@ -775,7 +804,9 @@ export function drawBunkerPanel(g: CanvasRenderingContext2D, rect: ModernRect, a
   };
   const wide = rect.w >= 800;
   if (wide) block(lift, 'LIFT', rect.x + 22 * s, 'left');
-  block(link, 'LINK', rect.x + rect.w - 22 * s, 'right');
+  // On a touch screen the Launch button covers the bottom right, so the link read-out sits above the lift's.
+  if (f.touch) block(link, 'LINK', rect.x + 22 * s, 'left', wide ? 1 : 0);
+  else block(link, 'LINK', rect.x + rect.w - 22 * s, 'right');
   if (!elevator) {
     // What to do, at the bottom middle.
     const side = TEAMS[base];
@@ -864,14 +895,15 @@ function readout(g: CanvasRenderingContext2D, x: number, y: number, w: number, h
 
 /** A short note at the top left of a view ("Get the flag home!", "Watching ..."), below the page's buttons. */
 export function drawNote(g: CanvasRenderingContext2D, rect: ModernRect, text: string): void {
-  const scale = Math.min(1, rect.w / 900);
+  const scale = Math.min(1, rect.w / 900) * touchHud.text;
   g.save();
   g.font = `700 ${Math.round(14 * scale)}px ${MONO}`;
   const t = text.toUpperCase();
   const w = g.measureText(t).width + 28 * scale;
   const h = 30 * scale;
   const x = rect.x + 20 * scale;
-  const y = rect.y + 64 * scale;
+  // On a touch screen, under the messages (which start below the on-screen buttons).
+  const y = rect.y + (touchHud.on ? TOUCH_TOP + 2 * 38 * touchHud.text : 64 * scale);
   readout(g, x, y, w, h, 'STATUS', AMBER);
   g.fillStyle = AMBER;
   g.textBaseline = 'middle';
@@ -881,16 +913,17 @@ export function drawNote(g: CanvasRenderingContext2D, rect: ModernRect, text: st
 
 /** The latest match messages, newest last, stacked at the top middle. */
 export function drawLog(g: CanvasRenderingContext2D, lines: readonly string[], width: number): void {
+  const T = touchHud.text;
   g.save();
-  g.font = `600 13px ${MONO}`;
+  g.font = `600 ${Math.round(13 * T)}px ${MONO}`;
   g.textAlign = 'center';
   g.textBaseline = 'middle';
   lines.forEach((text, i) => {
     const t = text.toUpperCase();
     const w = Math.min(width - 40, g.measureText(t).width + 32);
-    const h = 28;
+    const h = 28 * T;
     const x = (width - w) / 2;
-    const y = 22 + i * 38;
+    const y = (touchHud.on ? TOUCH_TOP : 22) + i * 38 * T;
     readout(g, x, y, w, h, i === lines.length - 1 ? 'EVENT' : '');
     g.fillStyle = INK;
     g.fillText(t, width / 2, y + h / 2 + 1, w - 24);
@@ -923,13 +956,13 @@ export interface TextRun {
 /** Chat lines in a read-out frame at the top left, under the view's note. */
 export function drawChatLines(g: CanvasRenderingContext2D, rect: ModernRect, lines: readonly TextRun[][]): void {
   if (!lines.length) return;
-  const scale = Math.min(1, rect.w / 900);
+  const scale = Math.min(1, rect.w / 900) * touchHud.text;
   g.save();
   g.font = `500 ${Math.round(13 * scale)}px ${MONO}`;
   const lh = 22 * scale;
   const w = Math.min(rect.w - 40 * scale, 520 * scale);
   const x = rect.x + 20 * scale;
-  const y = rect.y + 58 * scale;
+  const y = rect.y + (touchHud.on ? TOUCH_TOP + 2 * 38 * touchHud.text : 58 * scale);
   readout(g, x, y, w, lines.length * lh + 14 * scale, 'COMMS');
   g.textBaseline = 'middle';
   lines.forEach((runs, i) => {
@@ -1018,7 +1051,8 @@ export function drawFeed(g: CanvasRenderingContext2D, rect: ModernRect, f: Feed)
   }
   g.stroke();
 
-  g.font = FEED_FONT;
+  const T = touchHud.text;
+  g.font = T === 1 ? FEED_FONT : cv(600, 13);
   g.textBaseline = 'top';
   // The clock, REC and the camera at the top right.
   const pad = (n: number) => String(n).padStart(2, '0');
@@ -1035,11 +1069,11 @@ export function drawFeed(g: CanvasRenderingContext2D, rect: ModernRect, f: Feed)
     g.fill();
     g.fillStyle = FEED_INK;
   }
-  g.fillText(clock, right, m + 26);
-  g.fillText(f.mode, right, m + 44);
+  g.fillText(clock, right, m + 8 + 18 * T);
+  g.fillText(f.mode, right, m + 8 + 36 * T);
   // Read-outs down the left edge, clear of the note at the top and the gauges at the bottom.
   g.textAlign = 'left';
-  f.lines.forEach((t, i) => g.fillText(t, m + 8, h / 2 - (f.lines.length * 18) / 2 + i * 18));
+  f.lines.forEach((t, i) => g.fillText(t, m + 8, h / 2 - (f.lines.length * 18 * T) / 2 + i * 18 * T));
   g.restore();
 }
 

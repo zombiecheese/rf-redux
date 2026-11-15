@@ -135,7 +135,7 @@ export class Lobbies {
     if (c.identity.guest) throw new LobbyError('Sign in to play online');
   }
 
-  create(c: Conn, opts: { name?: string; mapId: string; visibility: Visibility; slots?: number; teams?: number[] }): Lobby {
+  create(c: Conn, opts: { name?: string; mapId: string; visibility: Visibility; slots?: number; teams?: number[]; quick?: boolean }): Lobby {
     this.canPlay(c);
     this.leave(c);
     const map = this.maps.get(opts.mapId, c.identity.guest ? null : c.identity.id);
@@ -147,6 +147,11 @@ export class Lobbies {
       slots: [], members: new Map(), state: 'waiting', room: null, quick: false, chatMuted: false, created: Date.now(),
     };
     l.slots = this.defaultSlots(l, bases);
+    if (opts.quick) {
+      // Quick match: bots fill every seat but the owner's, and anyone joining takes one.
+      l.quick = true;
+      for (const s of l.slots.slice(1)) (s.kind = 'bot'), (s.difficulty = l.difficulty);
+    }
     this.lobbies.set(l.id, l);
     this.seat(c, l, 0);
     if (opts.teams) this.applyLayout(l, opts.teams);
@@ -155,12 +160,10 @@ export class Lobbies {
     return l;
   }
 
-  /** One seat per base: the first for the owner, the second a bot, the rest open. */
+  /** One seat per base: the first for the owner, the rest open for anyone to join (a computer plays any still open at the start). */
   private defaultSlots(l: Lobby, bases: number): LobbySlot[] {
     const teams = teamsForLayout(Array.from({ length: bases }, () => 1));
-    return Array.from({ length: bases }, (_, i) => ({
-      base: l.map.bases[i]!.id, team: teams[i]!, kind: i === 1 ? 'bot' : 'open', difficulty: i === 1 ? l.difficulty : undefined,
-    }));
+    return Array.from({ length: bases }, (_, i) => ({ base: l.map.bases[i]!.id, team: teams[i]!, kind: 'open' as const }));
   }
 
   private applyLayout(l: Lobby, teams: number[]): void {
@@ -219,11 +222,7 @@ export class Lobbies {
     const pool = featured.length ? featured : this.maps.list().map((m) => m.id);
     if (!pool.length) throw new LobbyError('No maps are installed');
     const mapId = pool[Math.floor(Math.random() * pool.length)]!;
-    const l = this.create(c, { mapId, visibility: 'open', name: 'Quick match' });
-    l.quick = true;
-    for (const s of l.slots) if (s.kind === 'open') (s.kind = 'bot'), (s.difficulty = l.difficulty);
-    this.changed(l);
-    return l;
+    return this.create(c, { mapId, visibility: 'open', name: 'Quick match', quick: true });
   }
 
   private seat(c: Conn, l: Lobby, slot: number): void {
@@ -328,8 +327,7 @@ export class Lobbies {
       l.map = map;
       l.mapId = s.mapId;
       const slots = this.defaultSlots(l, bases);
-      people.forEach((p, i) => (slots[i] = { ...slots[i]!, kind: 'human', user: p.user, ready: false, difficulty: undefined }));
-      if (people.length > 1 && slots[1]?.kind !== 'human') slots[1]!.kind = 'open';
+      people.forEach((p, i) => (slots[i] = { ...slots[i]!, kind: 'human', user: p.user, ready: false }));
       l.slots = slots;
     }
     for (const slot of l.slots) if (slot.kind === 'human') slot.ready = false;
@@ -412,7 +410,9 @@ export class Lobbies {
     if (s.maintenance && s.maintenance.at <= Date.now() + 60_000) throw new LobbyError('The server is going down for maintenance');
     const running = [...this.lobbies.values()].filter((x) => x.state === 'playing').length;
     if (running >= s.maxGames) throw new LobbyError('The server is full; try again in a few minutes');
-    const active = l.slots.filter((x) => x.kind === 'human' || x.kind === 'bot');
+    // Seats nobody took are played by the computer, at the match difficulty; closed seats stay out.
+    const active = l.slots.filter((x) => x.kind !== 'closed')
+      .map((x): LobbySlot => (x.kind === 'open' ? { ...x, kind: 'bot', difficulty: l.difficulty } : x));
     if (active.length < 2) throw new LobbyError('A match needs at least two seats filled');
     if (new Set(active.map((x) => x.team)).size < 2) throw new LobbyError('Put the seats on at least two teams');
     const notReady = active.filter((x) => x.kind === 'human' && x.user?.id !== l.owner && !x.ready);

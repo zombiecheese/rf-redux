@@ -194,11 +194,10 @@ describe('online play', () => {
     expect(robin).toMatchObject({ name: 'Robin', guest: false });
     await b.open();
 
-    // Robin makes a lobby and opens the bot's seat; Dana finds it in the list and joins.
+    // Robin makes a lobby: its other seat starts open, so Dana finds it in the list with room and joins.
     a.send({ t: 'create', mapId: 'arena2', visibility: 'open' });
     const made = await a.wait('lobby', (m) => !!m.lobby);
-    a.send({ t: 'slot', slot: 1, kind: 'open' });
-    await a.wait('lobby', (m) => m.lobby?.slots[1]?.kind === 'open');
+    expect(made.lobby!.slots.map((s) => s.kind)).toEqual(['human', 'open']);
     b.send({ t: 'lobbies', watch: true });
     await b.wait('lobbies', (m) => m.list.some((l) => l.id === made.lobby!.id && l.free === 1));
     b.send({ t: 'join', id: made.lobby!.id });
@@ -284,6 +283,22 @@ describe('online play', () => {
     visitor.send({ t: 'lobbies', watch: true });
     await visitor.wait('lobbies');
     visitor.close();
+  }, 20000);
+
+  it('plays a seat nobody took with the computer', async () => {
+    (game.accounts as unknown as { signupLimit: Limiter }).signupLimit = new Limiter(1, 10);
+    const h = new Client(await signUp('Solo'));
+    await h.open();
+    h.send({ t: 'create', mapId: 'arena2', visibility: 'open', teams: [1, 1] });
+    const l = await h.wait('lobby', (m) => !!m.lobby);
+    expect(l.lobby!.slots[1]).toMatchObject({ kind: 'open', team: 1 });
+    h.send({ t: 'start' });
+    const s = await h.wait('start');
+    expect(s.match.seats).toHaveLength(2);
+    expect(s.match.seats[1]).toMatchObject({ bot: true, team: 1 });
+    h.send({ t: 'quitGame' });
+    h.send({ t: 'leave' });
+    h.close();
   }, 20000);
 
   it('plays quick matches against bots', async () => {
