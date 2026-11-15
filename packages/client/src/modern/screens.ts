@@ -14,6 +14,7 @@ import { ONE, UNLIMITED, type Elevator, type Lives, type SkullLook, type Vehicle
 import { Kit, type TeamPaint } from './kit.js';
 import * as V from './vehicles.js';
 import { toyPlastic } from './toy.js';
+import { SOIL_ACROSS, SOIL_DOWN, soilMaps } from './soil.js';
 import { BAY_AT } from './layout.js';
 
 export { BAY_AT };
@@ -25,12 +26,12 @@ const BAY_FAR = 70;
 const BAY_H = 28;
 const SURFACE = 12;
 const DEPTH = 40;
+/** How far round to one side the camera looks into the bunker, radians. */
+const VIEW_YAW = 0.42;
 const PARK_SCALE = 1;
 /** The lift's resting height, as the sim's ELEVATOR_REST. */
 const LIFT_REST = 110;
 
-const DIRT = 0x7b5434;
-const DIRT_DARK = 0x5c3d25;
 const CONCRETE = 0x9a968c;
 const CONCRETE_DARK = 0x6f6c66;
 const STEEL = 0x5d636b;
@@ -148,7 +149,13 @@ export class BunkerScene {
     // The earth, its cut face towards the camera and its cave walls in concrete.
     const earth = new THREE.ExtrudeGeometry(earthShape(), { depth: DEPTH, bevelEnabled: false });
     earth.translate(0, 0, -DEPTH);
-    const face = new THREE.MeshStandardMaterial({ color: DIRT, roughness: 0.95, flatShading: true });
+    // The cut face is real dug earth: topsoil and roots, clay bands, stones and grit (soil.ts), lit through a bump map.
+    const soil = soilMaps();
+    soil.map.repeat.set(1 / SOIL_ACROSS, 1 / SOIL_DOWN);
+    soil.map.offset.set(0, 1 - SURFACE / SOIL_DOWN);
+    soil.bump.repeat.copy(soil.map.repeat);
+    soil.bump.offset.copy(soil.map.offset);
+    const face = new THREE.MeshStandardMaterial({ map: soil.map, bumpMap: soil.bump, bumpScale: 2.2, roughness: 0.97 });
     const walls = new THREE.MeshStandardMaterial({ color: CONCRETE, roughness: 0.85, flatShading: true });
     const ground = new THREE.Mesh(earth, [face, walls]);
     ground.receiveShadow = true;
@@ -162,22 +169,6 @@ export class BunkerScene {
     const kit = new Kit();
     // Grass along the surface each side of the shaft, and strata and stones in the cut face.
     for (const sx of [-1, 1]) kit.box(sx * (SHAFT + 300), DEPTH / 2 - DEPTH, SURFACE, 600, DEPTH + 2, 3, GRASS);
-    // Bands of soil in the cut face: dark topsoil, then lighter and redder clays further down.
-    for (const [top, h, c] of [[SURFACE, 10, 0x5a3b22], [-150, 26, 0x8a5e3a], [-205, 18, 0x6c4529], [-250, 40, 0x93653f]] as const) {
-      for (const sx of [-1, 1]) {
-        const inner = SHAFT;
-        const w = 600 - inner;
-        kit.box(sx * (inner + w / 2), 0.15, top - h, w, 0.3, h, c);
-      }
-    }
-    const rnd = mulberry(7);
-    for (let i = 0; i < 70; i++) {
-      const x = (rnd() * 2 - 1) * 320;
-      const y = SURFACE - 8 - rnd() * 300;
-      if (Math.abs(x) < BAY_FAR + 6 && y > -118 && y < SURFACE) continue;
-      if (Math.abs(x) < SHAFT + 6) continue;
-      kit.ball(x, 0.2, y, 2 + rnd() * 4, rnd() < 0.5 ? DIRT_DARK : 0x8d8478, 0, 0.6);
-    }
     // Panel seams on the back walls, a stripe along each bay floor's edge, and the shaft's guide rails.
     for (const [x, floor] of Object.values(BAY_AT).map((b) => [b.x, b.floor] as const)) {
       kit.box(x, -1.2, floor - 0.6, BAY_FAR - SHAFT, 2.2, 0.6, HAZARD);
@@ -329,9 +320,10 @@ export class BunkerScene {
     const half = Math.tan((c.fov / 2) * (Math.PI / 180));
     const needH = 190;
     const needW = 240;
-    const d = Math.max(needH / 2 / half, needW / 2 / (half * aspect));
-    c.position.set(0, -60 + d * 0.12, d);
-    c.lookAt(0, -60, 0);
+    const d = Math.max(needH / 2 / half, needW / 2 / (half * aspect)) * 1.08;
+    // A three-quarter view from up and to one side, so the bays read as rooms dug into the earth.
+    c.position.set(Math.sin(VIEW_YAW) * d, -60 + d * 0.3, Math.cos(VIEW_YAW) * d);
+    c.lookAt(0, -64, -DEPTH * 0.35);
     c.updateProjectionMatrix();
   }
 
@@ -479,14 +471,4 @@ export class SkullScene {
     c.updateProjectionMatrix();
     this.back.scale.set(aspect * 60 * half, 60 * half, 1);
   }
-}
-
-function mulberry(seed: number): () => number {
-  let a = seed;
-  return () => {
-    a = (a + 0x6d2b79f5) | 0;
-    let t = Math.imul(a ^ (a >>> 15), 1 | a);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
 }
