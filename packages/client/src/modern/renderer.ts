@@ -9,7 +9,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import {
-  DEEP, DOORS_OPEN, FINE_TURN, LAND, SHALLOW, groundAt, type Elevator, type Lives, type SkullLook, GRID, LIFT_SPEED, PROJECTILES, VEHICLES, mineArmed, sceneryEntry, subFrame, type Match, type MatchEvent, type Vehicle, type VehicleKind, type World,
+  DEEP, DOORS_OPEN, skullLook, FINE_TURN, LAND, SHALLOW, groundAt, type Elevator, type Lives, type SkullLook, GRID, LIFT_SPEED, PROJECTILES, VEHICLES, mineArmed, sceneryEntry, subFrame, type Match, type MatchEvent, type Vehicle, type VehicleKind, type World,
 } from '@rfw/sim';
 import type { GameAssets, Model } from '../assets.js';
 import { FOCAL, type Camera } from '../camera.js';
@@ -468,6 +468,8 @@ export class ModernRenderer {
     this.syncChunks(m.world);
     this.syncDynamic(m, extras, views.filter((v) => !v.skip).map((v) => v.cam), dt);
     this.aimHeadlights(m, views);
+    // One piece of getting ready a frame, once the match has its first pictures up.
+    if (this.direct && this.world) this.warmUp(m);
     this.lightBuildings();
     this.waterFx(m, dt);
     this.fx.step(dt);
@@ -805,6 +807,7 @@ export class ModernRenderer {
 
   private setWorld(world: World): void {
     this.world = world;
+    this.warm = null;
     if (this.ground) {
       this.statics.remove(this.ground.group);
       this.ground.dispose();
@@ -1408,21 +1411,63 @@ export class ModernRenderer {
     const key = `wreck:${kind}:${base}:${body ? 'body' : 'melt'}`;
     const o = this.pool(key, () => {
       if (body) return this.mesh(`${kind}:${base}:body`, () => VEHICLE_KITS[kind]().body, team, this.hot);
-      const g = this.geometry(`${kind}:${base}:melt`, () => {
-        Kit.fine = true;
-        const whole = VEHICLE_KITS[kind]().body.build(team);
-        Kit.fine = false;
-        const out = melted(whole, base + kind.length);
-        whole.dispose();
-        return out;
-      });
-      const m = new THREE.Mesh(g, this.charred);
+      const m = new THREE.Mesh(this.meltGeometry(kind, base), this.charred);
       m.castShadow = m.receiveShadow = true;
       return m;
     }).take() as THREE.Mesh;
     o.position.set(x, z, y);
     o.rotation.set(0, -radians(heading), 0);
     this.fx.trail(x, y, z, !body, dt);
+  }
+
+  /** A burnt-out wreck's shape: the vehicle's body melted in the fire (worked out once a kind and base). */
+  private meltGeometry(kind: VehicleKind, base: number): THREE.BufferGeometry {
+    return this.geometry(`${kind}:${base}:melt`, () => {
+      const team = this.paints[base] ?? NEUTRAL;
+      Kit.fine = true;
+      const whole = VEHICLE_KITS[kind]().body.build(team);
+      Kit.fine = false;
+      const out = melted(whole, base + kind.length);
+      whole.dispose();
+      return out;
+    });
+  }
+
+  // ---- Getting ready ------------------------------------------------------------------------------------------
+
+  /**
+   * What a vehicle's destruction needs that is otherwise made the moment it happens, a stutter of a frame or two:
+   * the skull screen (its models and shaders), the explosion's effects, and each side's melted wrecks. Made one
+   * piece a frame early in the match, mostly while the bunker shows.
+   */
+  private warm: (() => void)[] | null = null;
+
+  private warmUp(m: Match): void {
+    if (!this.warm) {
+      const kinds: VehicleKind[] = ['jeep', 'tank', 'asv', 'heli'];
+      const bases = [...new Set(m.players.map((p) => p.base))];
+      this.warm = [
+        () => {
+          const k = (this.skull ??= new SkullScene());
+          k.frame(MODERN_W / MODERN_H);
+          k.update(skullLook(1), this.paints[bases[1] ?? 0] ?? NEUTRAL, this.paints[bases[0] ?? 0] ?? NEUTRAL, 'tank', 1, 3);
+          this.gl.compile(k.scene, k.camera);
+          this.gl.compile(k.dim, k.camera);
+        },
+        () => {
+          // Far off the map, where nobody sees it: its particles, smoke and shards go through the shaders once.
+          this.fx.explosion(-4000, -4000, 2, 1.5, { scorch: true, chunks: [new THREE.Color(0x6b8f3a)], smokeFor: 0.5 });
+          this.gl.compile(this.fx.group, this.camera, this.scene);
+        },
+        ...bases.flatMap((b) => kinds.map((kind) => () => {
+          const mesh = new THREE.Mesh(this.meltGeometry(kind, b), this.charred);
+          mesh.castShadow = mesh.receiveShadow = true;
+          const scratch = new THREE.Scene().add(mesh);
+          this.gl.compile(scratch, this.camera, this.scene);
+        })),
+      ];
+    }
+    this.warm.shift()?.();
   }
 
   private drone(x: number, y: number, z: number, heading: number, side: number, pod: number, frame: number): void {
