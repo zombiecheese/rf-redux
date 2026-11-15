@@ -4,6 +4,10 @@ Each release's section below becomes its GitHub release notes (`.github/workflow
 
 ## [Unreleased]
 
+### Added
+
+- `?stats=1` shows a frame-stats panel for tuning the modern view on a real device: frame rate and the worst 1% of frames, draw calls, triangles, data sent to the graphics card, and the graphics card's time for the scene, the drone feed and the bunker or skull screens (where the browser can measure it). Copy puts a one-line report on the clipboard.
+
 ### Changed
 
 - The modern view's ground is a real garden, from photo scans: sand with beds of soil and patches of gravel, wet sand along the sea, and lawn, at the scale of the toys standing on it. The scans are CC0 from Poly Haven and credited in About. Roads, pads and stripes keep their original painted look.
