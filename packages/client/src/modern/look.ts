@@ -8,6 +8,7 @@
 // shows it white-hot, grainy and a touch soft, as an infrared camera does.
 
 import * as THREE from 'three';
+import { ART } from './art.js';
 
 /** 1 while the thermal camera is on: shared by every material that draws its heat. */
 export const THERMAL = { value: 0 };
@@ -103,6 +104,7 @@ const FRAGMENT = /* glsl */ `
   uniform vec4 rects[2];
   uniform float glitches[2];
   uniform int count;
+  uniform float tilt;
   varying vec2 vUv;
 
   float hash(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
@@ -163,6 +165,20 @@ const FRAGMENT = /* glsl */ `
       // A lens: colour fringes growing to the rim.
       vec2 off = d * 2.6 * texel + vec2(burst * (2.0 + 8.0 * glitch) * texel.x, 0.0);
       col = vec3(texture2D(frame, uv + off).r, texture2D(frame, uv).g, texture2D(frame, uv - off).b);
+      // Tilt-shift: a camera this close to something this small can only hold a band of it in focus, so the
+      // picture goes soft toward the top and bottom (the far ground and the near), which reads as a miniature.
+      float soft = tilt * smoothstep(0.14, 0.5, abs(local.y - 0.47));
+      if (soft > 0.02) {
+        vec3 sum = col;
+        float radius = soft * 4.5;
+        for (int i = 0; i < 12; i++) {
+          // A golden-angle spiral of taps across the blur's disc.
+          float k = float(i) + 0.5;
+          float a = k * 2.39996 + hash(px) * 6.2832;
+          sum += texture2D(frame, uv + vec2(cos(a), sin(a)) * sqrt(k / 12.0) * radius * texel).rgb;
+        }
+        col = mix(col, sum / 13.0, smoothstep(0.0, 0.35, soft));
+      }
       // Highlights bloom a little on the lens: the sun's glint on plastic, fire and lamps.
       vec3 bloom = vec3(0.0);
       for (int i = 0; i < 8; i++) {
@@ -221,6 +237,7 @@ export class LookPass {
         rects: { value: [new THREE.Vector4(), new THREE.Vector4()] },
         glitches: { value: [0, 0] },
         count: { value: 0 },
+        tilt: { value: 0 },
       },
       vertexShader: VERTEX,
       fragmentShader: FRAGMENT,
@@ -236,7 +253,7 @@ export class LookPass {
    * Copies what gl has drawn so far and draws it back through the look. rects are the map views, top-left origin,
    * so each gets its own lens.
    */
-  apply(gl: THREE.WebGLRenderer, rects: readonly LookRect[], glitch: readonly number[], drone: boolean, thermal: boolean, seconds: number): void {
+  apply(gl: THREE.WebGLRenderer, rects: readonly LookRect[], glitch: readonly number[], drone: boolean, thermal: boolean, seconds: number, tilt = false): void {
     gl.setViewport(0, 0, this.w, this.h);
     gl.setScissor(0, 0, this.w, this.h);
     gl.copyFramebufferToTexture(this.frame, this.origin);
@@ -244,6 +261,7 @@ export class LookPass {
     u.time!.value = seconds;
     u.thermal!.value = thermal ? 1 : 0;
     u.drone!.value = drone ? 1 : 0;
+    u.tilt!.value = tilt && ART.tiltShift ? 1 : 0;
     const list = u.rects!.value as THREE.Vector4[];
     const n = Math.min(2, rects.length);
     for (let i = 0; i < n; i++) {

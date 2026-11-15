@@ -459,7 +459,7 @@ export class ModernRenderer {
       this.place(v.cam, v.rect);
       this.gl.render(this.scene, this.camera);
     }
-    if (field.length && (this.feed || this.thermal)) (this.pass ??= new LookPass(MODERN_W, MODERN_H)).apply(this.gl, field.map((v) => v.rect), field.map((v) => this.glitchFor(v)), this.feed, this.thermal, now / 1000);
+    if (field.length && (this.feed || this.thermal)) (this.pass ??= new LookPass(MODERN_W, MODERN_H)).apply(this.gl, field.map((v) => v.rect), field.map((v) => this.glitchFor(v)), this.feed, this.thermal, now / 1000, this.feed && !this.thermal);
     for (const v of views) {
       const r = v.rect;
       at(r);
