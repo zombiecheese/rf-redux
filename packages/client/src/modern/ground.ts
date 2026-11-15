@@ -459,6 +459,15 @@ export class Ground {
     this.shoreTex.needsUpdate = true;
   }
 
+  /** How much of the point (x, y), in game units, is sand, darker sand and lawn, each 0 to 1 (the rest is road or water). */
+  cover(x: number, y: number): [number, number, number] {
+    const N = GRID * SPLAT_TEX;
+    const sx = Math.min(N - 1, Math.max(0, Math.floor((x / TILE) * SPLAT_TEX)));
+    const sy = Math.min(N - 1, Math.max(0, Math.floor((y / TILE) * SPLAT_TEX)));
+    const o = ((N - 1 - sy) * N + sx) * 4;
+    return [this.splat[o]! / 255, this.splat[o + 1]! / 255, this.splat[o + 2]! / 255];
+  }
+
   dispose(): void {
     this.texture.dispose();
     this.splatTex.dispose();

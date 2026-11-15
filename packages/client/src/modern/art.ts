@@ -12,4 +12,8 @@ export const ART = {
   photoRocks: true,
   /** The toys' reflections of a photographed garden (and a park at night); off, of a sky drawn in code. */
   photoSky: true,
+  /** The garden's small things scattered on the ground (scatter.ts): pebbles, grass, fallen leaves, twigs. */
+  scatter: true,
+  /** How many of them, from 0.25 to 1 (a slower device can take fewer). */
+  scatterDensity: 1,
 };

@@ -26,6 +26,7 @@ import { Kit, NEUTRAL, teamPaint, type TeamPaint } from './kit.js';
 import * as V from './vehicles.js';
 import { PHOTO_SKY_TURN, PLASTIC_SKY, charredPlastic, gardenSky, melted, photoSky, toyPlastic, type PhotoSkies } from './toy.js';
 import { rockMaterial } from './photorock.js';
+import { scatterPatch } from './scatter.js';
 import { ART } from './art.js';
 import { MODERN_H, MODERN_W, modernLayout, type ModernRect } from './layout.js';
 
@@ -738,7 +739,8 @@ export class ModernRenderer {
   private syncChunks(world: World): void {
     for (let cy = 0; cy < CHUNKS; cy++) {
       for (let cx = 0; cx < CHUNKS; cx++) {
-        let key = '';
+        // Every patch is built once even with no buildings, for the garden's scatter.
+        let key = 'k';
         for (let y = cy * CHUNK; y < cy * CHUNK + CHUNK; y++) {
           for (let x = cx * CHUNK; x < cx * CHUNK + CHUNK; x++) {
             const i = y * GRID + x;
@@ -777,6 +779,11 @@ export class ModernRenderer {
           mesh.castShadow = true;
           mesh.receiveShadow = true;
           group.add(mesh);
+        }
+        const ground = this.ground;
+        if (ground) {
+          const blocked = (x: number, y: number) => world.building[Math.floor(y / TILE) * GRID + Math.floor(x / TILE)]! !== 0;
+          for (const mesh of scatterPatch(cx * CHUNK * TILE, cy * CHUNK * TILE, (cx + 1) * CHUNK * TILE, (cy + 1) * CHUNK * TILE, (x, y) => ground.cover(x, y), blocked, this.stone, this.material)) group.add(mesh);
         }
         if (!group.children.length) continue;
         this.chunks[c] = group;
@@ -1384,5 +1391,8 @@ function playsetPlastic(): THREE.MeshPhysicalMaterial {
 }
 
 function disposeChunk(c: THREE.Group): void {
-  for (const o of c.children) (o as THREE.Mesh).geometry.dispose();
+  for (const o of c.children) {
+    if (o instanceof THREE.InstancedMesh) o.dispose();
+    if (!o.userData.shared) (o as THREE.Mesh).geometry.dispose();
+  }
 }

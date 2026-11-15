@@ -42,8 +42,14 @@ export function rockMaterial(): THREE.MeshStandardMaterial {
     shader.vertexShader = shader.vertexShader
       .replace('void main() {', 'varying vec3 vRockPos;\nvarying vec3 vRockNrm;\nvoid main() {')
       .replace('#include <project_vertex>', `#include <project_vertex>
-  vRockPos = (modelMatrix * vec4(transformed, 1.0)).xyz;
-  vRockNrm = mat3(modelMatrix) * objectNormal;`);
+  vec4 rockAt = vec4(transformed, 1.0);
+  vec3 rockUp = objectNormal;
+  #ifdef USE_INSTANCING
+    rockAt = instanceMatrix * rockAt;
+    rockUp = mat3(instanceMatrix) * rockUp;
+  #endif
+  vRockPos = (modelMatrix * rockAt).xyz;
+  vRockNrm = mat3(modelMatrix) * rockUp;`);
     shader.fragmentShader = shader.fragmentShader
       .replace('void main() {', /* glsl */ `uniform sampler2D rockColour;
 uniform sampler2D rockSurface;
