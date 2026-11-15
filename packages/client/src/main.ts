@@ -377,9 +377,13 @@ async function draftAssets(id: string): Promise<GameAssets> {
 
 function record(o: Outcome, entry: MapEntry | undefined): void {
   const table = loadScores();
+  const rows = o.board ?? [];
+  const won = o.winnerBase === null ? [] : rows.filter((r) => r.team === o.team);
   recordGame(table, {
     mode: settings.players === 1 ? 'training' : 'tournament', mapId: settings.mapId, level: entry?.level ?? settings.level,
-    mapName: entry?.name ?? settings.mapId, winner: o.winner, names: settings.names, ms: o.ms,
+    mapName: entry?.name ?? settings.mapId, bases: Math.max(2, rows.length), ms: o.ms,
+    winners: won.length ? won.map((r) => r.base) : o.winnerBase === null ? [] : [o.winnerBase],
+    winnerName: won.length ? won.map((r) => r.name).join(' & ') : '',
   });
   saveScores(table);
 }
@@ -757,9 +761,9 @@ const showHallOfFame = () => overGame(() => hallOfFame(loadScores(), settings.pl
 function titleItems(): MenuEntry[] {
   return [
     { label: 'Local Play', hint: 'Training, or split screen on one keyboard', primary: true, items: playItems },
-    { label: 'Online', items: onlineItems },
+    { label: 'Online', hint: 'Play people over the internet', items: onlineItems, footer: true },
     {
-      label: 'Style', hint: modernAvailable() ? 'Modern 3D, or the classic pixel look' : 'This browser shows classic only (no WebGL)',
+      label: 'Style', hint: modernAvailable() ? 'Modern 3D drone feed, or the Classic pixel look' : 'This browser shows classic only (no WebGL)',
       value: () => (settings.visuals === 'modern' && modernAvailable() ? 'Modern' : 'Classic'),
       enabled: () => modernAvailable(),
       action: () => {
@@ -829,7 +833,7 @@ function onlineItems(): MenuEntry[] {
 function optionItems(): MenuEntry[] {
   return [
     { label: 'Full Screen', key: shortcutName('fullScreen'), value: () => onOff(!!document.fullscreenElement), action: fullScreen },
-    { label: 'View', hint: 'Retro or modern, picture scaling', items: viewItems },
+    { label: 'View', hint: 'Classic or Modern, picture scaling', items: viewItems },
     { label: 'Sound and Music', hint: 'Volume, music, instruments', items: soundItems },
     ...(handheld ? [] : [{ label: 'Controls', hint: 'Vehicle keys, swap sides', items: controlItems }]),
   ];
@@ -848,14 +852,15 @@ function viewItems(): MenuEntry[] {
   return [
     ...hostNote,
     {
-      label: 'Visuals', hint: host ? 'Set by the host' : 'Modern 3D at 720p, or classic pixels',
+      label: 'Visuals', hint: host ? 'Set by the host' : 'Modern 3D drone feed, or the Classic pixel look',
       value: () => ((host ?? settings.visuals) === 'modern' ? 'Modern' : 'Classic'),
       enabled: () => !host,
       action: () => save({ ...settings, visuals: settings.visuals === 'modern' ? 'retro' : 'modern' }),
     },
     {
-      label: 'Picture', hint: 'Fill the window, or whole-number pixels only (retro)',
+      label: 'Picture', hint: seenVisuals() === 'modern' ? 'Classic only: fill the window, or whole pixels' : 'Fill the window, or whole-number pixels only',
       value: () => (settings.scale === 'integer' ? 'Whole pixels' : 'Fill'),
+      enabled: () => seenVisuals() !== 'modern',
       action: () => save({ ...settings, scale: settings.scale === 'integer' ? 'sharp' : 'integer' }),
     },
   ];
@@ -878,16 +883,17 @@ function soundItems(): MenuEntry[] {
         music.setEnabled(settings.music);
       },
     },
-    {
+    // Sampled instruments need the server's SoundFont; without one the choice is left out.
+    ...(!siteFont ? [] : [{
       label: 'Instruments',
-      hint: siteFont ? 'Built-in band, or sampled (32 MB, once)' : 'Sampled needs a SoundFont on the server',
+      hint: 'Built-in band, or sampled (32 MB, once)',
       value: () => (!siteFont || settings.instruments !== 'sampled' ? 'Built-in' : music.loadingSoundFont ? 'Loading...' : 'Sampled'),
       action: () => {
         if (!siteFont) return;
         save({ ...settings, instruments: settings.instruments === 'sampled' ? 'builtin' : 'sampled' });
         void music.unlock().then(() => music.setSampled(settings.instruments === 'sampled')).then(() => menu.refresh());
       },
-    },
+    }]),
   ];
 }
 

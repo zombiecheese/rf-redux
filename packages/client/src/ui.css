@@ -579,3 +579,8 @@ body[data-visuals=retro] .feed-paused-hint { color: var(--ui-text); text-shadow:
 
 /* The results screen: the winners' mark. */
 .ui .grid.results td.mark { color: var(--ui-accent); font-weight: 700; width: 1%; padding-right: 0; }
+/* Options > Controls: what the second and third buttons do, under their names. */
+.ui .controls .key-hint { display: block; font-size: .75em; white-space: normal; max-width: 22em; }
+.ui .controls .scroll { mask-image: linear-gradient(to bottom, #000 calc(100% - 1.5em), transparent); padding-bottom: 1em; }
+/* Hall of Fame: wide enough for the four sides' wins. */
+.ui.window:has(.hall-of-fame) { width: min(70em, 100%); max-width: 100%; }

@@ -207,6 +207,10 @@ function guides(
   g.textBaseline = 'middle';
   g.shadowColor = 'rgba(0, 0, 0, 0.7)';
   g.shadowBlur = 2;
+  // One label per goal and side: the nearest of a base's possible flag sites carries the name and distance, the others
+  // just their arrows; a label that would land on one already drawn moves along until it is clear.
+  const named = new Set<string>();
+  const placed: { x: number; y: number; w: number; h: number }[] = [];
   for (const t of near) {
     const p = project(t.x, t.y, 0);
     if (p && p.x > rect.x + pad && p.x < rect.x + rect.w - pad && p.y > rect.y + pad && p.y < rect.y + rect.h - pad) continue;
@@ -234,10 +238,20 @@ function guides(
     g.stroke();
     g.restore();
     // Its label beside the arrow, on the side towards the middle.
+    const key = `${t.label}:${t.css}`;
+    if (named.has(key)) continue;
+    named.add(key);
     const text = `${t.label} ${Math.round(t.d / 3.2)}M`;
     const tw = g.measureText(text).width;
     const lx = Math.max(rect.x + 6, Math.min(rect.x + rect.w - tw - 14, ax - dx * 26 - tw / 2 - 4));
-    const ly = Math.max(rect.y + 10, Math.min(rect.y + rect.h - 10, ay - dy * 22));
+    let ly = Math.max(rect.y + 10, Math.min(rect.y + rect.h - 10, ay - dy * 22));
+    const h = 14 * T;
+    const hits = (y: number) => placed.some((r) => lx < r.x + r.w && r.x < lx + tw + 8 && y - h / 2 < r.y + r.h && r.y < y + h / 2);
+    // Step away from the middle of the edge it sits on, up or down, until it is clear.
+    const step = (ly < cy ? -1 : 1) * (h + 2);
+    for (let n = 0; n < 6 && hits(ly); n++) ly += step;
+    ly = Math.max(rect.y + 10, Math.min(rect.y + rect.h - 10, ly));
+    placed.push({ x: lx, y: ly - h / 2, w: tw + 8, h });
     g.fillStyle = 'rgba(6, 10, 12, 0.6)';
     g.fillRect(lx, ly - 7 * T, tw + 8, 14 * T);
     g.fillStyle = t.css;
@@ -677,6 +691,9 @@ export function drawBunkerPanel(g: CanvasRenderingContext2D, rect: ModernRect, a
   const bayL = at(rect, -72, -72, 0).x;
   const cardW = 236 * cs;
   const roomy = bayL - rect.x - 8 >= cardW;
+  // The chosen vehicle's card is the one that matters, so it is drawn larger where there is room; the others shrink
+  // to their name and how many are left.
+  const big = roomy && !f.touch ? Math.max(1, Math.min(1.3, (bayL - rect.x - 8) / cardW)) : 1;
   for (const kind of Object.keys(BAY_AT) as VehicleKind[]) {
     if (elevator && kind !== chosen) continue;
     const b = BAY_AT[kind];
@@ -736,21 +753,24 @@ export function drawBunkerPanel(g: CanvasRenderingContext2D, rect: ModernRect, a
     g.fillText(tag, x0 + 4, y0 - 2);
     if ((!roomy || f.touch) && !mine) continue;
     // The card: beside the bay, out from the shaft (upper bays rise from their floor, lower ones hang from their ceiling).
-    const rows = cardRows(kind, n, mine, elevator, tick);
-    const h = (rows.length + 1) * 12 * cs + 12 * cs;
+    const full = cardRows(kind, n, mine, elevator, tick);
+    const rows = mine || !roomy || f.touch ? full : full.filter((r) => r.k === 'UNITS');
+    const ks = mine ? cs * big : cs;
+    const cw = mine ? cardW * big : cardW;
+    const h = (rows.length + 1) * 12 * ks + 12 * ks;
     // Large cards all stand on their bay's floor, clear of the controls along the bottom.
     const top = b.floor > -100 || f.touch;
     let cx: number;
     let cy: number;
     if (roomy) {
       const edge = at(rect, b.left ? -72 : 72, b.floor + (top ? 0 : 28), 0);
-      cx = b.left ? edge.x - 14 * cs - cardW : edge.x + 14 * cs;
+      cx = b.left ? edge.x - 14 * cs - cw : edge.x + 14 * cs;
       cy = top ? edge.y - h : edge.y;
     } else {
       cx = rect.x + (rect.w - cardW) / 2;
       cy = rect.y + rect.h - h - 96 * s;
     }
-    cx = Math.max(rect.x + 8, Math.min(rect.x + rect.w - cardW - 8, cx));
+    cx = Math.max(rect.x + 8, Math.min(rect.x + rect.w - cw - 8, cx));
     cy = Math.max(rect.y + 56 * s, cy);
     // A leader from the box to its card.
     if (roomy) {
@@ -759,7 +779,7 @@ export function drawBunkerPanel(g: CanvasRenderingContext2D, rect: ModernRect, a
       g.globalAlpha = 0.6;
       g.beginPath();
       const fromX = b.left ? x0 : x1;
-      const toX = b.left ? cx + cardW : cx;
+      const toX = b.left ? cx + cw : cx;
       const midY = (y0 + y1) / 2;
       g.moveTo(fromX, midY);
       g.lineTo(toX, Math.max(cy + 8, Math.min(cy + h - 8, midY)));
@@ -767,7 +787,7 @@ export function drawBunkerPanel(g: CanvasRenderingContext2D, rect: ModernRect, a
       g.globalAlpha = 1;
     }
     const head = `${NAMES[kind].toUpperCase()}  ${BAY_NO[kind]}  UID ${base + 1}${kind[0]!.toUpperCase()}-${String(n === UNLIMITED ? 99 : n).padStart(2, '0')}`;
-    card(g, cx, cy, cardW, cs, head, rows, css, empty || (!mine && !!elevator));
+    card(g, cx, cy, cw, ks, head, rows, css, empty || !mine);
   }
   // The camera's own overlay: brackets, its name, the clock and REC.
   drawFeed(g, rect, { name: `CAM-0${base + 1}  BUNKER`, mode: f.night ? 'IR  B/W  NIGHT' : 'CCTV  COLOR  DAY', lines: [], now: f.now });

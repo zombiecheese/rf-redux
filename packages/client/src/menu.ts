@@ -22,12 +22,15 @@ export interface MenuEntry {
   primary?: boolean;
   /** A line of text, not a button: a status ("Signed in as ..."). */
   note?: true;
+  /** A sub-menu that keeps the menu's footer line (the account, under Online); the others leave it to the first level. */
+  footer?: true;
 }
 
 interface Level {
   title: string;
   items: () => MenuEntry[];
   focus: number;
+  footer?: boolean;
 }
 
 const has = (keys: readonly string[], code: string) => keys.includes(code);
@@ -92,9 +95,9 @@ export class Menu {
     } else this.onClose();
   }
 
-  private enter(title: string, items: () => MenuEntry[]): void {
+  private enter(title: string, items: () => MenuEntry[], footer = false): void {
     this.level.focus = this.focusedIndex();
-    this.stack.push({ title, items, focus: 0 });
+    this.stack.push({ title, items, focus: 0, footer });
     this.render();
   }
 
@@ -118,7 +121,7 @@ export class Menu {
       this.head.append(this.logo.canvas);
       this.logo.start();
     } else this.head.append(el('span', { class: 'menu-title' }, level.title));
-    this.foot.textContent = this.footer();
+    this.foot.textContent = this.stack.length === 1 || level.footer ? this.footer() : '';
     this.list.replaceChildren();
     for (const it of level.items()) {
       if (it.note) {
@@ -131,7 +134,7 @@ export class Menu {
         el('span', { class: it.value ? 'mi-value' : it.items ? 'mi-more' : 'mi-key' }, side));
       b.setAttribute('role', 'menuitem');
       b.addEventListener('click', () => {
-        if (it.items) this.enter(it.label, it.items);
+        if (it.items) this.enter(it.label, it.items, !!it.footer);
         else if (it.value) {
           it.action?.();
           this.refresh();

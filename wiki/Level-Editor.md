@@ -21,7 +21,7 @@ The **Preview** switch at the top (or the **V** key) draws the map you are editi
 - **Modern**: the 3D view as the drone's feed, by day.
 - **Night**: the modern view in a night match, with the buildings' lights. The **Moonlight** pill over the map brightens it while you edit; turn it off to see how dark the match will really be.
 
-**Test Play** starts in the view you are previewing. The modern choices need WebGL; the editor remembers your preview and camera. The minimap and the draft pictures in **File > Open** follow the preview too.
+**Test Play** starts in the view you are previewing. It starts on Modern, like the game (Classic without WebGL), and remembers your preview and camera after that. The minimap and the draft pictures in **File > Open** follow the preview too.
 
 ![The same map previewed in the modern view at night, from the game camera](images/editor-night.png)
 

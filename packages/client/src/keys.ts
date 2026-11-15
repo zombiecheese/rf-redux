@@ -32,6 +32,12 @@ export type Half = 'left' | 'right';
 
 const LAUNCH_ACTIONS: Action[] = ['launchJeep', 'launchTank', 'launchAsv', 'launchHeli'];
 
+/** What the second and third buttons do in each vehicle, under their names in Options > Controls. */
+export const ACTION_HINTS: Partial<Record<Action, string>> = {
+  fire2: 'Jeep: float tyres · Tank, ASV: anti-air · Heli: fire ahead',
+  fire3: 'Jeep: put down or pick up the flag · ASV: lay a mine · Heli: gun or missiles',
+};
+
 /** What each action is called in Config > Controls. */
 export const ACTION_LABELS: Record<Action, string> = {
   up: 'Forward', down: 'Back', left: 'Turn left', right: 'Turn right', fire: 'Fire', fire2: 'Second button', fire3: 'Third button',

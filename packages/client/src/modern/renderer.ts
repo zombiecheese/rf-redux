@@ -134,6 +134,9 @@ class Pool<T extends { visible: boolean }> {
   }
 }
 
+/** The strongest the stream breaks up for a hit on the viewer's own vehicle (blasts nearby can still go to 1). */
+const STRUCK_MAX = 0.7;
+
 export class ModernRenderer {
   readonly canvas: HTMLCanvasElement;
   private readonly gl: THREE.WebGLRenderer;
@@ -485,7 +488,8 @@ export class ModernRenderer {
     let g = 0;
     for (const b of this.blasts) if (Math.abs(b.x - pose.x) < 480 && Math.abs(b.y - pose.y) < 360) g = Math.max(g, b.power * fade(now - b.at, 0.45));
     const s = this.struck.get(v.viewer);
-    if (s) g = Math.max(g, fade(now - s.at, s.long ? 1.2 : 0.6));
+    // A hit on the player's own vehicle breaks the feed up at most to 70%, so who is shooting stays in sight.
+    if (s) g = Math.max(g, STRUCK_MAX * fade(now - s.at, s.long ? 1.2 : 0.6));
     return Math.max(g, this.jamming);
   }
 

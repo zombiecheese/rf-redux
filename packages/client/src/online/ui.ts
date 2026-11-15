@@ -47,7 +47,7 @@ export async function lobbyMaps(): Promise<LobbyMap[]> {
 /** The host's picks of how everyone sees the match. */
 const LOBBY_VIEWS: ViewChoice[] = [
   { value: 'retro', label: 'Classic', hint: 'The original pixel look', image: 'retro' },
-  { value: 'modern', label: 'Modern', hint: '3D drone feed at 720p', image: 'modern' },
+  { value: 'modern', label: 'Modern', hint: 'The 3D drone feed', image: 'modern' },
 ];
 const LIGHTING: [LobbyLighting, string][] = [['day', 'Day'], ['night', 'Night']];
 
