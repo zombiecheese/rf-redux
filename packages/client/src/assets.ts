@@ -161,7 +161,7 @@ async function pixels(path: string, base = BASE): Promise<{ w: number; h: number
   return { w: img.width, h: img.height, data: new Uint32Array(data.buffer.slice(0)) };
 }
 
-/** A map in maps/index.json: the Level Selector's list (level 1-9 from the original's own grouping). */
+/** A map in maps/index.json: Match Setup's list (level 1-9 from the original's own grouping). */
 export interface MapEntry {
   id: string;
   name: string;

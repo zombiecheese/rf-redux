@@ -1,4 +1,4 @@
-// The front end's dialogs: Player Selector, Level Selector, Hall of Fame, Help, System Info, About and the exit question, plus the
+// The front end's dialogs: Match Setup, Hall of Fame, Help, System Info, About and the exit question, plus the
 // level editor's menu bar. They are DOM elements drawn over the game picture, so they stay sharp at any window size,
 // and both the game page and the editor dress them as the modern panels of ui.css.
 
@@ -257,16 +257,40 @@ export function viewPicker(value: string, choices: readonly ViewChoice[] = VIEW_
 }
 
 /**
- * Player Selector (N, New Game): Training (one player against the computer) or Split Screen (two players at one
- * keyboard), the Brown and Green names, the difficulty, the time of day and the view. Phones and tablets play Training
- * only. fixed keeps s.players and hides the choice (Local Play > Training, Local Play > Split Screen): one player gets
- * the single full-screen view, never the split screen.
+ * Match Setup (N, New Game): everything for a local match on one screen, laid out like an online lobby. On the left
+ * the map: Level 1-9 (the original's own grouping of its two-player maps), 3 & 4 Players (the built-in maps with more
+ * bases) and Add-Ons (maps from the level editor in this browser), that group's maps and a preview. On the right the
+ * game: Training (one player against the computer) or Split Screen (two players at one keyboard), the names, the
+ * difficulty, the time of day, the teams on a map with three or four bases, and the view. Phones and tablets play
+ * Training only; fixed keeps s.players and hides that choice (Local Play > Training, Local Play > Split Screen), so
+ * one player always gets the single full-screen view. load fetches a map by its id for the preview.
  */
-export async function playerSelector(s: Settings, handheld: boolean, fixed = false): Promise<Settings | null> {
-  // Laid out like an online lobby's match settings: game, players, difficulty and time of day, then the view.
+export async function matchSetup(s: Settings, maps: MapEntry[], addOns: MapEntry[], handheld: boolean, fixed: boolean,
+  load?: (id: string) => Promise<RfwMap | null>): Promise<Settings | null> {
   const seg = (name: string, options: [string, string][], value: string) =>
     el('div', { class: 'segmented', role: 'radiogroup' } as Partial<HTMLDivElement>, ...options.map(([v, label]) => radio(name, label, v === value, v)));
   const checked = (g: HTMLElement) => g.querySelector<HTMLInputElement>('input:checked')?.value;
+
+  // ---- The map ----
+  // The group each map is in: its level, MULTI for more than two bases, 0 (Add-Ons) for maps from the level editor.
+  const group = (m: MapEntry) => (m.players.max > 2 ? MULTI : m.level);
+  const all = [...maps.map((m) => ({ ...m, level: group(m) })), ...addOns.map((m) => ({ ...m, level: 0 }))];
+  const mine = all.find((m) => m.id === s.mapId);
+  let level = mine ? mine.level : all.some((m) => m.level === s.level) ? s.level : all[0]?.level ?? s.level;
+  let mapId = s.mapId;
+  const groupName = (l: number) => (l === MULTI ? '3 & 4 Players' : l === 0 ? 'Add-Ons' : `Level ${l}`);
+  const levels = el('select', { ariaLabel: 'Level' });
+  for (const l of [1, 2, 3, 4, 5, 6, 7, 8, 9, MULTI, 0]) {
+    const o = new Option(groupName(l), String(l), false, l === level);
+    o.disabled = !all.some((m) => m.level === l);
+    if (l === 0 && !addOns.length) o.text = 'Add-Ons (make maps in the level editor)';
+    levels.add(o);
+  }
+  const list = el('select', { size: 8, class: 'listview', ariaLabel: 'Map' });
+  const preview = load ? new MapPreview(loadCommon, { compact: true }) : null;
+  const bases = () => all.find((m) => m.id === mapId)?.players.max ?? 2;
+
+  // ---- The game ----
   const mode = seg('mode', handheld ? [['1', 'Training']] : [['1', 'Training'], ['2', 'Split Screen']], String(s.players));
   const modeRow = field('Game:', mode);
   modeRow.hidden = fixed || handheld;
@@ -279,22 +303,84 @@ export async function playerSelector(s: Settings, handheld: boolean, fixed = fal
   const skillRow = field('Difficulty:', skill);
   // Day or night is part of the game, like the difficulty (the modern view draws the night).
   const time = seg('time', [['day', 'Day'], ['night', 'Night']], s.lighting === 'night' ? 'night' : 'day');
+  // Teams, on a map with three or four bases: the layout (every base is played), extra vehicles for the smaller side,
+  // and with two players whether they share a team and whether the computer plays the other bases.
+  const layout = el('select', {});
+  const handicap = el('input', { type: 'checkbox', checked: s.teams.handicap });
+  const together = el('input', { type: 'checkbox', checked: s.teams.together });
+  const bots = el('input', { type: 'checkbox', checked: s.teams.bots });
+  const layoutRow = field('Teams:', layout);
+  const handicapRow = el('label', { class: 'check' }, handicap, 'Handicap for the smaller side');
+  const togetherRow = el('label', { class: 'check' }, together, 'Both players on one team');
+  const botsRow = el('label', { class: 'check' }, bots, 'The computer plays the other bases');
+  let laidFor = 0;
+  const fillLayouts = () => {
+    const n = bases();
+    if (n === laidFor) return;
+    laidFor = n;
+    const want = layout.value || s.teams.layout;
+    layout.replaceChildren();
+    for (const l of layoutsFor(n).filter((x) => x.teams.reduce((a, b) => a + b, 0) === n)) {
+      const each = l.teams.every((k) => k === 1);
+      const v = each ? '' : l.teams.join(',');
+      layout.add(new Option(each ? 'Everyone for themselves' : l.name, v, false, v === want));
+    }
+  };
   // The view: classic or modern, with a picture of each. Options > View > Visuals still switches it at any time.
   const view = viewPicker(s.visuals === 'modern' && modernAvailable() ? 'modern' : 'retro');
-  const body = el('div', { class: 'match-setup' }, modeRow, field('Brown:', brown), greenRow, skillRow, field('Time of day:', time),
-    el('fieldset', { class: 'view-set' }, el('legend', {}, 'View'), view));
+  const game = el('div', { class: 'match-setup' }, modeRow, field('Brown:', brown), greenRow, skillRow, field('Time of day:', time),
+    layoutRow, handicapRow, togetherRow, botsRow, el('fieldset', { class: 'view-set' }, el('legend', {}, 'View'), view));
+
   const sync = () => {
     const two = checked(mode) === '2';
     skillRow.hidden = two;
     greenRow.querySelector('span')!.textContent = two ? 'Green:' : 'Computer:';
+    fillLayouts();
+    const many = bases() > 2;
+    layoutRow.hidden = handicapRow.hidden = !many;
+    togetherRow.hidden = botsRow.hidden = !many || !two;
+    const sizes = layout.value.split(',').map(Number).filter((n) => n > 0);
+    handicap.disabled = new Set(sizes).size < 2;
+    together.disabled = !sizes.some((n) => n > 1);
   };
+  const showPicked = () => {
+    const m = all.find((x) => x.id === mapId);
+    if (preview && m) preview.show(m.id, { name: m.name, bases: m.players.max, note: groupName(m.level) }, () => load!(m.id));
+    sync();
+  };
+  const fill = () => {
+    list.replaceChildren();
+    const here = all.filter((m) => m.level === level);
+    for (const m of here) list.add(new Option(m.name, m.id, false, m.id === mapId));
+    if (here.length && !here.some((m) => m.id === mapId)) {
+      mapId = here[0]!.id;
+      list.value = mapId;
+    }
+    showPicked();
+  };
+  levels.addEventListener('change', () => {
+    level = Number(levels.value);
+    fill();
+  });
+  list.addEventListener('change', () => {
+    mapId = list.value;
+    showPicked();
+  });
   mode.addEventListener('change', sync);
-  sync();
-  const r = await dialog('Player Selector', body, [['OK', 'ok'], ['Cancel', 'cancel']]);
-  if (!r) return null;
+  layout.addEventListener('change', sync);
+  fill();
+
+  const mapCol = el('div', { class: 'setup-map' }, el('div', { class: 'caption' }, 'Map'), levels, list, ...(preview ? [preview.root] : []));
+  const body = el('div', { class: 'setup' }, mapCol, el('div', { class: 'setup-game' }, el('div', { class: 'caption' }, 'Game'), game));
+  const go = dialog('Match Setup', body, [['Start', 'ok'], ['Cancel', 'cancel']]);
+  list.addEventListener('dblclick', () => body.closest('.window')?.querySelector<HTMLButtonElement>('.btn.default')?.click());
+  if (!(await go)) return null;
   const players = handheld ? 1 : fixed ? s.players : (Number(checked(mode)) as 1 | 2) || 1;
+  const teams: TeamChoice = bases() > 2
+    ? { layout: layout.value, handicap: handicap.checked && !handicap.disabled, together: together.checked && !together.disabled, bots: bots.checked }
+    : s.teams;
   return {
-    ...s, players,
+    ...s, players, mapId, level: all.find((m) => m.id === mapId)?.level ?? s.level, teams,
     visuals: view.value === 'modern' ? 'modern' : 'retro',
     lighting: checked(time) === 'night' ? 'night' : 'day',
     names: [brown.value.trim() || 'Brown', green.value.trim() || 'Green'],
@@ -303,7 +389,7 @@ export async function playerSelector(s: Settings, handheld: boolean, fixed = fal
 }
 
 /**
- * The team of each seat for a choice on the Teams dialog: seats are the players' bases first, then the rest. Seats
+ * The team of each seat for a choice of teams on Match Setup: seats are the players' bases first, then the rest. Seats
  * are dealt to teams in turn, so two players start on opposite sides unless they asked to play together.
  */
 export function teamsFor(choice: TeamChoice, bases: number, players: 1 | 2): number[] | undefined {
@@ -315,100 +401,7 @@ export function teamsFor(choice: TeamChoice, bases: number, players: 1 | 2): num
   return teams;
 }
 
-/**
- * Teams, for an offline game on a map with three or four bases: the team layout (every base is played), extra
- * vehicles for the smaller side, and with two players whether they share a team and whether the computer plays the
- * other bases.
- */
-export async function teamSelector(last: TeamChoice, bases: number, players: 1 | 2): Promise<TeamChoice | null> {
-  const layouts = layoutsFor(bases).filter((l) => l.teams.reduce((a, b) => a + b, 0) === bases);
-  const layout = el('select', {});
-  for (const l of layouts) {
-    const all = l.teams.every((n) => n === 1);
-    layout.add(new Option(all ? 'Everyone for themselves' : l.name, all ? '' : l.teams.join(','), false, (all ? '' : l.teams.join(',')) === last.layout));
-  }
-  const handicap = el('input', { type: 'checkbox', checked: last.handicap });
-  const together = el('input', { type: 'checkbox', checked: last.together });
-  const bots = el('input', { type: 'checkbox', checked: last.bots });
-  const handicapRow = el('label', { class: 'check' }, handicap, 'Handicap for the smaller side');
-  const togetherRow = el('label', { class: 'check' }, together, 'Both players on one team');
-  const botsRow = el('label', { class: 'check' }, bots, 'The computer plays the other bases');
-  togetherRow.hidden = botsRow.hidden = players === 1;
-  const sync = () => {
-    const sizes = layout.value.split(',').map(Number).filter((n) => n > 0);
-    handicap.disabled = new Set(sizes).size < 2;
-    together.disabled = !sizes.some((n) => n > 1);
-  };
-  layout.addEventListener('change', sync);
-  sync();
-  const body = el('div', { class: 'stack' }, field('Teams:', layout), handicapRow, togetherRow, botsRow);
-  const r = await dialog('Teams', body, [['OK', 'ok'], ['Cancel', 'cancel']]);
-  if (!r) return null;
-  return { layout: layout.value, handicap: handicap.checked && !handicap.disabled, together: together.checked && !together.disabled, bots: bots.checked };
-}
-
-/**
- * Level Selector: Level 1-9 (the original's own grouping of its two-player maps), and the maps of that level in a
- * list. 3 & 4 Players lists the built-in maps with more than two bases; Add-Ons the maps made in the level editor in
- * this browser. The picked map is previewed beside the list; load fetches a map by its id for that.
- */
-export async function levelSelector(s: Settings, maps: MapEntry[], addOns: MapEntry[] = [],
-  load?: (id: string) => Promise<RfwMap | null>): Promise<{ level: number; mapId: string } | null> {
-  if (!maps.length && !addOns.length) return { level: s.level, mapId: s.mapId };
-  // The list each map is in: its level, MULTI for more than two bases, 0 (Add-Ons) for maps from the level editor.
-  const group = (m: MapEntry) => (m.players.max > 2 ? MULTI : m.level);
-  const all = [...maps.map((m) => ({ ...m, level: group(m) })), ...addOns.map((m) => ({ ...m, level: 0 }))];
-  const mine = all.find((m) => m.id === s.mapId);
-  let level = mine ? mine.level : all.some((m) => m.level === s.level) ? s.level : all[0]!.level;
-  let mapId = s.mapId;
-  const levels = el('fieldset', { class: 'levels' }, el('legend', {}, 'Level'));
-  for (let l = 1; l <= 9; l++) {
-    const r = radio('level', `Level ${l}`, l === level, String(l));
-    if (!all.some((m) => m.level === l)) r.querySelector('input')!.disabled = true;
-    levels.append(r);
-  }
-  const multi = radio('level', '3 & 4 Players', level === MULTI, String(MULTI));
-  multi.querySelector('input')!.disabled = !all.some((m) => m.level === MULTI);
-  multi.title = 'Maps for three or four sides; the computer plays every base nobody takes';
-  levels.append(multi);
-  const extra = radio('level', 'Add-Ons', level === 0, '0');
-  extra.querySelector('input')!.disabled = !addOns.length;
-  extra.title = addOns.length ? 'Maps made in the level editor in this browser' : 'Maps you make in the level editor (editor.html) appear here';
-  levels.append(extra);
-  const list = el('select', { size: 12, class: 'listview' });
-  const preview = load ? new MapPreview(loadCommon) : null;
-  const groupName = (l: number) => (l === MULTI ? '3 & 4 Players' : l === 0 ? 'Add-On' : `Level ${l}`);
-  const showPicked = () => {
-    const m = all.find((x) => x.id === mapId);
-    if (preview && m) preview.show(m.id, { name: m.name, bases: m.players.max, note: groupName(m.level) }, () => load!(m.id));
-  };
-  const fill = () => {
-    list.replaceChildren();
-    const here = all.filter((m) => m.level === level);
-    for (const m of here) list.add(new Option(m.name, m.id, false, m.id === mapId));
-    if (!here.some((m) => m.id === mapId)) {
-      mapId = here[0]!.id;
-      list.value = mapId;
-    }
-    showPicked();
-  };
-  fill();
-  levels.addEventListener('change', () => {
-    level = Number(levels.querySelector<HTMLInputElement>('input:checked')!.value);
-    fill();
-  });
-  list.addEventListener('change', () => {
-    mapId = list.value;
-    showPicked();
-  });
-  const body = el('div', { class: 'cols level-selector' }, levels, el('div', { class: 'grow' }, el('div', { class: 'caption' }, 'Map'), list),
-    ...(preview ? [el('div', { class: 'grow preview-col' }, el('div', { class: 'caption' }, 'Preview'), preview.root)] : []));
-  const go = dialog('Level Selector', body, [['OK', 'ok'], ['Cancel', 'cancel']]);
-  list.addEventListener('dblclick', () => body.closest('.window')?.querySelector<HTMLButtonElement>('.btn.default')?.click());
-  return (await go) ? { level, mapId } : null;
-}
-
-/** The Level Selector's list of maps with three or four bases. */
+/** Match Setup's group of maps with three or four bases. */
 const MULTI = 10;
 
 /** Hall of Fame (L): the original's columns, for Training or Tournament games. */
@@ -532,7 +525,7 @@ function keysPage(): HTMLElement {
     row('Open a sub-menu', names(MENU_KEYS.open)),
     row('Back to the menu before', `${names(MENU_KEYS.back)} or ${names(MENU_KEYS.close)}`),
     row('Close the menu (from its first page)', names(MENU_KEYS.close)),
-    row('Leave the game', 'Esc'),
+    row('Pause menu: Resume, Options, Help, Leave Match', 'Esc'),
     row('Skip the splash or the win scene', 'Any key')));
   return el('div', { class: 'stack' }, grid,
     el('p', {}, 'In Training, online and in the editor\'s test play either side\'s keys work. Options > Controls > Vehicle Keys rebinds any vehicle key for either hand, and Options > Controls > Swap Sides gives Brown the right-hand keys. No game key opens the chat, and while a menu or the chat line is open your vehicle takes no keys. Offline the match waits while a menu is open; online it carries on.'),
@@ -551,7 +544,7 @@ function viewsPage(): HTMLElement {
       'Drone feed: the picture is a surveillance drone\'s, with grain, a scan line and stream errors when something blows up nearby.',
       'Computer-vision HUD: tracking boxes with integrity on your vehicle (with its fuel and ammunition), friends, enemy vehicles, gun towers, flag buildings and drones, a tactical plot for the radar, and messages as read-outs.',
       'Flag arrows: at the edges of the picture, in each rival\'s colour, arrows point to its flag buildings (any of them may hide the flag), to a flag lying in the open, and home while your jeep carries one.',
-      'Day or night: a match option, chosen with the difficulty (on the Player Selector, or by the host online). Night is dark, lit by headlights, fires and the buildings\' windows and lamps.',
+      'Day or night: a match option, chosen with the difficulty (on Match Setup, or by the host online). Night is dark, lit by headlights, fires and the buildings\' windows and lamps.',
       'Thermal camera: in a night match, switch the drone to a white-hot thermal picture that sees in the dark, with the THERMAL button beside the menu button or the thermal key (see Keys). Every match starts with it off, and by day there is none.',
     ),
     el('p', {}, 'Online the lobby\'s host picks the view and the time of day for every player. Replays play back the way their match was seen.'));
@@ -574,7 +567,7 @@ function morePage(): HTMLElement {
     h('Replays'),
     el('p', {}, 'Every match is recorded in your browser: the last 20, plus any you star. Title > Replays plays one back from ¼× to 8× with pause, ten-second jumps, a timeline and a choice of player to follow. Save a replay as a file, or to your account when signed in.'),
     h('Level Editor'),
-    el('p', {}, 'Title > Level Editor (on a computer with a mouse and keyboard; greyed out on phones and tablets) paints land and water with automatic coastlines, lays bridges, places buildings and up to four bases, mirrors or turns your edits for a fair map, checks it for problems, previews it as Classic, Modern or Modern at night, and test plays it against the computer in the previewed view. Maps save in your browser, export as files and play from the Level Selector\'s Add-Ons. Signed in, save them to your library as private, unlisted or public; public maps can be searched, liked and played in lobbies.'),
+    el('p', {}, 'Title > Level Editor (on a computer with a mouse and keyboard; greyed out on phones and tablets) paints land and water with automatic coastlines, lays bridges, places buildings and up to four bases, mirrors or turns your edits for a fair map, checks it for problems, previews it as Classic, Modern or Modern at night, and test plays it against the computer in the previewed view. Maps save in your browser, export as files and play from Match Setup\'s Add-Ons. Signed in, save them to your library as private, unlisted or public; public maps can be searched, liked and played in lobbies.'),
     h('Sound and music'),
     el('p', {}, 'The music follows the action as the original\'s did: a piece for each vehicle, the bunker, the flag, deaths and the win. The classic view plays a military band of public-domain marches on the built-in synthesiser, or sampled from the GeneralUser GS SoundFont with Options > Sound and Music > Instruments > Sampled (32 MB the first time, then kept by your browser). The modern view has its own hardcore and metalcore soundtrack. Options > Sound and Music sets the master, effects and music volume and switches the music off, and the mute key silences everything.'),
     h('Your settings'),
@@ -608,11 +601,6 @@ export async function systemInfo(server: ServerInfo, s: Settings): Promise<void>
   ];
   await dialog('System Info', el('table', { class: 'grid sysinfo' }, el('tbody', {}, ...rows.map(([a, b]) => el('tr', {}, el('th', {}, a), el('td', {}, b))))),
     [['OK', 'ok']]);
-}
-
-/** The exit question (Esc). In a browser, leaving goes back to the title screen. */
-export async function confirmExit(): Promise<boolean> {
-  return (await dialog('Return Fire: Redux', el('p', {}, 'Are you sure you want to leave Return Fire: Redux?'), [['Yes', 'yes'], ['No', 'cancel']])) === 'yes';
 }
 
 /** A message with OK, for errors and notices. */

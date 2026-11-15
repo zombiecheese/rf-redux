@@ -1,5 +1,5 @@
 // The app around the game: the Zombiecheese Productions splash (in place of the original's logos and intro movie),
-// then in the original's order the title screen, the Player and Level Selectors, the match, and the win scene. The original's Windows 95 menu bar is now an on-screen menu
+// then in the original's order the title screen, Match Setup, the match, the win scene and the results. The original's Windows 95 menu bar is now an on-screen menu
 // (menu.ts) over the title art (the remake's own widescreen picture of all four sides), which opens with the title
 // screen, and M or the menu button brings it up over a match. The shortcuts are letters, not the original's function
 // keys (keys.ts lists them).
@@ -12,12 +12,13 @@ import { checkMap, clampDifficulty } from '@rfw/sim';
 import type { MatchStart, Replay } from '@rfw/net';
 import { loadAssets, loadAssetsWith, loadCommon, loadMap, loadMapIndex, type GameAssets, type MapEntry } from './assets.js';
 import {
-  about, confirmExit, dialog, dialogOpen, el, hallOfFame, helpTopics, levelSelector, modernUi, notice, playerSelector, systemInfo, teamSelector, teamsFor,
+  about, dialog, dialogOpen, el, hallOfFame, helpTopics, matchSetup, modernUi, notice, systemInfo, teamsFor,
 } from './dialogs.js';
 import { Display, blockWhileUpright, isHandheld, lockLandscape, untilLandscape } from './display.js';
 import { listDrafts, loadDraft } from './editor/storage.js';
 import { Game, type Outcome } from './game.js';
 import { ReplayBar, replaysDialog, saveReplay } from './replays.js';
+import { resultsScreen, winnerTitle } from './results.js';
 import { openAdmin } from './admin/panel.js';
 import { api, serverAvailable } from './online/api.js';
 import { addInvite, friendsDialog } from './online/friends.js';
@@ -234,8 +235,9 @@ async function showTitleArt(): Promise<void> {
 // ---- Starting and ending a match ---------------------------------------------------------------------------------
 
 /**
- * New Game (N): the Player Selector, then the Level Selector, then the match. Local Play > Training and Local Play > Split
- * Screen fix the number of players; New Game offers both and starts on Training, so one player always gets the single view.
+ * New Game (N): Match Setup (map, players, difficulty, time of day, teams and view on one screen), then the match.
+ * Local Play > Training and Local Play > Split Screen fix the number of players; New Game offers both and starts on
+ * Training, so one player always gets the single view.
  */
 async function newGame(players?: 1 | 2): Promise<void> {
   if (game?.online) {
@@ -244,17 +246,15 @@ async function newGame(players?: 1 | 2): Promise<void> {
     await leave();
   }
   const wasPaused = holdGame();
-  const picked = await playerSelector({ ...settings, players: handheld ? 1 : players ?? 1 }, handheld, players !== undefined);
+  if (!maps.length) maps = await loadMapIndex();
+  const picked = await matchSetup({ ...settings, players: handheld ? 1 : players ?? 1 }, maps, addOns(), handheld, players !== undefined,
+    (id) => (id.startsWith(DRAFT) ? Promise.resolve(loadDraft(id.slice(DRAFT.length))) : loadMap(id)));
   if (!picked) return releaseGame(wasPaused);
   save(picked);
-  if (!maps.length) maps = await loadMapIndex();
-  const level = await levelSelector(settings, maps, addOns(), (id) => (id.startsWith(DRAFT) ? Promise.resolve(loadDraft(id.slice(DRAFT.length))) : loadMap(id)));
-  if (!level) return releaseGame(wasPaused);
-  save({ ...settings, ...level });
-  await startGame({ ask: true });
+  await startGame();
 }
 
-async function startGame(opts: { bots?: boolean; seed?: number; ask?: boolean } = {}): Promise<void> {
+async function startGame(opts: { bots?: boolean; seed?: number } = {}): Promise<void> {
   skip.abort();
   game?.stop();
   game = null;
@@ -272,21 +272,16 @@ async function startGame(opts: { bots?: boolean; seed?: number; ask?: boolean } 
     status.textContent = '';
     if (mine !== run) return;
     const entry = [...maps, ...addOns()].find((m) => m.id === settings.mapId);
-    // A map with three or four bases asks for the teams first; a restart keeps the last answer.
+    // A map with three or four bases plays the teams picked on Match Setup; a restart keeps them.
     const bases = assets.map.bases.length;
-    if (opts.ask && bases > 2) {
-      const choice = await teamSelector(settings.teams, bases, settings.players);
-      if (mine !== run) return;
-      if (!choice) return void (await title());
-      save({ ...settings, teams: choice });
-    }
     const teams = bases > 2 ? teamsFor(settings.teams, bases, settings.players) : undefined;
     thermal = params.get('thermal') === '1';
+    let replay: Replay | null = null;
     game = new Game({
       assets, display, sound, music, seed: opts.seed ?? ((Date.now() % 0x7fffffff) | 0 || 1), players: settings.players,
       difficulty: settings.difficulty, names: settings.names, swapSides: settings.swapSides, bots: opts.bots ?? (settings.players === 1 || settings.teams.bots), handheld,
       teams, handicap: teams !== undefined && settings.teams.handicap,
-      mapId: settings.mapId, mapName: entry?.name ?? assets.map.name, onReplay: (r) => void saveReplay(r), visuals, lighting, thermal: thermalOn,
+      mapId: settings.mapId, mapName: entry?.name ?? assets.map.name, onReplay: (r) => { replay = r; void saveReplay(r); }, visuals, lighting, thermal: thermalOn,
     });
     setScreen('game');
     const { picture } = game;
@@ -301,7 +296,17 @@ async function startGame(opts: { bots?: boolean; seed?: number; ask?: boolean } 
         .catch((err: unknown) => toast(`Leaderboard: ${errorText(err)}`));
     }
     await victory(outcome, entry?.level ?? settings.level, picture, played.finale);
-    if (mine === run) await title();
+    if (mine !== run) return;
+    // The results, then a rematch on the same map and settings, the match again as a replay, or the title.
+    const rows = outcome.board ?? [];
+    const next = await resultsScreen({
+      title: winnerTitle(rows, outcome.winnerBase === null ? null : outcome.team ?? null), ms: outcome.ms, rows,
+      winner: outcome.winnerBase === null ? null : outcome.team ?? null, note: replay ? 'Saved to Replays' : undefined,
+    }, [['Rematch', 'again'], ...(replay ? [['Watch Replay', 'replay'] as [string, string]] : []), ['Title Screen', 'title']]);
+    if (mine !== run) return;
+    if (next === 'again') return void (await startGame({ bots: opts.bots }));
+    if (next === 'replay' && replay) return void (await watchReplay(replay));
+    await title();
   } catch (err) {
     if (mine !== run) return;
     await notice('Return Fire: Redux', err instanceof Error ? err.message : String(err));
@@ -356,7 +361,7 @@ async function watchReplay(r: Replay): Promise<void> {
 /** Maps from the level editor are listed as draft:<id>. */
 const DRAFT = 'draft:';
 
-/** The level editor's drafts in this browser that two sides can play: the Level Selector's Add-Ons. */
+/** The level editor's drafts in this browser that two sides can play: Match Setup's Add-Ons. */
 function addOns(): MapEntry[] {
   return listDrafts().filter((d) => d.bases >= 2).map((d) => ({ id: DRAFT + d.id, name: d.name, level: 0, players: { min: 1, max: d.bases } }));
 }
@@ -409,6 +414,7 @@ async function victory(o: Outcome, level: number, last: OffscreenCanvas, finale:
 /** Leaves the match for the title screen. */
 async function leave(): Promise<void> {
   run++;
+  feedPaused.classList.remove('on');
   game?.stop();
   game = null;
   onlineGame = null;
@@ -419,7 +425,7 @@ async function leave(): Promise<void> {
 
 // ---- Pause and the dialogs over a match --------------------------------------------------------------------------
 
-/** Pause/Resume (P): the army ad the original showed full screen (PS240/PS480, sub_421430). */
+/** Pause/Resume (P): the match holds its last frame under a PAUSED card (the original showed an army ad full screen). */
 async function togglePause(): Promise<void> {
   if (!game) return;
   // An online match is shared, so no player can pause it (only an admin, or the server while a friend reconnects).
@@ -430,15 +436,23 @@ async function togglePause(): Promise<void> {
     return syncPlaying();
   }
   if (game.paused) {
-    stage.release();
+    unpauseScreen();
     game.pause(false);
     syncPlaying();
     return;
   }
   game.pause(true);
   syncPlaying();
-  const img = await stage.pick('ps240', 'ps480');
-  if (game?.paused) stage.show(img);
+  // The match holds its last frame under a pause card: the drone feed's FEED PAUSED in modern, a pixel PAUSED in classic.
+  const modern = seenVisuals() === 'modern';
+  feedPausedTitle.textContent = modern ? 'FEED PAUSED' : 'PAUSED';
+  feedPausedHint.textContent = `${shortcutName('pause')} to resume  ·  Esc for menu`;
+  feedPaused.classList.add('on');
+}
+
+/** Takes the pause card away. */
+function unpauseScreen(): void {
+  feedPaused.classList.remove('on');
 }
 
 /** Holds the match while a dialog is up; returns whether it was already paused. */
@@ -452,7 +466,7 @@ function holdGame(): boolean {
 
 function releaseGame(wasPaused: boolean): void {
   if (game && !wasPaused) {
-    stage.release();
+    unpauseScreen();
     game.pause(false);
     syncPlaying();
   }
@@ -473,10 +487,8 @@ async function exit(): Promise<void> {
     showLobby();
     return;
   }
-  if (game.replayControl) return leave();
-  const was = holdGame();
-  if (await confirmExit()) await leave();
-  else releaseGame(was);
+  // Leave Match in the pause menu is the deliberate step, so there is no second question offline.
+  await leave();
 }
 
 async function confirmLeaveOnline(): Promise<boolean> {
@@ -784,7 +796,7 @@ function matchItems(): MenuEntry[] {
     { label: 'Options', items: optionItems },
     { label: 'Hall of Fame', key: shortcutName('hallOfFame'), action: () => void showHallOfFame() },
     { label: 'Help', items: helpItems },
-    { label: online ? 'Leave the Match' : 'Quit to Title', key: 'Esc', action: thenClose(exit) },
+    { label: 'Leave Match', hint: online ? 'The computer plays your seat' : 'Back to the title', action: thenClose(exit) },
   ];
 }
 
@@ -918,6 +930,12 @@ function thermalKeys(): string {
 }
 
 /** The menu button over a match, for a mouse or a finger. */
+/** The pause card (P): FEED PAUSED over the frozen drone feed in modern, a pixel PAUSED panel in classic. */
+const feedPausedTitle = el('b', {}, 'PAUSED');
+const feedPausedHint = el('span', { class: 'feed-paused-hint' });
+const feedPaused = el('div', { class: 'feed-paused', ariaHidden: 'true' } as Partial<HTMLElement>, el('span', { class: 'feed-paused-tag' }, 'SYS'), feedPausedTitle, feedPausedHint);
+document.body.append(feedPaused);
+
 const menuButton = el('button', { type: 'button', class: 'menu-fab', ariaLabel: 'Menu', title: `Menu (${shortcutName('menus')})` }, '☰');
 menuButton.addEventListener('click', () => openMenu());
 /** The thermal camera's toggle over a modern match, beside the menu button: its state and its key, always in view. */
@@ -972,7 +990,8 @@ addEventListener('keydown', (e) => {
         return void title();
       }
       if (screen === 'win') return handle(() => skip.abort());
-      if (game) return handle(exit);
+      // In a match Esc is the pause menu (Resume, Options, Help, Leave Match); a replay is simply left.
+      if (game) return handle(game.replayControl ? exit : openMenu);
       break;
   }
   // Any other key starts or skips the splash, skips the win scene, and brings the menu back on the title screen,

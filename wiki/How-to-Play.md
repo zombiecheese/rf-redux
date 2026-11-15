@@ -15,15 +15,13 @@ The title screen shows the menu after the splash. Any key or a tap brings it bac
 | **Level Editor** | Make your own maps (desktop only). See [[Level Editor]] |
 | **Options** | Controls, sound, picture and Swap Sides |
 
-Training and Split Screen open the **Player Selector** (names, the difficulty, 1 to 9, the time of day, Day or Night, and the view: Classic or Modern, each with a preview), laid out like an online lobby's match settings, then the **Level Selector**, which lists the maps by level 1 to 9 with a preview of each. On a map with three or four bases you are also asked for the team layout.
+Training and Split Screen open **Match Setup**, one screen laid out like an online lobby. On the left is the map: pick Level 1 to 9, 3 & 4 Players or Add-Ons, then a map, with a preview of it and its bases. On the right are the names, the difficulty (1 to 9), the time of day (Day or Night), the teams on a map with three or four bases, and the view: Classic or Modern, each with a preview. Start begins the match.
 
-![The Player Selector with names, difficulty, time of day and the view](images/player-selector.jpg)
+![Match Setup with the map list and preview on the left, and the names, difficulty, time of day, teams and view on the right](images/match-setup.jpg)
 
-*The Player Selector for Training: names, the difficulty, Day or Night, and the view.*
+*Match Setup on a four-base map: the map on the left, the game on the right.*
 
-![The Level Selector with levels, maps and a map preview](images/level-selector.png)
-
-*The Level Selector: levels on the left, that level's maps, and a preview of the picked map with each base marked.*
+After the match, the **results** show who won, the time, and each player's flags brought home, vehicles lost and vehicles left. Rematch plays the same map again with the same settings, Watch Replay plays the match back, and Title Screen goes back to the menu. Online, the results go back to the lobby.
 
 ## Your first match
 
@@ -85,7 +83,7 @@ With one player (Training, online and the editor's test play) either half of the
 | V | Sound off or on |
 | Alt+Enter | Full screen |
 | Alt+3 | Swap Sides (player 1 takes the right-hand keys) |
-| Esc | Leave the game |
+| Esc | Pause menu: Resume, Options, Help, Leave Match. Offline the match waits; online it carries on |
 
 Online only:
 
@@ -151,7 +149,7 @@ Replays save as `.rfwreplay.json` files or, signed in, to your account.
 - **Sound:** master, effects and music volume. The retro view plays a military band; the modern view has a hardcore and metalcore soundtrack of its own.
 - **Instruments:** Built-in (the default) or Sampled, which plays the retro band from real instrument samples (the GeneralUser GS SoundFont). The first time you pick Sampled the game downloads it (32 MB); after that your browser keeps it. The modern soundtrack keeps its own guitars and drums either way.
 - **Visuals** (also **Style** on the main menu, which swaps the title picture too): Modern (the default: the game in 3D at 1280 × 720, with lighting, shadows and effects, a 3D bunker and skull, and modern messages and scoreboard) or Classic (the original's 320 × 240 pixel picture with a subtle CRT look). The game remembers your pick. You can switch during a match; the game plays the same either way. The modern view is a surveillance drone's feed: grain, a lens, stream errors when something blows up nearby (worst when you are hit), and an overlay of the clock, altitude and grid. In a modern match at night, the **THERMAL** button beside the menu button, or its key (**G** left hand, **I** right hand, changed in Options > Controls > Vehicle Keys), switches to a white-hot thermal camera that sees in the dark; each match starts with it off, and by day there is no thermal camera. Arrows at the edges in each rival's colour point to its flag buildings (any of them may hide the flag), to a flag lying in the open, and home while your jeep carries one.
-- **Time of day** (on the Player Selector, or the host's pick online; not in Options): Day or Night. Night is dark: the vehicles have headlights, explosions light up the ground, and street lamps, watchtowers and windows are lit. The lights are not clean discs: beams carry grime and scratches, and lamps throw the bars of their cages and flicker. Every lamp is lit, and lamps and headlights cast shadows: buildings and trees block their light (and vehicles block headlights).
+- **Time of day** (on Match Setup, or the host's pick online; not in Options): Day or Night. Night is dark: the vehicles have headlights, explosions light up the ground, and street lamps, watchtowers and windows are lit. The lights are not clean discs: beams carry grime and scratches, and lamps throw the bars of their cages and flicker. Every lamp is lit, and lamps and headlights cast shadows: buildings and trees block their light (and vehicles block headlights).
 ![Night in the modern view: a tank's headlights on dark ground](images/modern-night.jpg)
 
 *A night match in the modern view: only the headlights, lamps and fires light the ground. THERMAL, top left, is off.*

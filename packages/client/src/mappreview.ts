@@ -1,4 +1,4 @@
-// Map previews for the screens that pick a map (the Level Selector, the lobby's map picker, the lobby itself and the
+// Map previews for the screens that pick a map (Match Setup, the lobby's map picker, the lobby itself and the
 // editor's Shared Maps): the whole map drawn by the game's own renderer looking straight down, as the level editor's
 // top view does, with each base's start marked in its colour. Flag sites are left off: finding the flag is the game.
 

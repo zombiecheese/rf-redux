@@ -68,7 +68,7 @@ Click a problem to go to it, or press **J** (Shift+J goes back). Many problems h
 
 - Maps save themselves as drafts in your browser as you work. **File > Open** lists them, with a picture of the one you pick, and can open a copy of any built-in two-player map.
 - **File > Export** writes a `.rfw.json` file. **Import** reads one back.
-- Drafts with two or more bases appear in the Level Selector under **Add-Ons**.
+- Drafts with two or more bases appear on Match Setup under **Add-Ons**.
 
 Signed in on a game server, maps can also live in your library:
 

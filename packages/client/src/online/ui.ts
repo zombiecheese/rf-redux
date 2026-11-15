@@ -2,7 +2,7 @@
 // and sign-up, the profile, leaderboards, the lobby browser, hosting a lobby with its map picker, the lobby itself
 // with a card for each of up to four seats and its chat, and the results after a match.
 
-import { DIFFICULTY, MAX_BASES, TICK_MS, parseMap, type RfwMap } from '@rfw/sim';
+import { DIFFICULTY, MAX_BASES, parseMap, type RfwMap } from '@rfw/sim';
 import { type LobbyLighting, type LobbyVisuals,
   layoutsFor,
   type ChatChannel, type ChatMessage, type Identity, type LobbyInfo, type LobbySlot, type LobbySummary, type MatchResult, type MatchStart,
@@ -13,6 +13,7 @@ import { MapPreview } from '../mappreview.js';
 import { modernAvailable } from '../modern/layout.js';
 import { loadModern } from '../modern/load.js';
 import { TEAMS as COLOURS } from '../paint.js';
+import { onlineView, resultsScreen } from '../results.js';
 import { formatTime } from '../scores.js';
 import { api, ApiError } from './api.js';
 import type { Net } from './net.js';
@@ -609,15 +610,7 @@ export class LobbyWindow {
 
 /** After a match: who won, and each seat's flags and losses. */
 export async function results(r: MatchResult, start: MatchStart): Promise<void> {
-  const winners = r.winner === null ? [] : r.seats.filter((s) => s.team === r.winner).map((s) => s.name);
-  const title = r.aborted ? `Game over: ${r.aborted}` : (r.timeLimit ? 'Time limit: ' : '') + (r.winner === null ? 'A draw' : winners.length === 1 ? `${winners[0]} wins` : `Team ${TEAMS[r.winner]} wins (${winners.join(', ')})`);
-  const rows = [...r.seats].sort((a, b) => a.team - b.team).map((s) => el('tr', { class: s.player === start.you ? 'picked' : '' },
-    el('td', {}, `Team ${TEAMS[s.team]!}`),
-    el('td', {}, s.name + (s.bot ? ' (computer)' : '') + (s.quit ? ' (left)' : '')),
-    ...[s.captures, s.lost, s.left].map((v) => el('td', { class: 'num' }, String(v)))));
-  const grid = el('table', { class: 'grid' }, el('thead', {}, el('tr', {}, ...['Team', 'Player', 'Flags', 'Lost', 'Left'].map((h) => el('th', {}, h)))), el('tbody', {}, ...rows));
-  await dialog('Results', el('div', { class: 'stack' }, el('div', { class: 'result-title' }, title), el('span', { class: 'hint' }, `Time ${formatTime(r.ticks * TICK_MS)}`),
-    el('div', { class: 'scroll' }, grid)), [['Back to the Lobby', 'ok']]);
+  await resultsScreen(onlineView(r, start), [['Back to the Lobby', 'ok']]);
 }
 
 export function errorText(err: unknown): string {
