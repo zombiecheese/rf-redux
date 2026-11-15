@@ -23,6 +23,10 @@ Each release's section below becomes its GitHub release notes (`.github/workflow
 - The modern view's fire and smoke billow: each flame and puff plays a flipbook as it lives, from a tight knot to a torn wisp, with burning wrecks sending up thick, sooty smoke lit grey on top. Debris from a blast is glossy shards of broken plastic.
 - The modern view's floodlights are solar garden lamps on black stakes, glowing a soft cool white under their little panels, and the house porch lamps are dimmer, so a base at night reads as a back garden rather than a floodlit yard.
 
+### Fixed
+
+- The modern view no longer stutters the first time a vehicle is destroyed: the skull screen, the explosion's effects and each side's melted wrecks are made ready early in the match, one piece a frame, mostly while the bunker shows.
+
 ## [0.6.0] - 2026-11-15
 
 A friendlier game around the matches: menus dressed for the view you play in, open online lobbies strangers can join, phones that fit, an Esc pause menu, one Match Setup screen, a results screen with Rematch and the replay, a Hall of Fame for every side, and the modern view's toys in moulded plastic in a bunker dug into real earth.
