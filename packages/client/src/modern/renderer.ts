@@ -838,9 +838,7 @@ export class ModernRenderer {
     if (!kit) return null;
     const lamp = bid === BROKEN_BRIDGE ? null : lightOf(def.name, this.boxes[bid] ?? null);
     // Not every house has its lamp on: a street of them, every door lit, would be as bright as day.
-    // Nor is every run of fairy lights its own lamp: every other wall tile's stands for its neighbours too.
-    const look = lookOf(def.name);
-    const home = (look === 'house' && ((Math.imul(i, 2654435761) >>> 16) & 3) !== 0) || (look === 'wall' && ((tx + ty) & 1) !== 0);
+    const home = lookOf(def.name) === 'house' && ((Math.imul(i, 2654435761) >>> 16) & 3) !== 0;
     if (lamp && !home) lamps.push({ ...lamp, x: lamp.x + ox, y: lamp.y + oy });
     const g = kit.build(owner < 0 ? NEUTRAL : this.paints[owner] ?? NEUTRAL);
     g.translate(ox, 0, oy);

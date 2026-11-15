@@ -24,6 +24,4 @@ export const ART = {
   ao: true,
   /** Fire and smoke drawn from flipbooks of billowing puffs (fx.ts); off, as soft round spots. */
   flipbookFx: true,
-  /** Fairy lights strung along the bases' walls at night (lit through the baked lamp map). */
-  fairyLights: true,
 };
