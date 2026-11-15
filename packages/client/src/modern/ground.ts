@@ -93,7 +93,7 @@ export class Ground {
   private readonly terrain = new Uint8Array(GRID * GRID);
   private readonly noise = [noiseTile(256, 8, 7), noiseTile(256, 32, 11)];
   readonly water: THREE.ShaderMaterial;
-  /** Each point's sand, soil, lawn and paving for the photo ground (rows south to north), and its texture. */
+  /** Each point's sand, darker sand and lawn for the photo ground (rows south to north), and its texture. */
   private readonly splat = new Uint8Array(GRID * SPLAT_TEX * GRID * SPLAT_TEX * 4);
   private readonly splatTex: THREE.DataTexture;
   private readonly photo = { value: null as PhotoMaps | null };
@@ -338,7 +338,7 @@ export class Ground {
   }
 
   /**
-   * The photo ground's splat for tiles [x0, x1) x [y0, y1): each texel's share of sand, soil, lawn and paving among
+   * The photo ground's splat for tiles [x0, x1) x [y0, y1): each texel's share of sand, darker sand and lawn among
    * the art's texels it covers, softened a texel across so materials meet in a blend.
    */
   private paintSplat(x0: number, y0: number, x1: number, y1: number): void {
@@ -349,7 +349,7 @@ export class Ground {
     const ay0 = Math.max(0, y0 - 1);
     const ax1 = Math.min(GRID, x1 + 1);
     const ay1 = Math.min(GRID, y1 + 1);
-    const slot: Partial<Record<Mat, number>> = { [Mat.Sand]: 0, [Mat.Dirt]: 1, [Mat.Grass]: 2, [Mat.Road]: 3, [Mat.RoadLight]: 3 };
+    const slot: Partial<Record<Mat, number>> = { [Mat.Sand]: 0, [Mat.Dirt]: 1, [Mat.Grass]: 2 };
     for (let ty = ay0; ty < ay1; ty++) {
       for (let tx = ax0; tx < ax1; tx++) {
         const t = this.terrain[ty * GRID + tx]!;

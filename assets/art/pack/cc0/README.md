@@ -11,7 +11,6 @@ being the project's own work, and are credited here and in the game's About box.
 | `ground/soil_*.jpg` | Dirt | [dirt](https://polyhaven.com/a/dirt) | Charlotte Baglioni |
 | `ground/earth_*.jpg` | Forest Ground 05 | [forest_ground_05](https://polyhaven.com/a/forest_ground_05) | Charlotte Baglioni |
 | `ground/lawn_*.jpg` | Leafy Grass | [leafy_grass](https://polyhaven.com/a/leafy_grass) | Charlotte Baglioni |
-| `ground/paving_*.jpg` | Grey Stone Path | [grey_stone_path](https://polyhaven.com/a/grey_stone_path) | Amal Kumar |
 | `ground/gravel_*.jpg` | Clean Pebbles | [clean_pebbles](https://polyhaven.com/a/clean_pebbles) | Dario Barresi, Charlotte Baglioni |
 
 Each scan was downloaded at 2K and made smaller for the game:

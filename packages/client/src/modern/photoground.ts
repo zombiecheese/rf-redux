@@ -8,11 +8,11 @@ import * as THREE from 'three';
 import { ART } from './art.js';
 
 /** The scans, in the order of the texture arrays' layers. */
-const LAYERS = ['sand', 'wetsand', 'soil', 'earth', 'lawn', 'paving', 'gravel'] as const;
+const LAYERS = ['sand', 'wetsand', 'soil', 'earth', 'lawn', 'gravel'] as const;
 /** How far each scan reaches before it repeats, in game units (a tank is about 20 long, a tile 32). */
-const SPAN = [260, 260, 220, 300, 180, 150, 110];
+const SPAN = [260, 260, 220, 300, 180, 110];
 /** How much each scan is lifted to sit with the toys under the sun (the scans are shot in soft daylight). */
-const GAIN = [1.75, 1.45, 1.3, 1.3, 1.3, 1.3, 1.35];
+const GAIN = [1.75, 1.45, 1.3, 1.3, 1.3, 1.35];
 const DIR = '/art/pack/cc0/ground';
 
 let loading: Promise<PhotoMaps> | null = null;
@@ -64,7 +64,7 @@ export function photoMaps(): Promise<PhotoMaps> {
 
 /**
  * Teaches a ground material (a MeshStandardMaterial whose map is the painted ground) the scans. splat holds each
- * point's sand, soil, lawn and paving (r, g, b, a; the rest keeps the painted colour: pads, stripes, planks), on the
+ * point's sand, darker sand and lawn (r, g, b; the rest keeps the painted colour: roads, pads, stripes, planks), on the
  * same uv as the map. on is 0 until the scans have loaded. world is the map's size in game units.
  */
 export function photoShader(shader: THREE.WebGLProgramParametersWithUniforms, splat: THREE.Texture, maps: { value: PhotoMaps | null }, on: THREE.IUniform, world: number): void {
@@ -88,7 +88,7 @@ float photoNoise(vec2 p) {
 }
 // Each scan at its own scale, turned a little differently so their repeats never line up.
 vec3 photoUv(vec2 w, int i) {
-  float spans[7] = float[7](${spans});
+  float spans[6] = float[6](${spans});
   float a = float(i) * 1.7;
   mat2 r = mat2(cos(a), sin(a), -sin(a), cos(a));
   return vec3(r * w / spans[i] + float(i) * 0.37, float(i));
@@ -101,12 +101,12 @@ void main() {`)
   if (photoOn > 0.5) {
     vec4 sp = texture2D(photoSplat, vMapUv);
     vec2 w = vMapUv * ${world.toFixed(1)};
-    photoKeep = clamp(1.0 - (sp.r + sp.g + sp.b + sp.a), 0.0, 1.0);
+    photoKeep = clamp(1.0 - (sp.r + sp.g + sp.b), 0.0, 1.0);
     // Wet sand along the sea: where the painted ground's land fades out at its blurred mip levels.
     float land = texture2D(map, vMapUv, 4.0).a;
     float wet = 1.0 - smoothstep(0.5, 0.8, land);
     float big = photoNoise(w / 420.0) * 0.65 + photoNoise(w / 130.0) * 0.35;
-    float wts[7];
+    float wts[6];
     // The art's sand and its darker sand are both sand, with beds of garden soil (and darker forest earth in them)
     // where the darker sand lies in patches.
     float bed = sp.g * smoothstep(0.5, 0.72, big);
@@ -117,19 +117,16 @@ void main() {`)
     wts[2] = bed * (1.0 - earth);
     wts[3] = bed * earth;
     wts[4] = sp.b;
-    // Paths: stone paving, with gravel along their edges where the path gives way to the ground beside it.
-    float edge = sp.a * (1.0 - smoothstep(0.5, 0.9, sp.a));
-    wts[5] = sp.a - edge;
     // And a scatter of gravel in the sand here and there.
     float grit = sand * smoothstep(0.72, 0.86, photoNoise(w / 90.0 + 13.0)) * 0.9;
     wts[0] -= grit * (1.0 - wet);
-    wts[6] = edge + grit;
+    wts[5] = grit;
     // Each scan's light parts stand up through the next: blend by weight plus height (its brightness).
-    float gains[7] = float[7](${gains});
-    vec4 cols[7];
+    float gains[6] = float[6](${gains});
+    vec4 cols[6];
     float best = 0.0;
-    float hs[7];
-    for (int i = 0; i < 7; i++) {
+    float hs[6];
+    for (int i = 0; i < 6; i++) {
       hs[i] = -1.0;
       if (wts[i] > 0.02) {
         cols[i] = texture(photoColour, photoUv(w, i));
@@ -142,7 +139,7 @@ void main() {`)
     vec3 nrm = vec3(0.0);
     float rough = 0.0;
     float sum = 0.0;
-    for (int i = 0; i < 7; i++) {
+    for (int i = 0; i < 6; i++) {
       float f = max(hs[i] - best + 0.18, 0.0);
       if (f > 0.0) {
         vec4 s = texture(photoSurface, photoUv(w, i));
