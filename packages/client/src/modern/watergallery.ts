@@ -3,6 +3,7 @@
 // the build.
 
 import { DEEP, GRID, LAND, SHALLOW, groundAt, makeVehicle, type Vehicle, type VehicleKind } from '@rfw/sim';
+import * as THREE from 'three';
 import { Camera, layout } from '../camera.js';
 import type { Wreck } from '../effects.js';
 import { lightOf, lookOf } from './buildings.js';
@@ -29,6 +30,8 @@ export async function waterScene(q: URLSearchParams): Promise<never> {
   if (q.get('scatter') === '0') (await import('./art.js')).ART.scatter = false;
   // &ao=0 leaves out the ambient occlusion round buildings' feet and at every model's foot.
   if (q.get('ao') === '0') (await import('./art.js')).ART.ao = false;
+  // &flip=0 draws fire and smoke as soft round spots instead of the flipbooks.
+  if (q.get('flip') === '0') (await import('./art.js')).ART.flipbookFx = false;
   const modern = new ModernRenderer(assets);
   const night = q.get('night') === '1';
   modern.setNight(night);
@@ -184,6 +187,13 @@ export async function waterScene(q: URLSearchParams): Promise<never> {
     if (q.get('follow') === 'none') cams[0]!.update(null, best.x + Number(q.get('dx') ?? 0), best.y + Number(q.get('dy') ?? 0));
     else cams[0]!.update(follow, 0, 0);
     if (cams[1]) cams[1].update(named[q.get('follow2') ?? 'heli']!, 0, 0);
+    // &boom=1 sets off blasts round the spot looked at, now and then, to see the fire, smoke and plastic shards.
+    if (q.get('boom') === '1' && match.tick % 24 === 0) {
+      const k = (match.tick / 24) % 5;
+      const at = [[-60, -30], [50, 20], [-10, 50], [80, -50], [-90, 40]][k]!;
+      const shards = [new THREE.Color(0x6b8f3a), new THREE.Color(0x4f6b2a), new THREE.Color(0xc8b07a)];
+      modern.fx.explosion(best.x + at[0]!, best.y + at[1]!, 2, k === 0 ? 2 : 1.2, { scorch: true, chunks: shards, smokeFor: 3 });
+    }
   };
   // &fixed=1 runs at a steady 60 frames a second of make-believe time, however slowly the browser draws (for
   // screenshots from a software renderer): the clock the renderer reads moves on a frame each frame.

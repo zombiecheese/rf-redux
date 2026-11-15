@@ -219,7 +219,7 @@ export class ModernRenderer {
 
     this.scene.background = new THREE.Color(0x0c2a40);
     this.scene.add(this.sky);
-    this.hot.envMap = this.playset.envMap = this.charred.envMap = gardenSky(this.gl, SUN);
+    this.hot.envMap = this.playset.envMap = this.charred.envMap = this.fx.shardMaterial.envMap = gardenSky(this.gl, SUN);
     this.teach(this.material, 0);
     this.teach(this.playset, 0);
     this.teach(this.hot, 1);
@@ -230,7 +230,7 @@ export class ModernRenderer {
     if (ART.photoSky) {
       void photoSky(this.gl).then((skies) => {
         this.skies = skies;
-        for (const m of [this.hot, this.playset, this.charred]) m.envMapRotation.y = PHOTO_SKY_TURN;
+        for (const m of [this.hot, this.playset, this.charred, this.fx.shardMaterial]) m.envMapRotation.y = PHOTO_SKY_TURN;
         this.moonlit();
       });
     }
@@ -620,6 +620,9 @@ export class ModernRenderer {
       this.hot.envMap = this.playset.envMap = this.charred.envMap = this.night ? this.skies.night : this.skies.day;
       if (this.night) this.hot.envMapIntensity = this.playset.envMapIntensity = this.charred.envMapIntensity = 0.12 + 0.3 * this.moon;
     }
+    // The plastic shards of debris reflect as the toys do.
+    this.fx.shardMaterial.envMap = this.hot.envMap;
+    this.fx.shardMaterial.envMapIntensity = this.hot.envMapIntensity;
   }
 
   private waterLight(u: Record<string, THREE.IUniform>): void {

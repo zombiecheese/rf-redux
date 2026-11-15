@@ -22,4 +22,6 @@ export const ART = {
    * ground's needs ART.photoGround.
    */
   ao: true,
+  /** Fire and smoke drawn from flipbooks of billowing puffs (fx.ts); off, as soft round spots. */
+  flipbookFx: true,
 };

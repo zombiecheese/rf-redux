@@ -12,6 +12,7 @@ Each release's section below becomes its GitHub release notes (`.github/workflow
 - The modern view's trees, palms, bushes and cacti are moulded plastic playset plants, like the toys. Rocks are real stone, lumpy and photo-scanned, with grit scattered around them. The toys' plastic reflects a photographed garden by day and a lamplit park at night. The photos are CC0 from Poly Haven and credited in About.
 - The modern view's garden has small things scattered on the ground, at the toys' scale: sun-bleached pebbles, tufts of grass, dry leaves and twigs, lying in drifts where the ground suits them and never on roads, in water or under buildings.
 - The modern view's things sit on the ground: the ground darkens close round each building's foot, by how tall it stands, and every model darkens toward its base (ambient occlusion, worked out ahead so it costs nothing a frame).
+- The modern view's fire and smoke billow: each flame and puff plays a flipbook as it lives, from a tight knot to a torn wisp, with burning wrecks sending up thick, sooty smoke lit grey on top. Debris from a blast is glossy shards of broken plastic.
 
 ## [0.6.0] - 2026-11-15
 
