@@ -29,7 +29,7 @@ docker compose up -d --no-build
 
 **The game stays in the classic view.** The modern view needs WebGL. Turn on hardware acceleration in the browser's settings. Online, the host picks the view for everyone.
 
-**There is no THERMAL button.** The thermal camera is only there in the modern view during a night match. Pick Night on the Player Selector, or ask the host to.
+**There is no THERMAL button.** The thermal camera is only there in the modern view during a night match. Pick Night on Match Setup, or ask the host to.
 
 **The editor's Modern and Night previews are greyed out.** They need WebGL. Turn on hardware acceleration in the browser's settings, or use Classic.
 

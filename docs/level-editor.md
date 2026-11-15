@@ -116,7 +116,7 @@ When the editor is served by the game server and you are signed in, maps can als
 
 ### Map previews
 
-Every screen that picks a map shows the picked one: the game's Level Selector (all levels, 3 & 4 Players and
+Every screen that picks a map shows the picked one: the game's Match Setup (all levels, 3 & 4 Players and
 Add-Ons), Host a Game and the lobby's Change Map, the lobby itself, and Shared Maps here. `packages/client/src/mappreview.ts`
 draws the map with the game's own renderer looking straight down, as this editor's top view does, cropped to the
 land with a little sea around it (most original maps are islands in a 128 × 128 sea), and marks each base's start
@@ -157,5 +157,5 @@ refused in shared maps' names and descriptions (on top of the chat filter). Ever
 | `packages/client/src/editor/guide.ts` | The key list and the hold-K cheat sheet, the getting-started checklist, and the Problems tab's fixes. |
 | `packages/client/src/editor/main.ts` | The page: menus, tools, panels, keys, files, drafts and test play. |
 | `packages/client/src/editor/library.ts` | Save to Library and the Shared Maps browser. |
-| `packages/client/src/mappreview.ts` | Map previews for the Level Selector, the lobby's map picker, the lobby and Shared Maps. |
+| `packages/client/src/mappreview.ts` | Map previews for Match Setup, the lobby's map picker, the lobby and Shared Maps. |
 | `packages/server/src/library.ts` | The map library: tables, revisions, pictures, likes, reports, moderation, and the lobbies' map source. |

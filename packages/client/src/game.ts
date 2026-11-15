@@ -15,7 +15,7 @@
 import {
   HASH_EVERY, ONE, TICK_MS, botThink, buildWorld, createBot, createMatch, dock, hashMatch, launch, liftOf, restoreMatch, rivalOf, skullLook, startingLives,
   snapshotMatch, stepMatch,
-  type Match, type MatchEvent, type Snapshot, type VehicleInput, type VehicleKind,
+  VEHICLE_KINDS, type Match, type MatchEvent, type Snapshot, type VehicleInput, type VehicleKind,
 } from '@rfw/sim';
 import {
   DOCK, ReplayPlayer, ReplayRecorder, SoloRecorder, applyFrame, commandCode, lobbyLighting, lobbyVisuals, packInput,
@@ -128,6 +128,21 @@ export interface Outcome {
   /** Online: the winning team (any of 0-3), and the server's result. */
   team?: number | null;
   result?: MatchResult;
+  /** Each player's part in it, for the results screen. */
+  board?: ResultRow[];
+}
+
+/** One player's line on the results screen. */
+export interface ResultRow {
+  name: string;
+  team: number;
+  /** Vehicles lost, enemy flags brought home, and vehicles still in the bunker. */
+  lost: number;
+  captures: number;
+  left: number;
+  you: boolean;
+  bot: boolean;
+  quit?: boolean;
 }
 
 export class Game {
@@ -175,7 +190,7 @@ export class Game {
   /** Set while a replay plays: its position and speed, for the replay bar. */
   replayControl: ReplayControl | null = null;
 
-  /** Pause/Resume (P): the match and its sounds wait, and the loop stops drawing so the pause screen can show. */
+  /** Pause/Resume (P): the match and its sounds wait, and the loop stops drawing so the pause card can show. */
   pause(on: boolean): void {
     if (this.held === on || this.abort.signal.aborted) return;
     // An online match cannot wait for one player; the menus open over it while it plays on.
@@ -448,6 +463,8 @@ export class Game {
     const say = (text: string) => log.push({ text, until: performance.now() + 4000 });
     /** Online: enemy flags each player has brought home, for the scoreboard. */
     const captures: number[] = [];
+    /** Vehicles each player has lost, for the results. */
+    const lost: number[] = [];
     const describe = (e: MatchEvent): string | null => {
       switch (e.type) {
         case 'destroyed': return `${playerName(e.player)} lost a ${LABEL[e.kind].toLowerCase()}`;
@@ -492,6 +509,7 @@ export class Game {
         if (text) say(text);
         if (e.type === 'eliminated') outHint(e.base);
         if (e.type === 'captured') captures[e.player] = (captures[e.player] ?? 0) + 1;
+        if (e.type === 'destroyed') lost[e.player] = (lost[e.player] ?? 0) + 1;
       }
       const v = viewers();
       cameras.forEach((cam, i) => {
@@ -701,6 +719,11 @@ export class Game {
       afterTick();
     };
 
+    /** Each player's flags, losses and vehicles left, for an offline match's results. */
+    const board = (): ResultRow[] => match.players.map((p) => ({
+      name: playerName(p.id), team: p.team, lost: lost[p.id] ?? 0, captures: captures[p.id] ?? 0,
+      left: VEHICLE_KINDS.reduce((n, k) => n + Math.min(99, p.lives[k]), 0), you: p.id < players, bot: p.id >= players,
+    }));
     // The match is over when a side has won, or drawn (every base out at once).
     const ended = (): Outcome | null => {
       const ms = match.tick * TICK_MS;
@@ -723,9 +746,9 @@ export class Game {
         const side = match.players.filter((p) => p.team === team);
         const base = (side.find((p) => p.id === 0) ?? side[0])?.base ?? team;
         const won = base === 0 ? 0 : 1;
-        return { winner: won, winnerBase: base, ms, team, solo: won === 0 ? recorder?.log() : undefined };
+        return { winner: won, winnerBase: base, ms, team, solo: won === 0 ? recorder?.log() : undefined, board: board() };
       }
-      if (match.draw) return { winner: null, winnerBase: null, ms };
+      if (match.draw) return { winner: null, winnerBase: null, ms, board: board() };
       return null;
     };
     let endedAt: number | null = null;

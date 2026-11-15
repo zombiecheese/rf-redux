@@ -6,7 +6,7 @@ import { DIFFICULTY, clampDifficulty } from '@rfw/sim';
 import type { Bindings, Half } from './keys.js';
 
 export interface Settings {
-  /** Player names for the Brown (base 1) and Green (base 2) sides, as on the Player Selector. */
+  /** Player names for the Brown (base 1) and Green (base 2) sides, as on Match Setup. */
   names: [string, string];
   /** The computer's skill in a training game, 1-9. */
   difficulty: number;
@@ -15,7 +15,7 @@ export interface Settings {
    * Never carried over from a visit or another browser: every match is one player unless two are picked for it.
    */
   players: 1 | 2;
-  /** The last level and map picked on the Level Selector. */
+  /** The last level and map picked on Match Setup. */
   level: number;
   mapId: string;
   /** Swap Sides (Alt+3): which half of the keyboard plays Brown in a two-player game. */
@@ -30,11 +30,11 @@ export interface Settings {
   keys: Partial<Record<Half, Partial<Bindings>>>;
   /** Options > View > Visuals (online, the host picks): the retro 320 x 240 picture, or the modern 3D view at 1280 x 720. */
   visuals: 'retro' | 'modern';
-  /** Time of day on the Player Selector (online, the host picks): the modern view by day, or at night with headlights and glowing fire. */
+  /** Time of day on Match Setup (online, the host picks): the modern view by day, or at night with headlights and glowing fire. */
   lighting: 'day' | 'night';
   /** Options > Sound and Music > Instruments: the band on the built-in synthesiser, or sampled from the site's SoundFont. */
   instruments: 'builtin' | 'sampled';
-  /** The last choices on the Teams dialog, for offline games on maps with three or four bases. */
+  /** The last choices on Match Setup, for offline games on maps with three or four bases. */
   teams: TeamChoice;
 }
 

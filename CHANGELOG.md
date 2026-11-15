@@ -12,6 +12,10 @@ Each release's section below becomes its GitHub release notes (`.github/workflow
 - Find a Game says how many open seats a lobby has, and the host's footer says when the computer will play open seats instead of "Everyone is ready" with nobody else there.
 - Phones held sideways: the title menu fits with nothing overlapping (the logo shrinks, the hints give way), and a dialog's buttons (Create Lobby, OK, Cancel...) sit in a bar that stays in view while the rest scrolls, on every screen size.
 - On a phone or tablet the modern view's HUD text is drawn larger so it can be read, the tactical plot moves to the top right clear of the turret and weapon buttons, messages, notes and chat start below the buttons along the top, and in the bunker the link read-out moves left, clear of Launch.
+- Esc in a match opens the pause menu (Resume, Restart, New Game, Options, Hall of Fame, Help, Leave Match) instead of asking whether to quit. Offline the match pauses behind it; online it keeps running, and Leave Match hands your seat to the computer.
+- Pausing holds the match's last frame under a pause card instead of a blank screen: FEED PAUSED over the frozen drone feed in the modern view, a pixel PAUSED panel in the classic one, with the keys to resume or open the menu.
+- Local matches are set up on one screen, Match Setup, laid out like an online lobby: the map by level with its preview on the left, and the names, difficulty, time of day, teams (on a map with three or four bases) and view on the right. It replaces the Player Selector, the Level Selector and the separate Teams dialog.
+- Every match ends on a results screen after the win scene: who won, the time, and each player's flags brought home, vehicles lost and vehicles left. Offline it offers Rematch (same map and settings), Watch Replay and Title Screen; online it goes back to the lobby.
 
 ## [0.5.3] - 2026-11-15
 
