@@ -18,6 +18,8 @@ export async function waterScene(q: URLSearchParams): Promise<never> {
   const world = buildWorld(assets.map, assets.defs, assets.shore);
   const match = createMatch(world, assets.map, world.bases.map((b) => ({ base: b.id, team: b.id })), 1, { difficulty: 5 });
   const modern = new ModernRenderer(assets);
+  // &tilt=0 turns the feed's tilt-shift focus off, to compare.
+  if (q.get('tilt') === '0') (await import('./art.js')).ART.tiltShift = false;
   const night = q.get('night') === '1';
   modern.setNight(night);
   modern.setLook(true, q.get('thermal') === '1');
