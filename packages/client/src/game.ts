@@ -41,6 +41,7 @@ import { MODERN_H, MODERN_W, modernAvailable, modernLayout, type ModernRect } fr
 import type { ModernRenderer, ModernScreen } from './modern/renderer.js';
 import type { ModernFinale } from './modern/finale.js';
 import { giveUpModern, loadModern, modernFailed, modernLoaded } from './modern/load.js';
+import { stats } from './modern/stats.js';
 import { bunkerBayAt, dimView, drawBanner, drawLinkUp, drawBunkerPanel, drawChatLines, drawLog, drawFeed, drawModernHud, drawName, drawNote, drawScoreTable, setTouchHud } from './modern/hud.js';
 import { TEAMS } from './paint.js';
 
@@ -757,6 +758,7 @@ export class Game {
     let last = performance.now();
     let acc = 0;
     const loop = (now: number) => {
+      stats?.frame(now);
       // Keys changed from the menu (Options > Controls) take effect at once.
       if (keysVersion !== bindingsVersion()) {
         keysVersion = bindingsVersion();
@@ -785,6 +787,7 @@ export class Game {
       const rate = replayer ? speed : 1;
       acc = (upright || linking) && !online ? 0 : Math.min(acc + (now - last) * rate, 250 * rate);
       last = now;
+      const simFrom = performance.now();
       if (replayer) {
         replayKeys();
         if (seekTo !== null) {
@@ -820,6 +823,7 @@ export class Game {
           acc -= TICK_MS;
         }
       }
+      stats?.add('sim', performance.now() - simFrom);
       if (linking) {
         linkUp ??= new OffscreenCanvas(MODERN_W, MODERN_H);
         drawLinkUp(linkUp.getContext('2d')! as unknown as CanvasRenderingContext2D, MODERN_W, MODERN_H, now);
@@ -895,6 +899,7 @@ export class Game {
         modern.setLook(look.drone, look.thermal);
         modern.draw(match, cameras.map((cam, i) => ({ cam, rect: rects[i]!, viewer: v[i]!, skip: !field[i], screen: screens[i] })), extras);
         modernRects = rects;
+        const hudFrom = performance.now();
         const g = modern.canvas.getContext('2d')!;
         g.imageSmoothingEnabled = false;
         if (cameras.length > 1) {
@@ -948,7 +953,10 @@ export class Game {
           }
         }
         if (result) drawBanner(g, result, MODERN_W, online ? 60 : 200);
+        stats?.add('hud', performance.now() - hudFrom);
+        const presentFrom = performance.now();
         display.present(modern.canvas, 1, true);
+        stats?.add('present', performance.now() - presentFrom);
         if (outcome) {
           // The win sequence fades out from this picture.
           const pc = this.picture.getContext('2d')!;

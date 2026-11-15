@@ -28,6 +28,7 @@ import { PHOTO_SKY_TURN, PLASTIC_SKY, charredPlastic, gardenSky, melted, photoSk
 import { rockMaterial } from './photorock.js';
 import { scatterPatch } from './scatter.js';
 import { ART } from './art.js';
+import { stats } from './stats.js';
 import { MODERN_H, MODERN_W, modernLayout, type ModernRect } from './layout.js';
 
 export { MODERN_H, MODERN_W, modernLayout, type ModernRect };
@@ -445,6 +446,10 @@ export class ModernRenderer {
    */
   draw(m: Match, views: readonly ModernView[], extras: { wrecks: readonly MarkWreck[]; splats: readonly Splat[] }): void {
     const now = performance.now();
+    if (stats) {
+      stats.attach(this.gl);
+      stats.describe(`3D ${MODERN_W}x${MODERN_H}${this.night ? ' night' : ' day'}${views.length > 1 ? ` ${views.length} views` : ''}`);
+    }
     LIGHT_TIME.value = (now / 1000) % 1000;
     const dt = Math.min(0.1, (now - this.lastTime) / 1000);
     this.lastTime = now;
@@ -459,6 +464,7 @@ export class ModernRenderer {
     this.waterFx(m, dt);
     this.fx.step(dt);
     this.fx.flashes(this.sea.flashes.pos, this.sea.flashes.power);
+    stats?.begin('scene');
     this.marks.render(this.gl, dt);
 
     const ctx = this.canvas.getContext('2d')!;
@@ -476,7 +482,9 @@ export class ModernRenderer {
       this.place(v.cam, v.rect);
       this.gl.render(this.scene, this.camera);
     }
+    stats?.begin('feed');
     if (field.length && (this.feed || this.thermal)) (this.pass ??= new LookPass(MODERN_W, MODERN_H)).apply(this.gl, field.map((v) => v.rect), field.map((v) => this.glitchFor(v)), this.feed, this.thermal, now / 1000, this.feed && !this.thermal);
+    stats?.begin('screens');
     for (const v of views) {
       const r = v.rect;
       at(r);
@@ -505,7 +513,11 @@ export class ModernRenderer {
     // The bunker is watched by a security camera: the same lens, grain and grade as the drone's, never thermal.
     const cams = views.filter((v) => v.screen?.kind === 'bunker').map((v) => v.rect);
     if (cams.length) (this.pass ??= new LookPass(MODERN_W, MODERN_H)).apply(this.gl, cams, cams.map(() => 0), true, false, now / 1000);
+    stats?.end();
+    stats?.add('draw', performance.now() - now);
+    const copyFrom = performance.now();
     ctx.drawImage(this.gl.domElement, 0, 0);
+    stats?.add('present', performance.now() - copyFrom);
   }
 
   /** How hard the drone's stream breaks up over a view now: blasts near what it watches, and hits on its player. */
