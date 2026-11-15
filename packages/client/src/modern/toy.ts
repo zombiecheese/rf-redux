@@ -1,9 +1,10 @@
 // The toys' moulded plastic and the garden sky it reflects. The modern view's vehicles, soldiers and drones are
 // army-men style toys: glossy plastic with a light clear coat, catching the sky and the sun on their rounded edges.
-// The sky is a garden around a lawn (blue above, a hedge and fence line on the horizon, grass below), drawn here in
-// code and prefiltered once into an environment map for the plastic's reflections.
+// The sky is a photographed garden (photoSky); until it has loaded, or with ART.photoSky off, a garden around a lawn
+// (blue above, a hedge and fence line on the horizon, grass below) drawn here in code stands in for it.
 
 import * as THREE from 'three';
+import { HDRLoader } from 'three/examples/jsm/loaders/HDRLoader.js';
 
 /** How strongly the plastic reflects the garden sky by day. */
 export const PLASTIC_SKY = 0.22;
@@ -133,6 +134,42 @@ export function gardenSky(gl: THREE.WebGLRenderer, sun: THREE.Vector3): THREE.Te
   material.dispose();
   skies.set(gl, target.texture);
   return target.texture;
+}
+
+/** The photographed skies, prefiltered for the plastic: a sunny garden by day, a lamplit park by night. */
+export interface PhotoSkies {
+  day: THREE.Texture;
+  night: THREE.Texture;
+}
+
+/**
+ * How far the photographed skies are turned about the up axis (envMapRotation's y), so the garden photo's sun stands
+ * where the scene's sun is.
+ */
+export const PHOTO_SKY_TURN = -1.6;
+
+const photoSkies = new WeakMap<THREE.WebGLRenderer, Promise<PhotoSkies>>();
+
+/**
+ * The CC0 sky photos (Poly Haven's Garden Nook and Blaubeuren Night, credited in assets/art/pack/cc0/README.md),
+ * loaded and prefiltered once per renderer. They replace the code-drawn sky once they have come.
+ */
+export function photoSky(gl: THREE.WebGLRenderer): Promise<PhotoSkies> {
+  const had = photoSkies.get(gl);
+  if (had) return had;
+  const loader = new HDRLoader();
+  const one = async (file: string) => {
+    const t = await loader.loadAsync(`/art/pack/cc0/sky/${file}`);
+    t.mapping = THREE.EquirectangularReflectionMapping;
+    const pmrem = new THREE.PMREMGenerator(gl);
+    const target = pmrem.fromEquirectangular(t);
+    pmrem.dispose();
+    t.dispose();
+    return target.texture;
+  };
+  const p = Promise.all([one('garden.hdr'), one('night.hdr')]).then(([day, night]) => ({ day, night }));
+  photoSkies.set(gl, p);
+  return p;
 }
 
 /**

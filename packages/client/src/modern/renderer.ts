@@ -24,7 +24,9 @@ import { Ground, TILE, type SeaInputs } from './ground.js';
 import { WaterMarks } from './water.js';
 import { Kit, NEUTRAL, teamPaint, type TeamPaint } from './kit.js';
 import * as V from './vehicles.js';
-import { PLASTIC_SKY, charredPlastic, gardenSky, melted, toyPlastic } from './toy.js';
+import { PHOTO_SKY_TURN, PLASTIC_SKY, charredPlastic, gardenSky, melted, photoSky, toyPlastic, type PhotoSkies } from './toy.js';
+import { rockMaterial } from './photorock.js';
+import { ART } from './art.js';
 import { MODERN_H, MODERN_W, modernLayout, type ModernRect } from './layout.js';
 
 export { MODERN_H, MODERN_W, modernLayout, type ModernRect };
@@ -152,10 +154,14 @@ export class ModernRenderer {
   private readonly playset = playsetPlastic();
   /** Burnt-out wrecks: the toy melted and scorched. */
   private readonly charred = charredPlastic();
+  /** The garden's rocks, in photo-scanned stone. */
+  private readonly stone = rockMaterial();
+  /** The photographed skies the plastic reflects, once they have loaded (ART.photoSky). */
+  private skies: PhotoSkies | null = null;
   private readonly glowMaterial = new THREE.MeshBasicMaterial({ color: 0xffe08a });
   private world: World | null = null;
   private ground: Ground | null = null;
-  /** Each chunk's buildings: the playset pieces', the plants' and rocks', and the burnt-out wrecks' meshes, in a group. */
+  /** Each chunk's buildings: the playset pieces' (and plants'), the rocks', the rest's and the burnt-out wrecks' meshes, in a group. */
   private readonly chunks: (THREE.Group | null)[] = new Array(CHUNKS * CHUNKS).fill(null);
   private readonly chunkKeys: string[] = new Array(CHUNKS * CHUNKS).fill('');
   private readonly statics = new THREE.Group();
@@ -217,6 +223,16 @@ export class ModernRenderer {
     this.teach(this.playset, 0);
     this.teach(this.hot, 1);
     this.teach(this.charred, 0.55);
+    this.teach(this.stone, 0);
+    // Its own program: the plain material's closures read the same.
+    this.stone.customProgramCacheKey = () => 'heat:0:rock';
+    if (ART.photoSky) {
+      void photoSky(this.gl).then((skies) => {
+        this.skies = skies;
+        for (const m of [this.hot, this.playset, this.charred]) m.envMapRotation.y = PHOTO_SKY_TURN;
+        this.moonlit();
+      });
+    }
     for (let i = 0; i < HEADLIGHTS; i++) {
       const l = new THREE.SpotLight(0xfff0c8, 0, 260, 0.5, 0.65, 1.2);
       // Headlights throw shadows too, drawn once a frame while they are on (not again for a second split-screen view).
@@ -598,6 +614,11 @@ export class ModernRenderer {
     this.sun.intensity = this.night ? 0.28 + 0.9 * this.moon : 2.7;
     // The plastic reflects the garden by day; at night only a trace of it, as moonlight.
     this.hot.envMapIntensity = this.playset.envMapIntensity = this.charred.envMapIntensity = this.night ? 0.03 + 0.2 * this.moon : PLASTIC_SKY;
+    if (this.skies) {
+      // The photographed park at night is lit by its own lamps and moon: it needs none of the day's dimming.
+      this.hot.envMap = this.playset.envMap = this.charred.envMap = this.night ? this.skies.night : this.skies.day;
+      if (this.night) this.hot.envMapIntensity = this.playset.envMapIntensity = this.charred.envMapIntensity = 0.12 + 0.3 * this.moon;
+    }
   }
 
   private waterLight(u: Record<string, THREE.IUniform>): void {
@@ -737,16 +758,17 @@ export class ModernRenderer {
         const toys: THREE.BufferGeometry[] = [];
         const plants: THREE.BufferGeometry[] = [];
         const burnt: THREE.BufferGeometry[] = [];
+        const rocks: THREE.BufferGeometry[] = [];
         const lamps: Lamp[] = (this.chunkLamps[c] = []);
         for (let y = cy * CHUNK; y < cy * CHUNK + CHUNK; y++) {
           for (let x = cx * CHUNK; x < cx * CHUNK + CHUNK; x++) {
             const t = this.tileGeometry(world, y * GRID + x, lamps);
-            if (t) (t.burnt ? burnt : t.toy ? toys : plants).push(t.g);
+            if (t) (t.burnt ? burnt : t.stone ? rocks : t.toy ? toys : plants).push(t.g);
           }
         }
         this.staleLamps(cx * CHUNK * TILE, cy * CHUNK * TILE, (cx + 1) * CHUNK * TILE, (cy + 1) * CHUNK * TILE);
         const group = new THREE.Group();
-        for (const [geos, material] of [[toys, this.playset], [plants, this.material], [burnt, this.charred]] as const) {
+        for (const [geos, material] of [[toys, this.playset], [plants, this.material], [burnt, this.charred], [rocks, this.stone]] as const) {
           if (!geos.length) continue;
           const merged = mergeGeometries(geos, false);
           for (const g of geos) g.dispose();
@@ -763,7 +785,7 @@ export class ModernRenderer {
     }
   }
 
-  private tileGeometry(world: World, i: number, lamps: Lamp[]): { g: THREE.BufferGeometry; toy: boolean; burnt: boolean } | null {
+  private tileGeometry(world: World, i: number, lamps: Lamp[]): { g: THREE.BufferGeometry; toy: boolean; burnt: boolean; stone: boolean } | null {
     const bid = world.building[i]!;
     if (!bid) return null;
     const def = world.defs[bid];
@@ -788,7 +810,7 @@ export class ModernRenderer {
     if (lamp && !home) lamps.push({ ...lamp, x: lamp.x + ox, y: lamp.y + oy });
     const g = kit.build(owner < 0 ? NEUTRAL : this.paints[owner] ?? NEUTRAL);
     g.translate(ox, 0, oy);
-    return { g, toy: kit.toy, burnt: kit.burnt };
+    return { g, toy: kit.toy, burnt: kit.burnt, stone: kit.stone };
   }
 
   // ---- Things that move ---------------------------------------------------------------------------------------

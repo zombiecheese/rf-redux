@@ -22,6 +22,9 @@ export async function waterScene(q: URLSearchParams): Promise<never> {
   // &photo=0 paints the ground in flat colours instead of the photo scans, and &detail=512 loads the smaller scans.
   if (q.get('photo') === '0') (await import('./art.js')).ART.photoGround = false;
   if (q.get('detail') === '512') (await import('./art.js')).ART.groundDetail = 512;
+  // &rocks=0 draws the rocks in flat grey, and &sky=0 has the toys reflect the sky drawn in code, to compare.
+  if (q.get('rocks') === '0') (await import('./art.js')).ART.photoRocks = false;
+  if (q.get('sky') === '0') (await import('./art.js')).ART.photoSky = false;
   const modern = new ModernRenderer(assets);
   const night = q.get('night') === '1';
   modern.setNight(night);
@@ -59,6 +62,26 @@ export async function waterScene(q: URLSearchParams): Promise<never> {
   // &base=N looks at that base's start instead (with &follow=none), for its buildings; &burn=1 burns some of them
   // down and leaves a few burnt-out toys about, to see the wrecks in place.
   const wrecks: Wreck[] = [];
+  // &garden=1 looks at the spot with the most rocks and plants instead (with &follow=none).
+  if (q.get('garden') === '1') {
+    let most = -1;
+    for (let ty = 5; ty < GRID - 5; ty++) {
+      for (let tx = 7; tx < GRID - 7; tx++) {
+        let n = 0;
+        for (let j = -3; j <= 3; j++) {
+          for (let i = -5; i <= 5; i++) {
+            const def = world.defs[world.building[(ty + j) * GRID + tx + i]!];
+            const look = def ? lookOf(def.name) : 'none';
+            n += look === 'rock' ? 3 : look === 'tree' || look === 'bush' || look === 'palm' || look === 'cactus' ? 1 : 0;
+          }
+        }
+        if (n > most) {
+          most = n;
+          best = { score: 0, x: tx * TILE + 16, y: ty * TILE + 16, lamps: 0 };
+        }
+      }
+    }
+  }
   if (q.get('base') !== null) {
     const start = (world.bases[Number(q.get('base'))] ?? world.bases[0]!).start;
     best = { score: 0, x: start.tx * TILE + 16, y: start.ty * TILE + 16, lamps: 0 };

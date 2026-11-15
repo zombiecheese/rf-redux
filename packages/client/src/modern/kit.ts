@@ -53,6 +53,8 @@ export class Kit {
   private molten = false;
   /** Burnt: drawn in the scorched plastic, not the clean (the renderer's choice of material). */
   burnt = false;
+  /** Stone: a rock, drawn in the photo-scanned stone (the renderer's choice of material). */
+  stone = false;
 
   /**
    * While set, kits are made finely cut (boxes and cylinders in many small faces) so that they can be melted
