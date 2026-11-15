@@ -96,10 +96,10 @@ const labels: { text: string; x: number; y: number }[] = [];
 
 const plastic = toyPlastic();
 plastic.envMap = gardenSky(renderer, new THREE.Vector3(-0.55, 0.85, 0.7));
-const put = (kit: Kit | null, x: number, y: number, team = NEUTRAL, label = '') => {
+const put = (kit: Kit | null, x: number, y: number, team = NEUTRAL, label = '', lift = 0) => {
   if (kit) {
     const mesh = new THREE.Mesh(kit.build(team), kit.toy ? plastic : material);
-    mesh.position.set(x, 0, y);
+    mesh.position.set(x, lift, y);
     mesh.castShadow = mesh.receiveShadow = true;
     scene.add(mesh);
   }
@@ -118,8 +118,19 @@ if (part === 'vehicles') {
       if (k.turret) all.merge(k.turret);
       if (k.barrel) all.merge(k.barrel, 0, k.pivot![0], k.pivot![1]);
       if (k.rotor) all.merge(k.rotor, ...k.rotorAt!);
-      for (const at of k.wheelAt ?? []) all.merge(k.wheels!, ...at);
-      put(all, t * 70, i * 80, p, t === 0 ? ['tank', 'jeep', 'asv', 'heli', 'drone'][i] : '');
+      // &tyres=1 shows the jeep on its blown-up tyres, scaled and raised as the renderer does when they inflate.
+      const blown = make === V.jeep && new URLSearchParams(location.search).get('tyres') === '1';
+      if (!blown) for (const at of k.wheelAt ?? []) all.merge(k.wheels!, ...at);
+      put(all, t * 70, i * 80, p, t === 0 ? ['tank', 'jeep', 'asv', 'heli', 'drone'][i] : '', blown ? 2.2 : 0);
+      if (blown) {
+        for (const [wx, wy, wz] of k.wheelAt!) {
+          const w = new THREE.Mesh(k.wheels!.build(p), plastic);
+          w.scale.set(1.5, 1.75, 1.75);
+          w.position.set(t * 70 + wx, wz + 2.2, i * 80 + wy);
+          w.castShadow = w.receiveShadow = true;
+          scene.add(w);
+        }
+      }
     });
   });
   put(V.submarine(), 340, 120, NEUTRAL, 'sub');
