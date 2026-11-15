@@ -29,6 +29,7 @@ import { rockMaterial } from './photorock.js';
 import { scatterPatch } from './scatter.js';
 import { ART } from './art.js';
 import { stats } from './stats.js';
+import type { PresetSpec } from '../quality.js';
 import { MODERN_H, MODERN_W, modernLayout, type ModernRect } from './layout.js';
 
 export { MODERN_H, MODERN_W, modernLayout, type ModernRect };
@@ -454,7 +455,8 @@ export class ModernRenderer {
     const now = performance.now();
     if (stats) {
       stats.attach(this.gl);
-      stats.describe(`3D ${MODERN_W}x${MODERN_H}${this.night ? ' night' : ' day'}${views.length > 1 ? ` ${views.length} views` : ''}`);
+      const c = this.gl.domElement;
+      stats.describe(`3D ${c.width}x${c.height}${this.qualityName ? ` ${this.qualityName}` : ''}${this.night ? ' night' : ' day'}${views.length > 1 ? ` ${views.length} views` : ''}`);
     }
     LIGHT_TIME.value = (now / 1000) % 1000;
     const dt = Math.min(0.1, (now - this.lastTime) / 1000);
@@ -465,7 +467,7 @@ export class ModernRenderer {
     ground.tick(now / 1000);
     this.syncChunks(m.world);
     this.syncDynamic(m, extras, views.filter((v) => !v.skip).map((v) => v.cam), dt);
-    this.aimHeadlights(m);
+    this.aimHeadlights(m, views);
     this.lightBuildings();
     this.waterFx(m, dt);
     this.fx.step(dt);
@@ -532,6 +534,48 @@ export class ModernRenderer {
    * frame is copied there to draw on and show.
    */
   direct = false;
+
+  /** Which headlights throw shadows at night (the quality preset). */
+  private headShadows: PresetSpec['headlightShadows'] = 'all';
+  private spec: PresetSpec | null = null;
+  private qualityName = '';
+
+  /**
+   * The quality preset (quality.ts): the sun's shadow map, the headlights' shadows and the tilt-shift at once; the
+   * garden's scatter rebuilt at once; the ground's photo scans from the next match.
+   */
+  setQuality(spec: PresetSpec, name = ''): void {
+    const was = this.spec;
+    this.spec = spec;
+    this.qualityName = name;
+    this.headShadows = spec.headlightShadows;
+    ART.tiltShift = spec.tiltShift;
+    ART.photoGround = spec.photoGround;
+    ART.groundDetail = spec.groundDetail;
+    if (this.sun.shadow.mapSize.x !== spec.sunShadow) {
+      this.sun.shadow.mapSize.set(spec.sunShadow, spec.sunShadow);
+      this.sun.shadow.map?.dispose();
+      this.sun.shadow.map = null;
+    }
+    if (ART.scatter !== spec.scatter || ART.scatterDensity !== spec.scatterDensity) {
+      ART.scatter = spec.scatter;
+      ART.scatterDensity = spec.scatterDensity;
+      // Build the patches again with the garden's scatter as it is now (their buildings stay as they are).
+      if (was) this.chunkBuilt.fill(false);
+    }
+  }
+
+  /**
+   * The 3D picture's size for one shown `shown` device pixels wide: the preset's size, times the dynamic
+   * resolution's scale (0.6-1). In steps of 1/32 of the modern screen, so it settles rather than jitters.
+   */
+  resolution(shown: number, scale: number): void {
+    const spec = this.spec;
+    if (!spec) return;
+    const wide = Math.max(640, spec.width(shown) * scale);
+    const pr = Math.max(0.5, Math.round((wide / MODERN_W) * 32) / 32);
+    if (pr !== this.gl.getPixelRatio()) this.gl.setPixelRatio(pr);
+  }
 
   /** The WebGL canvas the picture is drawn on. */
   get glCanvas(): HTMLCanvasElement {
@@ -687,8 +731,21 @@ export class ModernRenderer {
   }
 
   /** Points each vehicle's headlights (at night) ahead of it. */
-  private aimHeadlights(m: Match): void {
+  private aimHeadlights(m: Match, views: readonly ModernView[]): void {
     const lit = new Array<boolean>(HEADLIGHTS).fill(false);
+    // Which headlights throw shadows, by the quality preset: all, the ones of the players at this screen, or none.
+    // A change rebuilds the lit shaders, so it is only ever made as the preset changes or a match starts.
+    for (let i = 0; i < HEADLIGHTS; i++) {
+      const cast = this.headShadows === 'all' || (this.headShadows === 'own' && views.some((v) => v.viewer === i));
+      const l = this.heads[i]!;
+      if (l.castShadow !== cast) {
+        l.castShadow = cast;
+        if (!cast) {
+          l.shadow.map?.dispose();
+          l.shadow.map = null;
+        }
+      }
+    }
     if (this.night) {
       for (const p of m.players) {
         const v = p.vehicle;
@@ -714,7 +771,7 @@ export class ModernRenderer {
         l.target.updateMatrixWorld();
         l.updateMatrixWorld();
         // On the thermal camera shadows are not drawn, but a light must have drawn its shadow map once to be used.
-        l.shadow.needsUpdate = !this.thermal || !l.shadow.map;
+        l.shadow.needsUpdate = l.castShadow && (!this.thermal || !l.shadow.map);
         const h = this.sea.heads;
         h.pos[i]!.copy(l.position);
         h.dir[i]!.copy(l.target.position).sub(l.position).normalize();

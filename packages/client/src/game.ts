@@ -42,6 +42,7 @@ import type { ModernRenderer, ModernScreen } from './modern/renderer.js';
 import type { ModernFinale } from './modern/finale.js';
 import { giveUpModern, loadModern, modernFailed, modernLoaded } from './modern/load.js';
 import { stats } from './modern/stats.js';
+import { PRESETS, PRESET_NAMES, Pacer, activePreset, type Preset } from './quality.js';
 import { bunkerBayAt, dimView, drawBanner, drawLinkUp, drawBunkerPanel, drawChatLines, drawLog, drawFeed, drawModernHud, drawName, drawNote, drawScoreTable, setTouchHud } from './modern/hud.js';
 import { TEAMS } from './paint.js';
 
@@ -757,6 +758,9 @@ export class Game {
 
     let last = performance.now();
     let acc = 0;
+    /** The modern view's quality preset in use, and what holds its frame rate. */
+    let preset: Preset = activePreset(!!this.o.handheld);
+    const pacer = new Pacer(!!this.o.handheld);
     const loop = (now: number) => {
       stats?.frame(now);
       // Keys changed from the menu (Options > Controls) take effect at once.
@@ -779,6 +783,8 @@ export class Game {
             modern = new mod.ModernRenderer(assets);
             // Straight onto the page, with the HUD over it at the screen's own resolution.
             modern.direct = true;
+            preset = activePreset(!!this.o.handheld);
+            modern.setQuality(PRESETS[preset], PRESET_NAMES[preset]);
           } catch (err) {
             console.error('The modern view could not start:', err);
             giveUpModern();
@@ -899,6 +905,14 @@ export class Game {
         const look = { drone: true, thermal: night && (this.o.thermal?.() ?? false) };
         modern.setNight(night);
         modern.setLook(look.drone, look.thermal);
+        // The quality preset (Options > View > Quality, or Auto's), and the dynamic resolution holding the frame rate.
+        pacer.frame(now);
+        const want = activePreset(!!this.o.handheld);
+        if (want !== preset) {
+          preset = want;
+          modern.setQuality(PRESETS[want], PRESET_NAMES[want]);
+        }
+        modern.resolution(display.rect.w * (devicePixelRatio || 1), pacer.scale);
         modern.draw(match, cameras.map((cam, i) => ({ cam, rect: rects[i]!, viewer: v[i]!, skip: !field[i], screen: screens[i] })), extras);
         modernRects = rects;
         const hudFrom = performance.now();

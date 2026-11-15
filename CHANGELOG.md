@@ -6,6 +6,7 @@ Each release's section below becomes its GitHub release notes (`.github/workflow
 
 ### Added
 
+- Options > View > Quality for the modern view: Auto, Low, Medium, High or Ultra, each player's own (even online, since it is about the device, not the match) and kept in this browser. The presets change what a frame costs, never the look: the 3D picture's resolution (60% of 720p on Low up to the screen's own on High and Ultra), the sun's shadow map, which headlights throw shadows, the tilt-shift focus and how much of the garden's scatter is drawn. Auto starts on High (Medium on phones and tablets), steps down if the device can't keep up, and remembers what it found. Dynamic resolution then holds 60 frames a second (30 on phones and tablets) by drawing the 3D picture a little smaller while the device falls behind; the HUD stays sharp at the screen's own resolution.
 - `?stats=1` shows a frame-stats panel for tuning the modern view on a real device: frame rate and the worst 1% of frames, draw calls, triangles, data sent to the graphics card, and the graphics card's time for the scene, the drone feed and the bunker or skull screens (where the browser can measure it). Copy puts a one-line report on the clipboard.
 
 ### Changed

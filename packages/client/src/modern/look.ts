@@ -98,6 +98,7 @@ const VERTEX = /* glsl */ `
 const FRAGMENT = /* glsl */ `
   uniform sampler2D frame;
   uniform vec2 res;
+  uniform float scale;
   uniform float time;
   uniform float drone;
   uniform float thermal;
@@ -111,7 +112,9 @@ const FRAGMENT = /* glsl */ `
   float lum(vec3 c) { return dot(c, vec3(0.299, 0.587, 0.114)); }
 
   void main() {
-    vec2 px = gl_FragCoord.xy;
+    // In the modern screen's own pixels whatever size the picture is drawn at, so the grain, scanlines and errors
+    // keep their size.
+    vec2 px = gl_FragCoord.xy / scale;
     vec4 r = vec4(0.0, 0.0, res);
     float glitch = 0.0;
     for (int i = 0; i < 2; i++) {
@@ -219,7 +222,7 @@ export interface LookRect {
 
 /** The pass that turns the rendered picture into the drone's feed or its thermal picture. */
 export class LookPass {
-  private readonly frame: THREE.FramebufferTexture;
+  private frame: THREE.FramebufferTexture;
   private readonly material: THREE.ShaderMaterial;
   private readonly scene = new THREE.Scene();
   private readonly camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
@@ -231,6 +234,7 @@ export class LookPass {
       uniforms: {
         frame: { value: this.frame },
         res: { value: new THREE.Vector2(w, h) },
+        scale: { value: 1 },
         time: { value: 0 },
         drone: { value: 1 },
         thermal: { value: 0 },
@@ -256,8 +260,18 @@ export class LookPass {
   apply(gl: THREE.WebGLRenderer, rects: readonly LookRect[], glitch: readonly number[], drone: boolean, thermal: boolean, seconds: number, tilt = false): void {
     gl.setViewport(0, 0, this.w, this.h);
     gl.setScissor(0, 0, this.w, this.h);
-    gl.copyFramebufferToTexture(this.frame, this.origin);
     const u = this.material.uniforms;
+    // The picture's real size, which follows the quality preset and the dynamic resolution (renderer.ts).
+    const pr = gl.getPixelRatio();
+    const fw = Math.floor(this.w * pr);
+    const fh = Math.floor(this.h * pr);
+    if (this.frame.image.width !== fw || this.frame.image.height !== fh) {
+      this.frame.dispose();
+      this.frame = new THREE.FramebufferTexture(fw, fh);
+      u.frame!.value = this.frame;
+    }
+    u.scale!.value = pr;
+    gl.copyFramebufferToTexture(this.frame, this.origin);
     u.time!.value = seconds;
     u.thermal!.value = thermal ? 1 : 0;
     u.drone!.value = drone ? 1 : 0;
