@@ -13,6 +13,7 @@ import * as THREE from 'three';
 import { ONE, UNLIMITED, type Elevator, type Lives, type SkullLook, type VehicleKind } from '@rfw/sim';
 import { Kit, type TeamPaint } from './kit.js';
 import * as V from './vehicles.js';
+import { toyPlastic } from './toy.js';
 import { BAY_AT } from './layout.js';
 
 export { BAY_AT };
@@ -121,6 +122,8 @@ export class BunkerScene {
   readonly scene = new THREE.Scene();
   readonly camera = new THREE.PerspectiveCamera(30, 16 / 9, 50, 3000);
   private readonly material = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.7, metalness: 0.05, flatShading: true });
+  /** The parked toys' moulded plastic. */
+  private readonly plastic = toyPlastic();
   private readonly bays = new Map<VehicleKind, Bay>();
   private readonly spot = new THREE.SpotLight(0xfff1d0, 900, 90, 0.55, 0.5, 1.4);
   private readonly cone: THREE.Mesh;
@@ -273,7 +276,7 @@ export class BunkerScene {
     if (!models) {
       models = new Map();
       for (const kind of this.bays.keys()) {
-        const g = parked(kind, team, this.material);
+        const g = parked(kind, team, this.plastic);
         g.scale.setScalar(kind === 'heli' ? 0.9 : PARK_SCALE);
         g.visible = false;
         this.scene.add(g);
@@ -347,6 +350,8 @@ export class SkullScene {
   readonly camera = new THREE.PerspectiveCamera(30, 16 / 9, 50, 1000);
   private readonly material = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.55, metalness: 0.05, flatShading: true });
   private readonly burnt = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1, color: 0x2e2a26, flatShading: true });
+  /** The lives' toys, in moulded plastic. */
+  private readonly plastic = toyPlastic();
   private readonly head = new THREE.Group();
   private readonly jaw = new THREE.Group();
   private helmet: THREE.Mesh | null = null;
@@ -438,7 +443,7 @@ export class SkullScene {
       for (const g of this.icons) this.scene.remove(g);
       this.icons.length = 0;
       for (let i = 0; i < n && kind; i++) {
-        const g = parked(kind, own, this.material);
+        const g = parked(kind, own, this.plastic);
         g.scale.setScalar(kind === 'heli' ? 0.32 : 0.4);
         this.icons.push(g);
         this.scene.add(g);
@@ -457,7 +462,7 @@ export class SkullScene {
         // The first ones are the lives already used (as the retro crosses), burnt out.
         const used = n - 1 - i >= remain;
         g.traverse((o) => {
-          if (o instanceof THREE.Mesh) o.material = used ? this.burnt : this.material;
+          if (o instanceof THREE.Mesh) o.material = used ? this.burnt : this.plastic;
         });
       }
     }

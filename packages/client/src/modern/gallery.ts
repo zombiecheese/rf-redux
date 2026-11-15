@@ -13,6 +13,7 @@ import { building } from './buildings.js';
 import { Kit, NEUTRAL, teamPaint } from './kit.js';
 import { bodyBox } from './renderer.js';
 import * as V from './vehicles.js';
+import { gardenSky, toyPlastic } from './toy.js';
 import { ONE } from '@rfw/sim';
 import { BunkerScene, SkullScene } from './screens.js';
 
@@ -93,9 +94,11 @@ floor.receiveShadow = true;
 scene.add(floor);
 const labels: { text: string; x: number; y: number }[] = [];
 
+const plastic = toyPlastic();
+plastic.envMap = gardenSky(renderer, new THREE.Vector3(-0.55, 0.85, 0.7));
 const put = (kit: Kit | null, x: number, y: number, team = NEUTRAL, label = '') => {
   if (kit) {
-    const mesh = new THREE.Mesh(kit.build(team), material);
+    const mesh = new THREE.Mesh(kit.build(team), kit.toy ? plastic : material);
     mesh.position.set(x, 0, y);
     mesh.castShadow = mesh.receiveShadow = true;
     scene.add(mesh);
@@ -105,12 +108,13 @@ const put = (kit: Kit | null, x: number, y: number, team = NEUTRAL, label = '') 
 
 let w = 0;
 let h = 0;
+let focus: [number, number] | null = null;
 if (part === 'vehicles') {
   const makers = [V.tank, V.jeep, V.asv, V.heli, V.drone];
   makers.forEach((make, i) => {
     paints.forEach((p, t) => {
       const k = make();
-      const all = new Kit().merge(k.body);
+      const all = new Kit(true).merge(k.body);
       if (k.turret) all.merge(k.turret);
       if (k.barrel) all.merge(k.barrel, 0, k.pivot![0], k.pivot![1]);
       if (k.rotor) all.merge(k.rotor, ...k.rotorAt!);
@@ -123,6 +127,17 @@ if (part === 'vehicles') {
   for (let i = 0; i < 4; i++) put(V.soldier(i * 1.57), 300 + i * 12, 360, paints[i]!);
   w = 420;
   h = 420;
+  // &zoom=<row 0-4> looks closely along one row (tank, jeep, asv, heli, drone), &zoom=men at the soldiers.
+  const zoom = new URLSearchParams(location.search).get('zoom');
+  if (zoom === 'men') {
+    w = 36;
+    h = 36;
+    focus = [318, 360];
+  } else if (zoom !== null) {
+    w = 200;
+    h = 70;
+    focus = [105, Number(zoom) * 80];
+  }
 } else {
   const cols = 8;
   const from = Number(new URLSearchParams(location.search).get('from') ?? 1);
@@ -138,8 +153,8 @@ if (part === 'vehicles') {
   h = Math.ceil((to - from + 1) / cols) * 80;
 }
 const camera = new THREE.PerspectiveCamera(30, innerWidth / innerHeight, 10, 6000);
-const cx = w / 2 - 40;
-const cy = h / 2 - 40;
+const cx = focus ? focus[0] : w / 2 - 40;
+const cy = focus ? focus[1] : h / 2 - 40;
 camera.position.set(cx, Math.max(w, h) * 1.25, cy + Math.max(w, h) * 0.9);
 camera.lookAt(cx, 0, cy);
 sun.target.position.set(cx, 0, cy);

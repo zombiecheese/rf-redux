@@ -4,6 +4,11 @@ Each release's section below becomes its GitHub release notes (`.github/workflow
 
 ## [Unreleased]
 
+### Changed
+
+- The modern view's toys are moulded plastic, like a box of army men: each side's vehicles and soldiers are moulded all in its own colour, with rounded edges, a glossy coat that catches the sky and the sun, black rubber tyres, clear canopies and printed white stars. The soldiers stand on little moulded bases. The bunker's parked vehicles and the skull screen's lives match.
+- The modern view's sun is a warmer, lower afternoon sun that casts longer shadows, the drone feed keeps more of the colour, and bright highlights bloom a little on its lens.
+
 ## [0.5.3] - 2026-11-15
 
 The modern view's sea comes alive: shallow and deep water clearly told apart, wakes and spray from every vehicle, helicopter downwash, and the moon, lamps, headlights and blasts reflected on the water at night.

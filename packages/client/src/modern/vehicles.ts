@@ -1,20 +1,24 @@
-// The modern view's vehicles, soldiers, drones, the submarine and the shots: chunky toy-soldier models built from
-// simple shapes, sized to the art pack's models so they cover the same ground. Each faces north (-y) at heading 0.
-// Parts that move on their own (turret, launcher, rotor, wheels) are kits of their own, turned by the renderer.
+// The modern view's vehicles, soldiers, drones, the submarine and the shots: moulded plastic toys in the army-men
+// style, built from simple shapes and sized to the art pack's models so they cover the same ground. A side's toys
+// are moulded in its own colour all over (tracks, guns and rotors in its darker or lighter tone), with black rubber
+// tyres, tinted clear canopies and printed white stars. Each faces north (-y) at heading 0. Parts that move on their
+// own (turret, launcher, rotor, wheels) are kits of their own, turned by the renderer.
 
 import * as THREE from 'three';
-import { Kit } from './kit.js';
+import { Kit, type Paint } from './kit.js';
 
-const TRACK = 0x34363a;
-const TRACK_LIGHT = 0x55585e;
-const METAL = 0x6c7178;
-const GUNMETAL = 0x41454b;
-const TYRE = 0x26272a;
-const HUB = 0x9aa0a7;
-const GLASS = 0x8fd3f0;
-const SEAT = 0x3b3027;
-const SKIN = 0xf0c08a;
+const TRACK: Paint = 'teamDark';
+const TRACK_LIGHT: Paint = 'team';
+const METAL: Paint = 'team';
+const GUNMETAL: Paint = 'teamDark';
+const BLADE: Paint = 'teamDark';
+const TYRE = 0x1e1f21;
+const HUB: Paint = 'teamLight';
+const GLASS = 0x9fd6ea;
+const SEAT: Paint = 'teamDark';
 const WHITE = 0xf2f2ee;
+/** The printed markings. */
+const PRINT = 0xeeeee6;
 
 export interface VehicleKits {
   body: Kit;
@@ -35,7 +39,7 @@ export interface VehicleKits {
 }
 
 export function tank(): VehicleKits {
-  const body = new Kit();
+  const body = new Kit(true);
   for (const s of [-1, 1]) {
     body.box(s * 9, 0, 0, 6, 25, 4.5, TRACK);
     body.box(s * 9, 0, 4.5, 6.4, 24, 0.8, 'teamDark');
@@ -45,12 +49,13 @@ export function tank(): VehicleKits {
   body.wedge(0, -10.5, 1.5, 12, 3, 4, 1.6, 'team');
   body.box(0, 9.5, 2, 10, 2.5, 3.2, 'teamDark');
   body.box(-3.5, 10.6, 3, 2, 1, 1.4, 0xd8c070).box(3.5, 10.6, 3, 2, 1, 1.4, 0xd8c070);
-  const turret = new Kit();
+  body.star(0, 7.2, 5.5, 2, PRINT);
+  const turret = new Kit(true);
   turret.cyl(0, 0, 5.5, 4.2, 5.2, 3.8, 'team', 8);
   turret.box(0, 1.5, 5.6, 7, 6, 3.4, 'teamDark');
   turret.cyl(1.8, 1.8, 9.3, 1.4, 1.6, 1, 'teamLight', 8);
   turret.box(-2.6, 3.5, 9.2, 0.4, 0.4, 3.5, GUNMETAL);
-  const barrel = new Kit();
+  const barrel = new Kit(true);
   barrel.tube(0, -6.5, 0, 1.25, 11, METAL, 8);
   barrel.tube(0, -12, 0, 1.6, 2, GUNMETAL, 8);
   barrel.box(0, -1.5, -1, 3, 3, 2, 'teamDark');
@@ -58,10 +63,11 @@ export function tank(): VehicleKits {
 }
 
 export function jeep(): VehicleKits {
-  const body = new Kit();
+  const body = new Kit(true);
   body.box(0, 1, 2.6, 10, 18, 3.6, 'team');
   body.wedge(0, -9, 2.6, 10, 4, 3.6, 2.6, 'team');
   body.box(0, -9.5, 2.6, 8.4, 1, 2.2, GUNMETAL);
+  body.star(0, -6.3, 6.2, 1.6, PRINT);
   body.box(-3.2, -10.8, 3.6, 2, 0.4, 1, 0xfff4b0).box(3.2, -10.8, 3.6, 2, 0.4, 1, 0xfff4b0);
   // Windscreen frame and glass.
   body.box(0, -4.5, 6.2, 9.4, 0.6, 3.4, 'teamDark', { tilt: 0.35 });
@@ -72,14 +78,14 @@ export function jeep(): VehicleKits {
   for (const s of [-1, 1]) body.box(s * 4.6, 3, 6.2, 0.7, 0.7, 5.6, GUNMETAL);
   body.box(0, 3, 11.6, 9.9, 0.7, 0.7, GUNMETAL);
   body.axle(0, 10.6, 5, 2.4, 1.6, TYRE, 10, { turn: Math.PI / 2 });
-  const wheels = new Kit();
+  const wheels = new Kit(true);
   wheels.axle(0, 0, 0, 2.9, 2.2, TYRE, 12);
   wheels.axle(0, 0, 0, 1.4, 2.4, HUB, 8);
   return { body, wheels, wheelAt: [[-5.4, -6.5, 2.9], [5.4, -6.5, 2.9], [-5.4, 7, 2.9], [5.4, 7, 2.9]] };
 }
 
 export function asv(): VehicleKits {
-  const body = new Kit();
+  const body = new Kit(true);
   for (const s of [-1, 1]) {
     body.box(s * 9.5, 0, 0, 5, 24, 4, TRACK);
     for (let i = 0; i < 3; i++) body.axle(s * 9.8, -7.5 + i * 7.5, 2.4, 2.4, 5.4, TRACK_LIGHT, 10);
@@ -89,7 +95,8 @@ export function asv(): VehicleKits {
   body.box(-3.5, -6.5, 7, 6, 5, 2.4, 'teamDark');
   body.box(-3.5, -9.1, 7.6, 4.6, 0.3, 1.3, GLASS);
   body.box(4, 5, 7, 6, 8, 1.6, 'teamDark');
-  const barrel = new Kit();
+  body.star(4, -4.5, 7, 2, PRINT);
+  const barrel = new Kit(true);
   // Three missile tubes in a frame, pitched about the pivot at the back of the launcher.
   barrel.box(0, -5, 0, 11, 10, 1.2, 'teamDark');
   for (let i = -1; i <= 1; i++) {
@@ -100,7 +107,7 @@ export function asv(): VehicleKits {
 }
 
 export function heli(): VehicleKits {
-  const body = new Kit();
+  const body = new Kit(true);
   body.ball(0, -5, 6.5, 7.4, 'team', 1, 0.85);
   body.ball(0, -9.5, 7.6, 5.2, GLASS, 1, 0.8);
   body.box(0, 2, 3.2, 9, 8, 6.5, 'team');
@@ -111,41 +118,42 @@ export function heli(): VehicleKits {
   // Stub wings with a rocket pod and a gun each side.
   for (const s of [-1, 1]) {
     body.box(s * 7, 0, 5.5, 6, 3.4, 0.8, 'teamDark');
+    body.star(s * 7.4, 0, 6.3, 1.4, PRINT);
     body.tube(s * 9.5, -0.5, 5, 1.6, 7, GUNMETAL, 8);
     body.tube(s * 9.5, -4.4, 5, 1, 1.2, 0x2a2a2a, 8);
     body.box(s * 5, 1, 0.3, 1, 18, 0.8, GUNMETAL);
     body.box(s * 5, -5, 0.3, 1, 1, 3.2, GUNMETAL).box(s * 5, 6, 0.3, 1, 1, 3.2, GUNMETAL);
   }
-  const rotor = new Kit();
+  const rotor = new Kit(true);
   rotor.cyl(0, 0, -0.6, 1.4, 1.4, 1.4, GUNMETAL, 8);
   // Each blade runs out from the hub; a shape turns about its own centre, so place the centre along the blade's line.
   for (let i = 0; i < 4; i++) {
     const a = (i * Math.PI) / 2;
-    rotor.box(Math.sin(a) * 13.5, -Math.cos(a) * 13.5, 0, 2.6, 27, 0.4, 0x2d2f33, { turn: a });
+    rotor.box(Math.sin(a) * 13.5, -Math.cos(a) * 13.5, 0, 2.6, 27, 0.4, BLADE, { turn: a });
   }
-  const tail = new Kit();
+  const tail = new Kit(true);
   // Two blades crossed about the hub, centred on it.
-  for (let i = 0; i < 2; i++) tail.add(new THREE.BoxGeometry(0.4, 7, 1.2), 0, 0, 0, 0x2d2f33, { tilt: (i * Math.PI) / 2 });
+  for (let i = 0; i < 2; i++) tail.add(new THREE.BoxGeometry(0.4, 7, 1.2), 0, 0, 0, BLADE, { tilt: (i * Math.PI) / 2 });
   return { body, rotor, rotorAt: [0, 0, 12], tail, tailAt: [1.2, 30, 11] };
 }
 
 export function drone(): VehicleKits {
-  const body = new Kit();
+  const body = new Kit(true);
   body.ball(0, 0, 1.8, 5, 'team', 1, 0.7);
   body.box(0, 6, 1.5, 2, 10, 2, 'teamDark');
   body.box(0, 11, 2, 5, 1, 0.6, 'teamDark');
   for (const s of [-1, 1]) body.box(s * 4, 0, -1.5, 0.8, 9, 0.8, GUNMETAL);
-  const barrel = new Kit();
+  const barrel = new Kit(true);
   barrel.box(0, 0, -1, 3, 4, 2.4, GUNMETAL);
   barrel.tube(0, -4, -0.2, 0.7, 5, METAL, 6);
-  const rotor = new Kit();
-  for (let i = 0; i < 2; i++) rotor.box(0, 0, 0, 1.8, 30, 0.3, 0x2d2f33, { turn: (i * Math.PI) / 2 });
+  const rotor = new Kit(true);
+  for (let i = 0; i < 2; i++) rotor.box(0, 0, 0, 1.8, 30, 0.3, BLADE, { turn: (i * Math.PI) / 2 });
   return { body, barrel, pivot: [-3, 0], rotor, rotorAt: [0, 0, 6] };
 }
 
 /** The submarine that hunts a helicopter off the map: a long hull with a conning tower, facing north. */
 export function submarine(): Kit {
-  const k = new Kit();
+  const k = new Kit(true);
   k.tube(0, 0, 0, 9, 90, 0x3d4a55, 12, undefined, 9);
   k.ball(0, -45, 0, 9, 0x3d4a55, 1, 1);
   k.tube(0, 48, 0, 9, 10, 0x3d4a55, 12, undefined, 4);
@@ -159,7 +167,7 @@ export function submarine(): Kit {
 
 /** Shots: the tracer and shell glow, the missiles carry a flame; the renderer adds the glow sprites. */
 export function shot(kind: 'tracer' | 'shell' | 'missile' | 'big'): Kit {
-  const k = new Kit();
+  const k = new Kit(true);
   if (kind === 'tracer') k.tube(0, 0, 0, 0.6, 5, 0xfff1a0, 6);
   else if (kind === 'shell') k.tube(0, 0, 0, 1, 3.2, 0x5a5a50, 6, undefined, 0.6);
   else {
@@ -171,33 +179,35 @@ export function shot(kind: 'tracer' | 'shell' | 'missile' | 'big'): Kit {
   return k;
 }
 
-/** A soldier: boots, trousers, the side's coloured jacket and helmet; arms and legs swing with his walk. */
+/** A soldier: a little army man moulded all in the side's colour, his arms and legs swinging with his walk. */
 export function soldier(stride: number): Kit {
-  const k = new Kit();
+  const k = new Kit(true);
   const leg = Math.sin(stride) * 0.6;
-  k.box(-0.8, leg, 0, 1.2, 1.4, 3, 0x3a3a30).box(0.8, -leg, 0, 1.2, 1.4, 3, 0x3a3a30);
+  k.box(-0.8, leg, 0, 1.2, 1.4, 3, 'team').box(0.8, -leg, 0, 1.2, 1.4, 3, 'team');
   k.box(0, 0, 3, 3, 1.8, 3.2, 'team');
-  k.box(-1.9, -leg, 3.4, 0.8, 1, 2.6, 'teamDark').box(1.9, leg, 3.4, 0.8, 1, 2.6, 'teamDark');
-  k.ball(0, 0, 7, 1.2, SKIN, 0);
-  k.ball(0, 0, 7.6, 1.45, 'teamDark', 0, 0.6);
-  k.box(1.4, -1.6, 4.5, 0.4, 3.6, 0.5, GUNMETAL);
+  k.box(-1.9, -leg, 3.4, 0.8, 1, 2.6, 'team').box(1.9, leg, 3.4, 0.8, 1, 2.6, 'team');
+  k.ball(0, 0, 7, 1.2, 'team', 1);
+  k.ball(0, 0, 7.6, 1.45, 'team', 1, 0.6);
+  k.box(1.4, -1.6, 4.5, 0.4, 3.6, 0.5, 'teamDark');
+  // The moulded base army men stand on.
+  k.cyl(0, 0, -0.4, 2.4, 2.4, 0.4, 'team', 12);
   return k;
 }
 
 /** A man swimming: head, shoulders and arms at the water line. */
 export function swimmer(stroke: number): Kit {
-  const k = new Kit();
+  const k = new Kit(true);
   k.box(0, 0.5, -0.6, 3, 2, 1, 'team');
-  k.ball(0, -1.2, 0.4, 1.2, SKIN, 0);
-  k.ball(0, -1.2, 1, 1.4, 'teamDark', 0, 0.6);
+  k.ball(0, -1.2, 0.4, 1.2, 'team', 1);
+  k.ball(0, -1.2, 1, 1.4, 'team', 1, 0.6);
   const a = Math.sin(stroke) * 1.5;
-  k.box(-2, a - 1, 0, 0.8, 2.4, 0.6, SKIN).box(2, -a - 1, 0, 0.8, 2.4, 0.6, SKIN);
+  k.box(-2, a - 1, 0, 0.8, 2.4, 0.6, 'team').box(2, -a - 1, 0, 0.8, 2.4, 0.6, 'team');
   return k;
 }
 
 /** The lift's platform and the doors over the shaft, coloured for the base. */
 export function liftPlatform(): Kit {
-  const k = new Kit();
+  const k = new Kit(true);
   k.box(0, 0, -1.5, 30, 30, 1.5, METAL);
   k.box(0, 0, 0, 26, 26, 0.3, 'teamDark');
   for (const s of [-1, 1]) k.box(s * 14, 0, 0, 1.4, 30, 0.6, 0xe0b81c).box(0, s * 14, 0, 30, 1.4, 0.6, 0xe0b81c);
@@ -205,7 +215,7 @@ export function liftPlatform(): Kit {
 }
 
 export function liftShaft(): Kit {
-  const k = new Kit();
+  const k = new Kit(true);
   const d = 40;
   for (const s of [-1, 1]) {
     k.box(s * 14.5, 0, -d, 1, 30, d, 0x2a2c30);
@@ -216,7 +226,7 @@ export function liftShaft(): Kit {
 }
 
 export function liftDoor(): Kit {
-  const k = new Kit();
+  const k = new Kit(true);
   k.box(0, 0.5, -0.4, 16, 31, 0.8, 0x4b5057);
   for (let i = -3; i <= 3; i++) k.box(0, i * 4.5, 0.4, 15, 1.4, 0.3, i & 1 ? 0xe0b81c : 0x202020);
   return k;

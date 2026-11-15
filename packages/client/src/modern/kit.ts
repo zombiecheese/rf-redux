@@ -5,6 +5,7 @@
 
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 
 /**
  * A colour, or 'team' for the owner's colour, filled in when the model is made for a side. 'window' and 'lamp' are
@@ -42,9 +43,15 @@ function placing(x: number, y: number, z: number, p: Place = {}, scale = new THR
 export class Kit {
   private readonly pieces: Piece[] = [];
 
+  /**
+   * toy: a moulded plastic toy. Boxes get rounded edges and every shape keeps its own smooth normals, so the
+   * plastic catches the light on its edges instead of showing flat facets.
+   */
+  constructor(readonly toy = false) {}
+
   /** A box standing on z (its base), centred on (x, y), sized w east-west, d north-south, h up. */
   box(x: number, y: number, z: number, w: number, d: number, h: number, paint: Paint, p?: Place): this {
-    const g = new THREE.BoxGeometry(w, h, d);
+    const g = this.toy ? new RoundedBoxGeometry(w, h, d, 2, Math.min(1.1, Math.min(w, h, d) * 0.22)) : new THREE.BoxGeometry(w, h, d);
     g.translate(0, h / 2, 0);
     return this.add(g, x, y, z, paint, p);
   }
@@ -109,6 +116,25 @@ export class Kit {
     return this.add(g, x, y, z, paint, p);
   }
 
+  /**
+   * A printed five-point star lying flat on the surface at height z, point to the north: a toy's moulded or
+   * printed marking.
+   */
+  star(x: number, y: number, z: number, r: number, paint: Paint, p?: Place): this {
+    const shape = new THREE.Shape();
+    for (let i = 0; i < 10; i++) {
+      const a = (i * Math.PI) / 5;
+      const k = i & 1 ? r * 0.42 : r;
+      if (i === 0) shape.moveTo(Math.sin(a) * k, Math.cos(a) * k);
+      else shape.lineTo(Math.sin(a) * k, Math.cos(a) * k);
+    }
+    shape.closePath();
+    const g = new THREE.ExtrudeGeometry(shape, { depth: 0.12, bevelEnabled: false });
+    // Shape y is north (three.js -Z); lying flat, facing up.
+    g.rotateX(-Math.PI / 2);
+    return this.add(g, x, y, z, paint, p);
+  }
+
   /** Any three.js geometry made about the origin in three.js axes, placed at a game point. */
   add(g: THREE.BufferGeometry, x: number, y: number, z: number, paint: Paint, p?: Place): this {
     g.applyMatrix4(placing(x, y, z, p));
@@ -132,8 +158,10 @@ export class Kit {
     const parts = this.pieces.map(({ geo, paint }) => {
       const g = (geo.index ? geo.toNonIndexed() : geo.clone());
       g.deleteAttribute('uv');
-      g.deleteAttribute('normal');
-      g.computeVertexNormals();
+      if (!this.toy || !g.getAttribute('normal')) {
+        g.deleteAttribute('normal');
+        g.computeVertexNormals();
+      }
       const c = new THREE.Color(resolve(paint, team));
       const n = g.getAttribute('position').count;
       const colours = new Float32Array(n * 3);

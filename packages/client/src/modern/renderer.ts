@@ -24,6 +24,7 @@ import { Ground, TILE, type SeaInputs } from './ground.js';
 import { WaterMarks } from './water.js';
 import { Kit, NEUTRAL, teamPaint, type TeamPaint } from './kit.js';
 import * as V from './vehicles.js';
+import { PLASTIC_SKY, gardenSky, toyPlastic } from './toy.js';
 import { MODERN_H, MODERN_W, modernLayout, type ModernRect } from './layout.js';
 
 export { MODERN_H, MODERN_W, modernLayout, type ModernRect };
@@ -36,7 +37,8 @@ const LARGE_TOWER = 50;
 const BROKEN_BRIDGE = 76;
 const TURRET_BUILDINGS = new Set([TOWER, LARGE_TOWER]);
 /** The sun: low in the south-west, behind and left of the camera, as the retro shadows fall. */
-const SUN = new THREE.Vector3(-0.42, 1, 0.55).normalize();
+// A warm afternoon sun, low enough for long shadows that show the toys standing on the ground.
+const SUN = new THREE.Vector3(-0.55, 0.85, 0.7).normalize();
 const SHADOW_SPAN = 340;
 /** The sun's shadow map's across and up directions (at right angles to SUN), for keeping its texels on the ground. */
 const SUN_SIDE = new THREE.Vector3(0, 1, 0).cross(SUN).normalize();
@@ -139,10 +141,10 @@ export class ModernRenderer {
   private readonly gl: THREE.WebGLRenderer;
   private readonly scene = new THREE.Scene();
   private readonly camera = new THREE.PerspectiveCamera();
-  private readonly sun = new THREE.DirectionalLight(0xfff2dc, 2.6);
+  private readonly sun = new THREE.DirectionalLight(0xffe6c2, 2.7);
   private readonly material = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.72, metalness: 0.04 });
-  /** Vehicles, soldiers and drones: the same paint, but they run hot on the thermal camera. */
-  private readonly hot = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.72, metalness: 0.04 });
+  /** Vehicles, soldiers and drones: moulded toy plastic, and they run hot on the thermal camera. */
+  private readonly hot = toyPlastic();
   private readonly charred = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.95, color: 0x3a342e });
   private readonly glowMaterial = new THREE.MeshBasicMaterial({ color: 0xffe08a });
   private world: World | null = null;
@@ -203,6 +205,7 @@ export class ModernRenderer {
 
     this.scene.background = new THREE.Color(0x0c2a40);
     this.scene.add(this.sky);
+    this.hot.envMap = gardenSky(this.gl, SUN);
     this.teach(this.material, 0);
     this.teach(this.hot, 1);
     this.teach(this.charred, 0.55);
@@ -559,7 +562,7 @@ export class ModernRenderer {
     this.sky.color.setHex(night ? 0x26345c : 0xcfe8ff);
     this.sky.groundColor.setHex(night ? 0x0a0806 : 0x8a6a48);
     this.glow.value = night ? 1 : 0;
-    this.sun.color.setHex(night ? 0x8ea4e8 : 0xfff2dc);
+    this.sun.color.setHex(night ? 0x8ea4e8 : 0xffe6c2);
     this.moonlit();
     this.background();
     const w = this.ground?.water.uniforms;
@@ -580,7 +583,9 @@ export class ModernRenderer {
 
   private moonlit(): void {
     this.sky.intensity = this.night ? 0.22 + 0.75 * this.moon : 1.25;
-    this.sun.intensity = this.night ? 0.28 + 0.9 * this.moon : 2.6;
+    this.sun.intensity = this.night ? 0.28 + 0.9 * this.moon : 2.7;
+    // The plastic reflects the garden by day; at night only a trace of it, as moonlight.
+    this.hot.envMapIntensity = this.night ? 0.03 + 0.2 * this.moon : PLASTIC_SKY;
   }
 
   private waterLight(u: Record<string, THREE.IUniform>): void {
