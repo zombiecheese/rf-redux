@@ -1,21 +1,21 @@
 // The modern view's vehicles, soldiers, drones, the submarine and the shots: moulded plastic toys in the army-men
 // style, built from simple shapes and sized to the art pack's models so they cover the same ground. A side's toys
-// are moulded in its own colour all over (tracks, guns and rotors in its darker or lighter tone), with black rubber
+// are moulded in its own colour all over (tracks, guns, rotors and seats in a deep shade of it), with black rubber
 // tyres, tinted clear canopies and printed white stars. Each faces north (-y) at heading 0. Parts that move on their
 // own (turret, launcher, rotor, wheels) are kits of their own, turned by the renderer.
 
 import * as THREE from 'three';
 import { Kit, type Paint } from './kit.js';
 
-const TRACK: Paint = 'teamDark';
+const TRACK: Paint = 'teamDeep';
 const TRACK_LIGHT: Paint = 'team';
-const METAL: Paint = 'team';
-const GUNMETAL: Paint = 'teamDark';
-const BLADE: Paint = 'teamDark';
+const METAL: Paint = 'teamDark';
+const GUNMETAL: Paint = 'teamDeep';
+const BLADE: Paint = 'teamDeep';
 const TYRE = 0x1e1f21;
 const HUB: Paint = 'teamLight';
 const GLASS = 0x9fd6ea;
-const SEAT: Paint = 'teamDark';
+const SEAT: Paint = 'teamDeep';
 const WHITE = 0xf2f2ee;
 /** The printed markings. */
 const PRINT = 0xeeeee6;
@@ -179,16 +179,16 @@ export function shot(kind: 'tracer' | 'shell' | 'missile' | 'big'): Kit {
   return k;
 }
 
-/** A soldier: a little army man moulded all in the side's colour, his arms and legs swinging with his walk. */
+/** A soldier: a little army man moulded in the side's colour (trousers, helmet and rifle in its deep shade), his arms and legs swinging with his walk. */
 export function soldier(stride: number): Kit {
   const k = new Kit(true);
   const leg = Math.sin(stride) * 0.6;
-  k.box(-0.8, leg, 0, 1.2, 1.4, 3, 'team').box(0.8, -leg, 0, 1.2, 1.4, 3, 'team');
+  k.box(-0.8, leg, 0, 1.2, 1.4, 3, 'teamDeep').box(0.8, -leg, 0, 1.2, 1.4, 3, 'teamDeep');
   k.box(0, 0, 3, 3, 1.8, 3.2, 'team');
-  k.box(-1.9, -leg, 3.4, 0.8, 1, 2.6, 'team').box(1.9, leg, 3.4, 0.8, 1, 2.6, 'team');
+  k.box(-1.9, -leg, 3.4, 0.8, 1, 2.6, 'teamDark').box(1.9, leg, 3.4, 0.8, 1, 2.6, 'teamDark');
   k.ball(0, 0, 7, 1.2, 'team', 1);
-  k.ball(0, 0, 7.6, 1.45, 'team', 1, 0.6);
-  k.box(1.4, -1.6, 4.5, 0.4, 3.6, 0.5, 'teamDark');
+  k.ball(0, 0, 7.6, 1.45, 'teamDeep', 1, 0.6);
+  k.box(1.4, -1.6, 4.5, 0.4, 3.6, 0.5, 'teamDeep');
   // The moulded base army men stand on.
   k.cyl(0, 0, -0.4, 2.4, 2.4, 0.4, 'team', 12);
   return k;
@@ -199,7 +199,7 @@ export function swimmer(stroke: number): Kit {
   const k = new Kit(true);
   k.box(0, 0.5, -0.6, 3, 2, 1, 'team');
   k.ball(0, -1.2, 0.4, 1.2, 'team', 1);
-  k.ball(0, -1.2, 1, 1.4, 'team', 1, 0.6);
+  k.ball(0, -1.2, 1, 1.4, 'teamDeep', 1, 0.6);
   const a = Math.sin(stroke) * 1.5;
   k.box(-2, a - 1, 0, 0.8, 2.4, 0.6, 'team').box(2, -a - 1, 0, 0.8, 2.4, 0.6, 'team');
   return k;

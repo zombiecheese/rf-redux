@@ -11,7 +11,7 @@ import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeom
  * A colour, or 'team' for the owner's colour, filled in when the model is made for a side. 'window' and 'lamp' are
  * glass and lamp glass that glow at night: the model's glow attribute marks them for the renderer's material.
  */
-export type Paint = number | 'team' | 'teamDark' | 'teamLight' | 'window' | 'lamp';
+export type Paint = number | 'team' | 'teamDark' | 'teamDeep' | 'teamLight' | 'window' | 'lamp';
 
 export interface Place {
   /** Turn about the up axis, radians, clockwise seen from above (the sim's heading direction). */
@@ -187,6 +187,8 @@ export interface TeamPaint {
   main: number;
   dark: number;
   light: number;
+  /** A deep shade, for the toys' detail that would be black or gunmetal on a painted model. */
+  deep?: number;
 }
 
 export const NEUTRAL: TeamPaint = { main: 0x8a8f96, dark: 0x5d6168, light: 0xb9bec4 };
@@ -194,6 +196,7 @@ export const NEUTRAL: TeamPaint = { main: 0x8a8f96, dark: 0x5d6168, light: 0xb9b
 function resolve(p: Paint, t: TeamPaint): number {
   if (p === 'team') return t.main;
   if (p === 'teamDark') return t.dark;
+  if (p === 'teamDeep') return t.deep ?? t.dark;
   if (p === 'teamLight') return t.light;
   if (p === 'window') return 0x7ec2de;
   if (p === 'lamp') return 0xf5efc0;
@@ -207,7 +210,7 @@ export function teamPaint(r: number, g: number, b: number): TeamPaint {
   c.getHSL(hsl);
   const tone = (dl: number, ds: number) => new THREE.Color().setHSL(hsl.h, Math.min(1, hsl.s * ds), Math.max(0, Math.min(1, hsl.l + dl))).getHex();
   // A touch bolder than the flat colour, for the painted-toy look.
-  return { main: tone(0, 1.2), dark: tone(-0.14, 1.2), light: tone(0.14, 1) };
+  return { main: tone(0, 1.2), dark: tone(-0.14, 1.2), light: tone(0.14, 1), deep: tone(-0.38, 1.1) };
 }
 
 /** A small deterministic random sequence for varying scenery by tile. */
