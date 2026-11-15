@@ -4,6 +4,10 @@ Each release's section below becomes its GitHub release notes (`.github/workflow
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-11-15
+
+A friendlier game around the matches: menus dressed for the view you play in, open online lobbies strangers can join, phones that fit, an Esc pause menu, one Match Setup screen, a results screen with Rematch and the replay, a Hall of Fame for every side, and the modern view's toys in moulded plastic in a bunker dug into real earth.
+
 ### Changed
 
 - The modern view's toys are moulded plastic, like a box of army men: each side's vehicles and soldiers are moulded all in its own colour, with rounded edges, the fine grain of moulded plastic, a glossy coat that catches the sky and the sun, matte black rubber tyres, clear canopies and printed white stars. Detail that would be black on a painted model (tracks, guns, rotor blades, seats, the soldiers' trousers, helmets and rifles) is a deep shade of the side's colour. The soldiers stand on little moulded bases. The bunker's parked vehicles and the skull screen's lives match.
@@ -170,7 +174,8 @@ The first release: a browser remake of Return Fire (1995) that plays like the or
 
 - A Docker Compose stack with one image, `ghcr.io/zombiecheese/rf-redux`, published for every version tag together with a compose file, an `.env` template and a Caddyfile for HTTPS ([docs/deploy.md](docs/deploy.md)).
 
-[Unreleased]: https://github.com/zombiecheese/rf-redux/compare/v0.5.3...HEAD
+[Unreleased]: https://github.com/zombiecheese/rf-redux/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/zombiecheese/rf-redux/releases/tag/v0.6.0
 [0.5.3]: https://github.com/zombiecheese/rf-redux/releases/tag/v0.5.3
 [0.5.2]: https://github.com/zombiecheese/rf-redux/releases/tag/v0.5.2
 [0.5.1]: https://github.com/zombiecheese/rf-redux/releases/tag/v0.5.1
