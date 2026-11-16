@@ -4,6 +4,10 @@ Each release's section below becomes its GitHub release notes (`.github/workflow
 
 ## [Unreleased]
 
+### Added
+
+- Each vehicle has its own lights in the modern view. The jeep has twin headlamps (two pools of light side by side) and red tail lights that brighten as it brakes or backs up. The tank has dim hooded blackout lamps that light only the ground just ahead, and small convoy tail lamps. The ASV carries navigation lights (red to port, green to starboard, white masthead and stern) and a narrow searchlight that sweeps slowly across the water ahead. The helicopter has a searchlight under its nose whose hard-edged pool wanders over the ground below, red and green navigation lights on its stub wings, a white tail strobe and a red anti-collision beacon on its tail fin that flashes day and night. The small lights are glows drawn in a single batch, so they cost next to nothing; each vehicle still has just one real light for its beam.
+
 ### Fixed
 
 - The loading screens no longer freeze while a match gets ready. Building the modern view's 3D world (painting the ground and putting up every block of buildings) is now done a little at a time between the loading screen's frames instead of in one go, the big textures go up to the graphics card one at a time, and the shaders are compiled in the background where the browser can (most desktop Chrome and Edge). The sprites are also unpacked without a round trip to the graphics card. Add `?stats=1` to the address to have the console report how long loading took and the longest the screen stood still.

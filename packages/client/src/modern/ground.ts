@@ -5,7 +5,7 @@
 // shallows, foam and colour come from how far each point is from land.
 
 import * as THREE from 'three';
-import { LIGHT_TIME, THERMAL, grainLights } from './look.js';
+import { BEAM_SHAPE_GLSL, LIGHT_TIME, THERMAL, grainLights } from './look.js';
 import { DepthMap, RINGS } from './water.js';
 import { ART } from './art.js';
 import { photoMaps, photoShader, type PhotoMaps } from './photoground.js';
@@ -663,8 +663,8 @@ export interface SeaInputs {
   glare: THREE.Texture;
   /** 0 by day, 1 at night. */
   night: THREE.IUniform;
-  /** Up to four headlights: where each is, where it points, its colour (by its strength; black when off) and its cone (outer and inner cosines). */
-  heads: { pos: THREE.Vector3[]; dir: THREE.Vector3[]; col: THREE.Vector3[]; cone: THREE.Vector2[] };
+  /** Up to four headlights: where each is, where it points, its colour (by its strength; black when off), its cone (outer and inner cosines) and its beam's shape (look.ts BEAM_SHAPE_GLSL). */
+  heads: { pos: THREE.Vector3[]; dir: THREE.Vector3[]; col: THREE.Vector3[]; cone: THREE.Vector3[] };
   /** Where the moon stands in the sky (a direction), for its path of light on the sea. */
   moon: THREE.Vector3;
   /** The flashes of blasts (fx.ts): where each is, and how bright now (0 when out). */
@@ -726,7 +726,8 @@ function waterMaterial(shore: THREE.Texture, pits: THREE.Texture, depth: THREE.T
       uniform vec3 headPos[4];
       uniform vec3 headDir[4];
       uniform vec3 headCol[4];
-      uniform vec2 headCone[4];
+      uniform vec3 headCone[4];
+      ${BEAM_SHAPE_GLSL}
       uniform vec3 moon;
       uniform vec3 flashPos[4];
       uniform float flashPower[4];
@@ -872,6 +873,7 @@ function waterMaterial(shore: THREE.Texture, pits: THREE.Texture, depth: THREE.T
             l /= d;
             float cone = smoothstep(headCone[i].x, headCone[i].y, dot(-l, headDir[i]));
             if (cone <= 0.0) continue;
+            cone *= beamShape(beamAcross(l, -headDir[i]), headCone[i].x, headCone[i].z);
             float lit = cone / (1.0 + d * d * 0.0009);
             // Glints: the beam caught by the waves facing back up at the camera, sparkling as they move.
             float g = pow(max(dot(n, normalize(l + view)), 0.0), 24.0);
