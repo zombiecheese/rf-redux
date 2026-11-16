@@ -9,6 +9,7 @@
 
 import * as THREE from 'three';
 import { ART } from './art.js';
+import { tiltShiftOn } from '../quality.js';
 
 /** 1 while the thermal camera is on: shared by every material that draws its heat. */
 export const THERMAL = { value: 0 };
@@ -288,7 +289,7 @@ export class LookPass {
     u.time!.value = seconds;
     u.thermal!.value = thermal ? 1 : 0;
     u.drone!.value = drone ? 1 : 0;
-    u.tilt!.value = tilt && ART.tiltShift ? 1 : 0;
+    u.tilt!.value = tilt && ART.tiltShift && tiltShiftOn() ? 1 : 0;
     u.cctv!.value = cctv === 'night' ? 2 : cctv === 'day' ? 1 : 0;
     const list = u.rects!.value as THREE.Vector4[];
     const n = Math.min(2, rects.length);

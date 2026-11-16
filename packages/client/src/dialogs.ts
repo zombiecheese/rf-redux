@@ -555,6 +555,7 @@ function viewsPage(): HTMLElement {
     ul(
       'The same game drawn in 3D at 1280 × 720 with toy-soldier models, sunlight and shadows, an animated sea, smoke, fire and debris, a 3D bunker cutaway and a 3D laughing skull. It needs WebGL; without it the game stays classic.',
       'Drone feed: the picture is a surveillance drone\'s, with grain, a scan line and stream errors when something blows up nearby.',
+      'Tilt-shift focus: a band across the middle of the feed is sharp and the top and bottom go soft, so the battlefield reads as a miniature. Options > View > Tilt-Shift switches it off on this device (Low quality always leaves it off).',
       'Computer-vision HUD: tracking boxes with integrity on your vehicle (with its fuel and ammunition), friends, enemy vehicles, gun towers, flag buildings and drones, a tactical plot for the radar, and messages as read-outs.',
       'Flag arrows: at the edges of the picture, in each rival\'s colour, arrows point to its flag buildings (any of them may hide the flag), to a flag lying in the open, and home while your jeep carries one.',
       'Day or night: a match option, chosen with the difficulty (on Match Setup, or by the host online). Night is dark, lit by headlights, fires and the buildings\' windows and lamps.',

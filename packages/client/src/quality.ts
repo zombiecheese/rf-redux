@@ -94,6 +94,21 @@ export function setQualityChoice(q: QualityChoice): void {
   write(CHOICE_KEY, q);
 }
 
+const TILT_KEY = 'rf.tiltShift';
+
+// The tilt-shift focus is also the player's to switch off (Options > View > Tilt-Shift), on by default, kept per
+// device like the preset. It shows only where the preset draws it too: Low leaves it off to save the frame.
+let tiltShift = read(TILT_KEY) !== 'off';
+
+export function tiltShiftOn(): boolean {
+  return tiltShift;
+}
+
+export function setTiltShift(on: boolean): void {
+  tiltShift = on;
+  write(TILT_KEY, on ? null : 'off');
+}
+
 /** Phones and tablets aim for 30 frames a second, everything else for 60. */
 export function frameTarget(handheld: boolean): number {
   return handheld ? 1000 / 30 : 1000 / 60;
