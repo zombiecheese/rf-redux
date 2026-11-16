@@ -273,6 +273,9 @@ export class Fx {
   private readonly m4 = new THREE.Matrix4();
   private readonly q = new THREE.Quaternion();
   private readonly e = new THREE.Euler();
+  /** Scratch for each shard's place and size, every frame. */
+  private readonly at = new THREE.Vector3();
+  private readonly size = new THREE.Vector3();
 
   constructor() {
     const spot = spotTexture();
@@ -569,7 +572,7 @@ export class Fx {
       this.e.set(c.ax * c.rot, c.ay * c.rot, c.rot);
       this.q.setFromEuler(this.e);
       const s = c.size * shrink;
-      this.m4.compose(new THREE.Vector3(c.x, c.z, c.y), this.q, new THREE.Vector3(s, s * 0.22, s * 0.8));
+      this.m4.compose(this.at.set(c.x, c.z, c.y), this.q, this.size.set(s, s * 0.22, s * 0.8));
       this.chunkMesh.setMatrixAt(n, this.m4);
       this.chunkMesh.setColorAt(n, c.colour);
       n++;

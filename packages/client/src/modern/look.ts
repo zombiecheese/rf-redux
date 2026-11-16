@@ -66,17 +66,43 @@ float lampGrain(vec3 toLight, float k) {
  */
 export function grainLights(shader: { uniforms: Record<string, THREE.IUniform>; fragmentShader: string }): void {
   shader.uniforms.lightTime = LIGHT_TIME;
-  const chunk = THREE.ShaderChunk.lights_fragment_begin
-    .replace('getPointLightInfo( pointLight, geometryPosition, directLight );', '$&\n\t\tdirectLight.color *= lampGrain( directLight.direction, lampSeed( pointLight.position ) );')
-    .replace('getSpotLightInfo( spotLight, geometryPosition, directLight );', '$&\n\t\tdirectLight.color *= beamGrain( directLight.direction, spotLight.direction, float( UNROLLED_LOOP_INDEX ) );');
   shader.fragmentShader = shader.fragmentShader
     .replace('void main() {', `${GRAIN_GLSL}\nvoid main() {`)
-    .replace('#include <lights_fragment_begin>', chunk);
+    .replace('#include <lights_fragment_begin>', LIGHTS_CHUNK);
 }
 
 /**
+ * three.js's lights chunk, with each point and spot light's grain added, and each one that is off (black: a blast's
+ * flash between blasts, a headlight with no vehicle) skipped whole: the blasts' four flash lights are in the scene all
+ * the time, and the four headlights all night, so every lit pixel otherwise paid for eight lights, their grain and
+ * the headlights' shadow maps, whether they shone or not.
+ */
+const LIGHTS_CHUNK = (() => {
+  const on = (light: string) => `if ( ${light}.color.r + ${light}.color.g + ${light}.color.b > 0.0 ) {`;
+  /** Wraps one kind of light's loop body, from its light's fetch to its RE_Direct, in a test that it is on. */
+  const skipOff = (chunk: string, fetch: string, light: string): string => {
+    const at = chunk.indexOf(fetch);
+    const end = chunk.indexOf('RE_Direct(', at);
+    const close = chunk.indexOf(';', end) + 1;
+    if (at < 0 || end < 0 || close <= 0) throw new Error(`three.js's lights chunk has changed: no ${fetch}`);
+    return `${chunk.slice(0, at + fetch.length)}\n\t\t${on(light)}${chunk.slice(at + fetch.length, close)}\n\t\t}${chunk.slice(close)}`;
+  };
+  let chunk = THREE.ShaderChunk.lights_fragment_begin;
+  for (const [find, add] of [
+    ['getPointLightInfo( pointLight, geometryPosition, directLight );', 'directLight.color *= lampGrain( directLight.direction, lampSeed( pointLight.position ) );'],
+    ['getSpotLightInfo( spotLight, geometryPosition, directLight );', 'directLight.color *= beamGrain( directLight.direction, spotLight.direction, float( UNROLLED_LOOP_INDEX ) );'],
+  ] as const) {
+    if (!chunk.includes(find)) throw new Error(`three.js's lights chunk has changed: no ${find}`);
+    chunk = chunk.replace(find, `$&\n\t\t${add}`);
+  }
+  chunk = skipOff(chunk, 'pointLight = pointLights[ i ];', 'pointLight');
+  return skipOff(chunk, 'spotLight = spotLights[ i ];', 'spotLight');
+})();
+
+/**
  * Teaches a lit material to show its heat when THERMAL is on: heat is how hot it runs (0 cold, 1 an engine), and
- * the glow attribute's windows and lamps run warm at night (nightGlow).
+ * the glow attribute's windows and lamps run warm at night (nightGlow). It ends the shader there (it goes in once the
+ * surface's colour and normal are known, ahead of the lighting it has no use for).
  */
 export function heatFragment(heat: number, glow: boolean): string {
   const h = heat.toFixed(2);
@@ -86,6 +112,7 @@ export function heatFragment(heat: number, glow: boolean): string {
     float side = 0.12 * clamp(normal.z, 0.0, 1.0) - 0.06;
     float t = 0.3 + l * 0.22 + side + ${h} * 0.42${glow ? ' + vGlow * nightGlow * 0.4' : ''};
     gl_FragColor = vec4(vec3(t), 1.0);
+    return;
   }`;
 }
 

@@ -4,7 +4,13 @@ Each release's section below becomes its GitHub release notes (`.github/workflow
 
 ## [Unreleased]
 
+### Changed
+
+- The modern view does less work every frame. Lights that are off (the blasts' flashes between blasts, and at night the headlights of vehicles not on the map) are no longer worked out for every pixel. The thermal camera no longer draws the sun's shadows or lights a picture it then replaces with heat. The map is no longer gone through tile by tile every frame to see what changed, and less garbage is made each frame for the browser to clear up.
+
 ### Fixed
+
+- No more stutter in the modern view when a building is knocked down or a lift comes up. The shoreline and the ground's smaller copies (its mipmaps) are now worked out again only round the tiles that changed, not over the whole 4096 x 4096 ground.
 
 - The loading screens no longer freeze while a match gets ready. Building the modern view's 3D world (painting the ground and putting up every block of buildings) is now done a little at a time between the loading screen's frames instead of in one go, the big textures go up to the graphics card one at a time, and the shaders are compiled in the background where the browser can (most desktop Chrome and Edge). The sprites are also unpacked without a round trip to the graphics card. Add `?stats=1` to the address to have the console report how long loading took and the longest the screen stood still.
 

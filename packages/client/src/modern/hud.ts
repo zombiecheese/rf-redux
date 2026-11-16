@@ -8,6 +8,7 @@ import { TEAMS } from '../paint.js';
 import type { ModernRect } from './layout.js';
 import { BAY_AT } from './layout.js';
 import type { LoadingState } from '../loading.js';
+import { sameBytes } from './bytes.js';
 
 const PANEL = 'rgba(16, 19, 15, 0.78)';
 const LINE = 'rgba(255, 255, 255, 0.14)';
@@ -460,7 +461,7 @@ let coast: { canvas: HTMLCanvasElement; terrain: Uint8Array } | null = null;
 /** The map for the tactical plot: the coastline and roads as thin lines, land faint, the sea clear. */
 function coastMap(m: Match): HTMLCanvasElement {
   const t = m.world.terrain;
-  if (coast && coast.terrain.length === t.length && coast.terrain.every((v, i) => v === t[i])) return coast.canvas;
+  if (coast && sameBytes(coast.terrain, t)) return coast.canvas;
   const canvas = coast?.canvas ?? document.createElement('canvas');
   canvas.width = GRID;
   canvas.height = GRID;

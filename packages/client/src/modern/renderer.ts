@@ -29,6 +29,7 @@ import { rockMaterial } from './photorock.js';
 import { scatterPatch } from './scatter.js';
 import { ART } from './art.js';
 import { stats } from './stats.js';
+import { sameBytes } from './bytes.js';
 import type { PresetSpec } from '../quality.js';
 import { MODERN_H, MODERN_W, modernLayout, type ModernRect } from './layout.js';
 
@@ -214,6 +215,30 @@ export class ModernRenderer {
   /** Each tile's building and owner when its chunk was last built, to see which chunks changed without garbage. */
   private readonly seenBuilding = new Uint8Array(GRID * GRID);
   private readonly seenOwner = new Int8Array(GRID * GRID);
+  /**
+   * The map's buildings and owners as they stood when every patch was last up to date, to see in one quick compare
+   * that nothing changed (most frames) instead of going through every tile; null until then.
+   */
+  private rawBuilding: Uint8Array | null = null;
+  private rawOwner: Int8Array | null = null;
+  /** Counts the changes to the map's buildings, so what is worked out from them (the gates' list) is redone only then. */
+  private buildingStamp = 0;
+  /** The map's gates (tiles), as of buildingStamp gateStamp. */
+  private gateTiles: number[] = [];
+  private gateStamp = -1;
+  /** Scratch, cleared and filled again every frame rather than made anew (less for the garbage collector). */
+  private readonly scratch = {
+    seen: new Set<Vehicle>(),
+    lifts: new Set<object>(),
+    lifted: new Set<Vehicle>(),
+    turrets: new Map<number, { heading: number; pitch: number }>(),
+    moving: new Map<number, Match['gates'][number]>(),
+    lit: new Array<boolean>(HEADLIGHTS).fill(false),
+    point: new THREE.Vector3(),
+    shadowAt: new THREE.Vector3(),
+  };
+  /** The lifts with an open shaft this frame (tiles), handed to the ground. */
+  private readonly openLifts: number[] = [];
   private readonly statics = new THREE.Group();
   private readonly dynamic = new THREE.Group();
   readonly fx = new Fx();
@@ -359,8 +384,9 @@ export class ModernRenderer {
         .replace('void main() {', 'attribute float glow;\nvarying float vGlow;\nvoid main() {\n  vGlow = glow;');
       shader.fragmentShader = shader.fragmentShader
         .replace('void main() {', 'uniform float nightGlow;\nuniform float thermal;\nvarying float vGlow;\nvoid main() {')
-        .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n  totalEmissiveRadiance += vec3(1.0, 0.78, 0.42) * vGlow * nightGlow * 1.6;')
-        .replace('#include <dithering_fragment>', `#include <dithering_fragment>\n${heatFragment(heat, true)}`);
+        // On the thermal camera the heat is the picture: drawn as soon as the surface is known, before the lights
+        // (and their shadow maps), which it would only throw away.
+        .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>\n  totalEmissiveRadiance += vec3(1.0, 0.78, 0.42) * vGlow * nightGlow * 1.6;\n${heatFragment(heat, true)}`);
       grainLights(shader);
       lampLight(shader, this.lampMap.texture, this.glow);
     };
@@ -510,11 +536,16 @@ export class ModernRenderer {
     const ground = this.ground!;
     // A ground prepare began painting and never finished is painted now.
     ground.paintNow();
-    ground.update(m.world, m.lifts.filter((l) => l.phase !== 'wait').map((l) => l.tile));
+    this.openLifts.length = 0;
+    for (const l of m.lifts) if (l.phase !== 'wait') this.openLifts.push(l.tile);
+    ground.update(m.world, this.openLifts);
     ground.tick(now / 1000);
     this.syncChunks(m.world);
     this.syncDynamic(m, extras, views.filter((v) => !v.skip).map((v) => v.cam), dt);
     this.aimHeadlights(m, views);
+    // The thermal camera shows heat, not light: the sun's shadows are not drawn while it is on (once they have been
+    // drawn at all, as a light needs its shadow map to be used).
+    this.sun.shadow.autoUpdate = !this.thermal || !this.sun.shadow.map;
     // One piece of getting ready a frame, once the match has its first pictures up.
     if (this.direct && this.world) this.warmUp(m);
     this.lightBuildings();
@@ -639,7 +670,10 @@ export class ModernRenderer {
       ART.scatter = spec.scatter;
       ART.scatterDensity = spec.scatterDensity;
       // Build the patches again with the garden's scatter as it is now (their buildings stay as they are).
-      if (was) this.chunkBuilt.fill(false);
+      if (was) {
+        this.chunkBuilt.fill(false);
+        this.rawBuilding = this.rawOwner = null;
+      }
     }
   }
 
@@ -710,7 +744,7 @@ export class ModernRenderer {
       sc.updateProjectionMatrix();
     }
     const texel = (2 * span) / this.sun.shadow.mapSize.x;
-    const at = SUN_SIDE.clone().multiplyScalar(Math.round((pose.x * SUN_SIDE.x + (pose.y - 40) * SUN_SIDE.z) / texel) * texel)
+    const at = this.scratch.shadowAt.copy(SUN_SIDE).multiplyScalar(Math.round((pose.x * SUN_SIDE.x + (pose.y - 40) * SUN_SIDE.z) / texel) * texel)
       .addScaledVector(SUN_UP, Math.round((pose.x * SUN_UP.x + (pose.y - 40) * SUN_UP.z) / texel) * texel);
     // Back onto the ground along the sun's direction: moving a point along it moves nothing in the shadow map.
     at.addScaledVector(SUN, -at.y / SUN.y);
@@ -820,7 +854,7 @@ export class ModernRenderer {
 
   /** Points each vehicle's headlights (at night) ahead of it. */
   private aimHeadlights(m: Match, views: readonly ModernView[]): void {
-    const lit = new Array<boolean>(HEADLIGHTS).fill(false);
+    const lit = this.scratch.lit.fill(false);
     // Which headlights throw shadows, by the quality preset: all, the ones of the players at this screen, or none.
     // A change rebuilds the lit shaders, so it is only ever made as the preset changes or a match starts.
     for (let i = 0; i < HEADLIGHTS; i++) {
@@ -886,7 +920,7 @@ export class ModernRenderer {
   /** Projects a world point (game pixels, z up) to the modern screen, for names over vehicles. */
   project(cam: Camera, rect: ModernRect, x: number, y: number, z: number): { x: number; y: number } | null {
     this.place(cam, rect);
-    const p = new THREE.Vector3(x, z, y).project(this.camera);
+    const p = this.scratch.point.set(x, z, y).project(this.camera);
     if (p.z > 1) return null;
     return { x: rect.x + ((p.x + 1) / 2) * rect.w, y: rect.y + ((1 - p.y) / 2) * rect.h };
   }
@@ -900,6 +934,7 @@ export class ModernRenderer {
     }
     this.marks.clear();
     this.ground = new Ground(this.assets, world, SUN, this.gl.capabilities.maxTextureSize >= 8192, this.sea, (shader) => lampLight(shader, this.lampMap.texture, this.glow), later);
+    this.ground.useRenderer(this.gl);
     this.statics.add(this.ground.group);
     this.waterLight(this.ground.water.uniforms);
     for (let i = 0; i < this.chunks.length; i++) {
@@ -915,6 +950,8 @@ export class ModernRenderer {
       this.chunkPatches[i]!.clear();
     }
     this.tileRuns.clear();
+    this.rawBuilding = this.rawOwner = null;
+    this.buildingStamp++;
     this.lampsStale = 'all';
     this.fx.clear();
     for (const rig of this.rigs.values()) this.dynamic.remove(rig.root);
@@ -929,6 +966,9 @@ export class ModernRenderer {
    * while patches are left to build.
    */
   private syncChunks(world: World, until = Infinity): boolean {
+    // Every patch built and nothing changed since: the usual frame, seen in one compare.
+    if (this.rawBuilding && this.rawOwner && sameBytes(world.building, this.rawBuilding) && sameBytes(world.owner, this.rawOwner)) return true;
+    this.buildingStamp++;
     let left = false;
     let built = false;
     // The tiles whose buildings changed, for the ground's ambient occlusion.
@@ -983,6 +1023,10 @@ export class ModernRenderer {
       }
     }
     if (ART.ao && this.ground && ax1 > ax0) this.ground.paintAo(ax0, ay0, ax1, ay1, (tx, ty) => this.footOf(world, ty * GRID + tx));
+    if (!left) {
+      (this.rawBuilding ??= new Uint8Array(GRID * GRID)).set(world.building);
+      (this.rawOwner ??= new Int8Array(GRID * GRID)).set(world.owner);
+    }
     return !left;
   }
 
@@ -1186,7 +1230,8 @@ export class ModernRenderer {
   private syncDynamic(m: Match, extras: { wrecks: readonly MarkWreck[]; splats: readonly Splat[] }, cams: Camera[], dt: number): void {
     for (const p of this.pools.values()) p.begin();
     this.mines.length = 0;
-    const seen = new Set<Vehicle>();
+    const seen = this.scratch.seen;
+    seen.clear();
 
     for (const pl of m.players) if (pl.vehicle) this.vehicle(pl.vehicle, 0, seen, dt);
     // The bunker lifts. The hatch's two doors slide apart under the ground beside the shaft (they meet in the
@@ -1194,7 +1239,8 @@ export class ModernRenderer {
     // the shaft, and amber beacons at the shaft's corners turn while it moves. A hatch opening puffs dust out of the
     // shaft; a lift locking at the top kicks a little dust from its edges, and the vehicle settles on its springs as
     // it rolls off.
-    const seenLifts = new Set<object>();
+    const seenLifts = this.scratch.lifts;
+    seenLifts.clear();
     for (const l of m.lifts) {
       if (l.phase === 'wait') continue;
       seenLifts.add(l);
@@ -1233,8 +1279,9 @@ export class ModernRenderer {
         lens.position.set(x + a * 14.5, 1.6, y + b * 14.5);
       });
     }
-    for (const l of [...this.liftSeen.keys()]) if (!seenLifts.has(l)) this.liftSeen.delete(l);
-    for (const [v, rig] of [...this.rigs]) {
+    // (A Map's entries can be deleted while it is gone through.)
+    for (const l of this.liftSeen.keys()) if (!seenLifts.has(l)) this.liftSeen.delete(l);
+    for (const [v, rig] of this.rigs) {
       if (seen.has(v)) continue;
       this.dynamic.remove(rig.root);
       this.rigs.delete(v);
@@ -1271,7 +1318,9 @@ export class ModernRenderer {
 
     // Gun towers' heads, turned and pitched; gates' leaves.
     const world = m.world;
-    const turrets = new Map(m.turrets.map((t) => [t.tile, t]));
+    const turrets = this.scratch.turrets;
+    turrets.clear();
+    for (const t of m.turrets) turrets.set(t.tile, t);
     for (let cy = 0; cy < CHUNKS; cy++) {
       for (let cx = 0; cx < CHUNKS; cx++) {
         if (!this.chunkBuilt[cy * CHUNKS + cx]) continue;
@@ -1316,11 +1365,21 @@ export class ModernRenderer {
     // while the gate moves. A shut gate is a building on its tile; a moving one is the sim's Gate, so its posts are
     // drawn here too until it settles back into a building.
     const gates: { tile: number; bid: number; slide: number }[] = m.gates.map((g) => ({ tile: g.tile, bid: g.building, slide: gateSlide(g.opening, g.target, this.part) }));
-    for (let i = 0; i < GRID * GRID; i++) {
+    if (this.gateStamp !== this.buildingStamp) {
+      this.gateStamp = this.buildingStamp;
+      this.gateTiles.length = 0;
+      for (let i = 0; i < GRID * GRID; i++) {
+        const bid = world.building[i]!;
+        if (bid === GATE_H || bid === GATE_H + 1) this.gateTiles.push(i);
+      }
+    }
+    for (const i of this.gateTiles) {
       const bid = world.building[i]!;
       if (bid === GATE_H || bid === GATE_H + 1) gates.push({ tile: i, bid, slide: 0 });
     }
-    const moving = new Map(m.gates.map((g) => [g.tile, g]));
+    const moving = this.scratch.moving;
+    moving.clear();
+    for (const g of m.gates) moving.set(g.tile, g);
     const blink = Math.floor(performance.now() / 260) % 2 === 0;
     for (const { tile: i, bid, slide } of gates) {
       const owner = world.owner[i]!;
@@ -1479,7 +1538,9 @@ export class ModernRenderer {
     if (!world || dt <= 0) return;
     const w = this.marks;
     const pace = Math.min(1, dt * 60);
-    const lifted = new Set(m.lifts.map((l) => l.vehicle));
+    const lifted = this.scratch.lifted;
+    lifted.clear();
+    for (const l of m.lifts) lifted.add(l.vehicle);
     for (const pl of m.players) {
       const v = pl.vehicle;
       const rig = v && this.rigs.get(v);
