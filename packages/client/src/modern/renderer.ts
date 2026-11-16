@@ -257,7 +257,7 @@ export class ModernRenderer {
   private thermal = false;
   private pass: LookPass | null = null;
   /** Where each player's camera looked last picture on the thermal camera, for its afterimage (look.ts). */
-  private readonly ghostAt = new Map<number, { x: number; y: number; z: number; pitch: number; w: number; h: number }>();
+  private readonly ghostAt = new Map<number, { x: number; y: number; w: number; h: number }>();
   /** Recent blasts (seconds on the performance clock), and when each player's vehicle was last hit or destroyed. */
   private readonly blasts: { x: number; y: number; at: number; power: number }[] = [];
   private readonly struck = new Map<number, { at: number; long: boolean }>();
@@ -684,14 +684,14 @@ export class ModernRenderer {
   /**
    * Whether a view's last thermal picture can be burnt into this one (look.ts): the afterimage is burnt into the
    * screen, so it stays where it was on the screen (no shift) as the camera moves; null when there is no last picture
-   * of the same place: the first, a zoom or tilt, a resized view, or a cut. The camera must already be placed for v.
+   * of the same place: the first, a resized view, or a cut. A zoom or tilt keeps it: the burn stays on the screen. The camera must already be placed for v.
    */
   private ghostShift(v: ModernView): { x: number; y: number } | null {
     const pose = v.cam.pose();
     const r = v.rect;
     const was = this.ghostAt.get(v.viewer);
-    this.ghostAt.set(v.viewer, { x: pose.x, y: pose.y, z: pose.z, pitch: pose.pitch, w: r.w, h: r.h });
-    if (!was || was.z !== pose.z || was.pitch !== pose.pitch || was.w !== r.w || was.h !== r.h) return null;
+    this.ghostAt.set(v.viewer, { x: pose.x, y: pose.y, w: r.w, h: r.h });
+    if (!was || was.w !== r.w || was.h !== r.h) return null;
     // How far the ground moved across the view: a jump this big is a cut, not the camera following.
     const then = GHOST_P.set(was.x, 0, was.y).project(this.camera);
     const tx = then.x;

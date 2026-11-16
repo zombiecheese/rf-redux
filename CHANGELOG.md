@@ -6,7 +6,7 @@ Each release's section below becomes its GitHub release notes (`.github/workflow
 
 ### Added
 
-- On the modern view's thermal camera (night matches), white-hot things such as vehicles, soldiers and fires are momentarily burnt into the picture as they move, leaving a trail that fades over about a second, like a real infrared sensor. The trail stays where it was on the screen, and starts fresh when the camera cuts or the thermal camera is switched on. Cooler things leave none.
+- On the modern view's thermal camera (night matches), the picture is momentarily burnt into the screen and fades over about a second, like a real infrared sensor: as the camera moves, warm scenery smears behind it, and white-hot vehicles, soldiers and fires leave bright trails. It starts fresh when the camera cuts or the thermal camera is switched on. The cool ground leaves none.
 
 ### Fixed
 
