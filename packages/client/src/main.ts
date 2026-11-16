@@ -43,7 +43,7 @@ import { modernWinScene } from './modern/finale.js';
 import { loadModern, modernFailed, modernLoaded } from './modern/load.js';
 import { FEED_STEP, LoadingScreen, MATCH_STEPS, type LoadingState } from './loading.js';
 import { addTouchControls } from './touch.js';
-import { PRESET_NAMES, activePreset, qualityChoice, setQualityChoice, type QualityChoice } from './quality.js';
+import { PRESETS, PRESET_NAMES, activePreset, qualityChoice, setQualityChoice, setTiltShift, tiltShiftOn, type QualityChoice } from './quality.js';
 import './ui.css';
 import './themes.css';
 
@@ -933,6 +933,15 @@ function viewItems(): MenuEntry[] {
         const order: QualityChoice[] = ['auto', 'low', 'medium', 'high', 'ultra'];
         setQualityChoice(order[(order.indexOf(qualityChoice()) + 1) % order.length]!);
       },
+    },
+    {
+      label: 'Tilt-Shift',
+      hint: seenVisuals() !== 'modern' ? 'Modern only: the miniature focus blur'
+        : !PRESETS[activePreset(handheld)].tiltShift ? 'Low quality leaves it off'
+        : 'The miniature focus: sharp middle, soft top and bottom',
+      value: () => onOff(tiltShiftOn() && PRESETS[activePreset(handheld)].tiltShift),
+      enabled: () => seenVisuals() === 'modern' && PRESETS[activePreset(handheld)].tiltShift,
+      action: () => setTiltShift(!tiltShiftOn()),
     },
     {
       label: 'Picture', hint: seenVisuals() === 'modern' ? 'Classic only: fill the window, or whole pixels' : 'Fill the window, or whole-number pixels only',
