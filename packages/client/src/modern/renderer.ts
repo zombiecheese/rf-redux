@@ -182,6 +182,8 @@ class Pool<T extends { visible: boolean }> {
 
 /** The strongest the stream breaks up for a hit on the viewer's own vehicle (blasts nearby can still go to 1). */
 const STRUCK_MAX = 0.7;
+/** How long a slice of getting ready runs before the loading screen gets a frame (ms). */
+const SLICE_MS = 10;
 
 export class ModernRenderer {
   readonly canvas: HTMLCanvasElement;
@@ -499,22 +501,15 @@ export class ModernRenderer {
 
   // ---- Drawing ------------------------------------------------------------------------------------------------
 
-  /**
-   * Draws the match from each camera into its rectangle of the WebGL picture, and copies it to this.canvas.
-   * viewer is the player whose team decides which mines show; skip leaves a view out (the bunker shows there).
-   */
-  draw(m: Match, views: readonly ModernView[], extras: { wrecks: readonly MarkWreck[]; splats: readonly Splat[] }): void {
-    const now = performance.now();
-    if (stats) {
-      stats.attach(this.gl);
-      const c = this.gl.domElement;
-      stats.describe(`3D ${c.width}x${c.height}${this.qualityName ? ` ${this.qualityName}` : ''}${this.night ? ' night' : ' day'}${views.length > 1 ? ` ${views.length} views` : ''}`);
-    }
+  /** Brings the 3D world up to date with the match for a picture at now, drawing nothing; the seconds since the last. */
+  private stage(m: Match, views: readonly ModernView[], extras: { wrecks: readonly MarkWreck[]; splats: readonly Splat[] }, now: number): number {
     LIGHT_TIME.value = (now / 1000) % 1000;
     const dt = Math.min(0.1, (now - this.lastTime) / 1000);
     this.lastTime = now;
     if (m.world !== this.world) this.setWorld(m.world);
     const ground = this.ground!;
+    // A ground prepare began painting and never finished is painted now.
+    ground.paintNow();
     ground.update(m.world, m.lifts.filter((l) => l.phase !== 'wait').map((l) => l.tile));
     ground.tick(now / 1000);
     this.syncChunks(m.world);
@@ -526,6 +521,38 @@ export class ModernRenderer {
     this.waterFx(m, dt);
     this.fx.step(dt);
     this.fx.flashes(this.sea.flashes.pos, this.sea.flashes.power);
+    return dt;
+  }
+
+  /** The bunker screen's scene, set for a screen r. */
+  private bunkerFor(sc: Extract<ModernScreen, { kind: 'bunker' }>, r: ModernRect): BunkerScene {
+    const b = (this.bunker ??= new BunkerScene());
+    b.setNight(this.night);
+    b.frame(r.w / r.h);
+    b.update(this.paints[sc.base] ?? NEUTRAL, sc.lives, sc.selected, sc.elevator, sc.tick);
+    return b;
+  }
+
+  /** The skull screen's scene, set for a screen r. */
+  private skullFor(sc: Extract<ModernScreen, { kind: 'skull' }>, r: ModernRect): SkullScene {
+    const k = (this.skull ??= new SkullScene());
+    k.frame(r.w / r.h);
+    k.update(sc.look, this.paints[sc.rival] ?? NEUTRAL, this.paints[sc.base] ?? NEUTRAL, sc.lost, sc.left, sc.start);
+    return k;
+  }
+
+  /**
+   * Draws the match from each camera into its rectangle of the WebGL picture, and copies it to this.canvas.
+   * viewer is the player whose team decides which mines show; skip leaves a view out (the bunker shows there).
+   */
+  draw(m: Match, views: readonly ModernView[], extras: { wrecks: readonly MarkWreck[]; splats: readonly Splat[] }): void {
+    const now = performance.now();
+    if (stats) {
+      stats.attach(this.gl);
+      const c = this.gl.domElement;
+      stats.describe(`3D ${c.width}x${c.height}${this.qualityName ? ` ${this.qualityName}` : ''}${this.night ? ' night' : ' day'}${views.length > 1 ? ` ${views.length} views` : ''}`);
+    }
+    const dt = this.stage(m, views, extras, now);
     stats?.begin('scene');
     this.marks.render(this.gl, dt);
 
@@ -551,15 +578,10 @@ export class ModernRenderer {
       at(r);
       const sc = v.screen;
       if (sc?.kind === 'bunker') {
-        const b = (this.bunker ??= new BunkerScene());
-        b.setNight(this.night);
-        b.frame(r.w / r.h);
-        b.update(this.paints[sc.base] ?? NEUTRAL, sc.lives, sc.selected, sc.elevator, sc.tick);
+        const b = this.bunkerFor(sc, r);
         this.gl.render(b.scene, b.camera);
       } else if (sc?.kind === 'skull') {
-        const k = (this.skull ??= new SkullScene());
-        k.frame(r.w / r.h);
-        k.update(sc.look, this.paints[sc.rival] ?? NEUTRAL, this.paints[sc.base] ?? NEUTRAL, sc.lost, sc.left, sc.start);
+        const k = this.skullFor(sc, r);
         // Over the map while it still shows: dim it, keep its picture and clear only the depth. Then on black.
         this.gl.autoClear = false;
         if (v.skip) {
@@ -869,7 +891,7 @@ export class ModernRenderer {
     return { x: rect.x + ((p.x + 1) / 2) * rect.w, y: rect.y + ((1 - p.y) / 2) * rect.h };
   }
 
-  private setWorld(world: World): void {
+  private setWorld(world: World, later = false): void {
     this.world = world;
     this.warm = null;
     if (this.ground) {
@@ -877,7 +899,7 @@ export class ModernRenderer {
       this.ground.dispose();
     }
     this.marks.clear();
-    this.ground = new Ground(this.assets, world, SUN, this.gl.capabilities.maxTextureSize >= 8192, this.sea, (shader) => lampLight(shader, this.lampMap.texture, this.glow));
+    this.ground = new Ground(this.assets, world, SUN, this.gl.capabilities.maxTextureSize >= 8192, this.sea, (shader) => lampLight(shader, this.lampMap.texture, this.glow), later);
     this.statics.add(this.ground.group);
     this.waterLight(this.ground.water.uniforms);
     for (let i = 0; i < this.chunks.length; i++) {
@@ -901,7 +923,14 @@ export class ModernRenderer {
 
   // ---- Buildings ----------------------------------------------------------------------------------------------
 
-  private syncChunks(world: World): void {
+  /**
+   * Builds the patches of the map not built yet, and swaps the buildings that changed. Given until (a
+   * performance.now() time), it builds at least one new patch and stops building when that time has passed: false
+   * while patches are left to build.
+   */
+  private syncChunks(world: World, until = Infinity): boolean {
+    let left = false;
+    let built = false;
     // The tiles whose buildings changed, for the ground's ambient occlusion.
     let ax0 = GRID;
     let ay0 = GRID;
@@ -915,6 +944,10 @@ export class ModernRenderer {
         // patch for it took a frame of 30-100 ms, a stutter at every blast that brought something down.
         const c = cy * CHUNKS + cx;
         const fresh = !this.chunkBuilt[c];
+        if (fresh && built && performance.now() > until) {
+          left = true;
+          continue;
+        }
         changedTiles.length = 0;
         for (let y = cy * CHUNK; y < cy * CHUNK + CHUNK; y++) {
           for (let x = cx * CHUNK; x < cx * CHUNK + CHUNK; x++) {
@@ -931,6 +964,7 @@ export class ModernRenderer {
         if (!fresh && !changedTiles.length) continue;
         if (fresh) {
           this.buildChunk(world, c, cx, cy);
+          built = true;
           ax0 = Math.min(ax0, cx * CHUNK);
           ay0 = Math.min(ay0, cy * CHUNK);
           ax1 = Math.max(ax1, (cx + 1) * CHUNK);
@@ -949,6 +983,7 @@ export class ModernRenderer {
       }
     }
     if (ART.ao && this.ground && ax1 > ax0) this.ground.paintAo(ax0, ay0, ax1, ay1, (tx, ty) => this.footOf(world, ty * GRID + tx));
+    return !left;
   }
 
   /** Builds a patch of the map whole: its buildings merged into a mesh a material, and the garden's scatter. */
@@ -1665,31 +1700,104 @@ export class ModernRenderer {
   }
 
   /**
-   * Gets the whole of a match ready while its loading screen is up (the canvas is off the page): each of frames is
-   * drawn once, for the 3D world, the bunker and skull screens, every model and the shaders for each look, then the
-   * last of the pieces warmUp makes. step is awaited between pieces, so the loading screen keeps moving; the look is
-   * left as it was.
+   * Gets the whole of a match ready while its loading screen is up (the canvas is off the page), a slice at a time so
+   * the loading screen keeps moving: the ground painted and every patch of buildings built, then each of frames
+   * staged, its shaders compiled (in the background, where the browser can: KHR_parallel_shader_compile) and drawn
+   * once, for the 3D world, the bunker and skull screens, every model and the shaders for each look, then the last of
+   * the pieces warmUp makes. step is awaited between slices and gives the loading screen its frame; the look is left
+   * as it was.
    */
   async prepare(frames: readonly { m: Match; views: readonly ModernView[]; thermal?: boolean }[], step: () => Promise<void>): Promise<void> {
     const none = { wrecks: [], splats: [] };
     const drone = this.feed;
     const thermal = this.thermal;
+    let until = performance.now() + SLICE_MS;
+    /** A breath once this slice's time is used up. */
+    const pause = async () => {
+      if (performance.now() < until) return;
+      await step();
+      until = performance.now() + SLICE_MS;
+    };
+    /** A breath now, once the shaders under way are ready. */
+    const settle = async () => {
+      const jobs = this.compiling!.splice(0);
+      if (jobs.length) await Promise.all(jobs);
+      await step();
+      until = performance.now() + SLICE_MS;
+    };
+    this.compiling = [];
     try {
+      const first = frames[0]?.m;
+      if (first) {
+        if (first.world !== this.world) {
+          this.setWorld(first.world, true);
+          await this.ground!.paintIn(pause);
+        }
+        while (!this.syncChunks(first.world, until)) {
+          await step();
+          until = performance.now() + SLICE_MS;
+        }
+        await step();
+        await this.ground!.upload(this.gl, step);
+        await settle();
+      }
+      // The bunker's and the skull's screens are made each in a slice of their own.
+      this.bunker ??= new BunkerScene();
+      await settle();
+      this.skull ??= new SkullScene();
+      await settle();
       for (const f of frames) {
         this.setLook(drone, f.thermal ?? thermal);
+        this.stage(f.m, f.views, none, performance.now());
+        this.compileFor(f.views);
+        await settle();
         this.draw(f.m, f.views, none);
-        // Whatever the cameras did not take in is made too.
-        this.gl.compile(this.scene, this.camera);
-        await step();
+        await settle();
       }
-      const list = frames[0] ? this.warmList(frames[0].m) : [];
+      const list = first ? this.warmList(first) : [];
       while (list.length) {
         list.shift()!();
-        await step();
+        await settle();
       }
     } finally {
+      this.compiling = null;
       this.setLook(drone, thermal);
     }
+  }
+
+  /**
+   * While prepare runs, the shaders being compiled in the background (precompile adds to it), awaited between
+   * slices; null otherwise, when precompile compiles at once.
+   */
+  private compiling: Promise<unknown>[] | null = null;
+
+  /** Compiles the shaders a scene needs: in the background while prepare runs, else at once. */
+  private precompile(scene: THREE.Object3D, camera: THREE.Camera, target: THREE.Scene | null = null): void {
+    if (this.compiling) this.compiling.push(this.gl.compileAsync(scene, camera, target));
+    else this.gl.compile(scene, camera, target);
+  }
+
+  /** The shaders a picture of views needs, as stage left the world: the map's, its look's and each screen's. */
+  private compileFor(views: readonly ModernView[]): void {
+    const field = views.filter((v) => !v.skip);
+    if (field.length) {
+      // The whole scene, whatever the cameras take in.
+      this.place(field[0]!.cam, field[0]!.rect);
+      this.precompile(this.scene, this.camera);
+    }
+    const pass = (this.pass ??= new LookPass(MODERN_W, MODERN_H));
+    for (const v of views) {
+      const sc = v.screen;
+      if (sc?.kind === 'bunker') {
+        const b = this.bunkerFor(sc, v.rect);
+        this.precompile(b.scene, b.camera);
+      } else if (sc?.kind === 'skull') {
+        const k = this.skullFor(sc, v.rect);
+        this.precompile(k.dim, k.camera);
+        this.precompile(k.scene, k.camera);
+      }
+    }
+    pass.compile((scene, camera) => this.precompile(scene, camera));
   }
 
   private warmList(m: Match): (() => void)[] {
@@ -1701,8 +1809,8 @@ export class ModernRenderer {
           const k = (this.skull ??= new SkullScene());
           k.frame(MODERN_W / MODERN_H);
           k.update(skullLook(1), this.paints[bases[1] ?? 0] ?? NEUTRAL, this.paints[bases[0] ?? 0] ?? NEUTRAL, 'tank', 1, 3);
-          this.gl.compile(k.scene, k.camera);
-          this.gl.compile(k.dim, k.camera);
+          this.precompile(k.scene, k.camera);
+          this.precompile(k.dim, k.camera);
         },
         () => {
           // Far off the map, where nobody sees it: its particles, smoke, scorch marks and shards go through the
@@ -1710,13 +1818,13 @@ export class ModernRenderer {
           // when they were compiled on their own, made shaders for 8 lights where the picture has 4, and the first
           // real scorch mark still stopped the picture to make its own.
           this.fx.explosion(-4000, -4000, 2, 1.5, { scorch: true, chunks: [new THREE.Color(0x6b8f3a)], smokeFor: 0.5 });
-          this.gl.compile(this.scene, this.camera);
+          this.precompile(this.scene, this.camera);
         },
         ...bases.flatMap((b) => kinds.map((kind) => () => {
           const mesh = new THREE.Mesh(this.meltGeometry(kind, b), this.charred);
           mesh.castShadow = mesh.receiveShadow = true;
           const scratch = new THREE.Scene().add(mesh);
-          this.gl.compile(scratch, this.camera, this.scene);
+          this.precompile(scratch, this.camera, this.scene);
         })),
       ];
     }

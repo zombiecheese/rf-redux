@@ -949,8 +949,11 @@ export class Game {
     let preparing = true;
     /** Once the match's first picture is up (online: once the server has started it). */
     let isLive = false;
-    /** A breath between pieces of getting ready, so the loading screen keeps moving. */
-    const breath = () => new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+    /**
+     * A breath between pieces of getting ready, so the loading screen keeps moving: a frame of its own. Once the match
+     * is left it stops getting ready there.
+     */
+    const breath = () => new Promise<void>((resolve, reject) => requestAnimationFrame(() => (signal.aborted ? reject(signal.reason) : resolve())));
     /** The modern view: the 3D world, both screens, every model and the shaders for every look, made now. */
     const prepareModern = async (r: ModernRenderer) => {
       const rects = modernLayout(cameras.length);
@@ -994,7 +997,7 @@ export class Game {
         }
       } catch (err) {
         // Anything not made now is made when it is first needed, as before.
-        console.error('Getting the match ready:', err);
+        if (!signal.aborted) console.error('Getting the match ready:', err);
       }
       this.o.onStep?.(SHADER_STEP[0]);
       preparing = false;
