@@ -4,6 +4,11 @@ Each release's section below becomes its GitHub release notes (`.github/workflow
 
 ## [Unreleased]
 
+### Fixed
+
+- Modern view: the picture no longer stops for a moment when a blast brings down a building, tree or bush. Each one rebuilt the 3D models of its whole 8 x 8 tile patch of the map, a frame of 30-100 ms; now only the tile that changed is swapped, a few milliseconds.
+- Modern view: the first scorch mark of a match no longer stalls the picture while its shader is made. The effects are now made ready early in the match with the lights the picture really has.
+
 ## [0.7.1] - 2026-11-16
 
 Phones and tablets now always play full screen and in landscape, and get their on-screen controls reliably.
