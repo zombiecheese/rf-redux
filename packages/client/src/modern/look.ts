@@ -183,13 +183,20 @@ const FRAGMENT = /* glsl */ `
       // The afterimage: anything warmer than the ground is burnt into the sensor for a moment, so the last picture
       // stays where it was on the screen and fades: as the camera moves the warm scenery smears behind it, and
       // anything hot crossing the screen leaves a trail. Its rim and scanline are taken back out so they do not build
-      // up, and the cool ground leaves none.
+      // up, and the cool ground leaves none. It is soft and blurred, not a sharp copy.
       vec2 hp = px - shift;
       vec2 hl = (hp - r.xy) / r.zw;
       if (ghost > 0.5 && hl.x > 0.0 && hl.x < 1.0 && hl.y > 0.0 && hl.y < 1.0) {
-        float h = lum(texture2D(history, hp / res).rgb) / (rim(hl, r) * (0.965 + 0.035 * step(0.5, fract(hp.y * 0.5))));
-        h *= fade;
-        t = max(t, mix(t, h, smoothstep(0.32, 0.4, h)));
+        // Read a little blurred, so each frame it is held it spreads and softens as it fades.
+        vec2 hu = hp / res;
+        vec2 bt = 1.6 * texel;
+        float h = lum(texture2D(history, hu).rgb) * 0.36;
+        h += lum(texture2D(history, hu + vec2(bt.x, bt.y)).rgb) * 0.16;
+        h += lum(texture2D(history, hu + vec2(-bt.x, bt.y)).rgb) * 0.16;
+        h += lum(texture2D(history, hu + vec2(bt.x, -bt.y)).rgb) * 0.16;
+        h += lum(texture2D(history, hu + vec2(-bt.x, -bt.y)).rgb) * 0.16;
+        h *= fade / (rim(hl, r) * 0.9825);
+        t = max(t, mix(t, h, smoothstep(0.3, 0.4, h)));
       }
       t += grain * 0.07 + 0.012 * sin(px.y * 0.9 + time * 40.0);
       col = vec3(t) * vec3(0.98, 1.0, 1.02);
@@ -325,7 +332,7 @@ export class LookPass {
     u.drone!.value = drone ? 1 : 0;
     u.tilt!.value = tilt && ART.tiltShift && tiltShiftOn() ? 1 : 0;
     u.cctv!.value = cctv === 'night' ? 2 : cctv === 'day' ? 1 : 0;
-    // The afterimage: half of it gone every 600 ms, and kept only while it is still warmer than the ground, so a
+    // The afterimage: half of it gone every 750 ms, and kept only while it is still warmer than the ground, so a
     // burn that fades over about a second whatever the frame rate.
     // Not after a pause or a hitch, nor from a picture of another size.
     let ghosting = false;
@@ -337,7 +344,7 @@ export class LookPass {
       }
       const dt = seconds - this.historyAt;
       ghosting = this.historyAt >= 0 && dt > 0 && dt < 0.25;
-      u.fade!.value = ghosting ? Math.pow(0.5, dt / 0.6) : 0;
+      u.fade!.value = ghosting ? Math.pow(0.5, dt / 0.75) : 0;
       u.history!.value = this.history;
     }
     const sh = u.shifts!.value as THREE.Vector2[];
