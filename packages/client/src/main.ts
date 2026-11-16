@@ -14,7 +14,7 @@ import { loadAssets, loadAssetsWith, loadCommon, loadMap, loadMapIndex, type Gam
 import {
   about, dialog, dialogOpen, el, hallOfFame, helpTopics, matchSetup, modernUi, notice, systemInfo, teamsFor,
 } from './dialogs.js';
-import { Display, blockWhileUpright, isHandheld, lockLandscape, untilLandscape } from './display.js';
+import { Display, askForFullScreen, goFullScreen, blockWhileUpright, canFullScreen, isFullScreen, isHandheld, untilLandscape } from './display.js';
 import { listDrafts, loadDraft } from './editor/storage.js';
 import { Game, type Outcome } from './game.js';
 import { ReplayBar, replaysDialog, saveReplay } from './replays.js';
@@ -119,6 +119,8 @@ let run = 0;
 function setScreen(s: Screen): void {
   screen = s;
   document.body.dataset.screen = s;
+  if (handheld && s === 'game') askForFullScreen();
+  if (handheld && s === 'title') homeScreenTip();
   if (s !== 'title' && s !== 'game') closeMenu();
   syncPlaying();
   syncLook();
@@ -256,6 +258,8 @@ async function newGame(players?: 1 | 2): Promise<void> {
 }
 
 async function startGame(opts: { bots?: boolean; seed?: number } = {}): Promise<void> {
+  // Started by a tap (Start, or a lobby's): the moment a phone allows full screen. If it is refused, the next tap asks.
+  if (handheld) void goFullScreen();
   skip.abort();
   game?.stop();
   game = null;
@@ -702,9 +706,21 @@ async function setUpOnline(): Promise<void> {
   net.connect();
 }
 
+let tipShown = false;
+
+/**
+ * iPhone Safari cannot put a page full screen: once, on reaching the title, say how to play it from the home screen
+ * instead, where it opens without the browser's bars (index.html's manifest and apple-mobile-web-app-capable).
+ */
+function homeScreenTip(): void {
+  if (tipShown || canFullScreen() || isFullScreen()) return;
+  tipShown = true;
+  toast('For full screen: tap Share, then Add to Home Screen, and play from there');
+}
+
 function fullScreen(): void {
   if (document.fullscreenElement) void document.exitFullscreen();
-  else void document.documentElement.requestFullscreen?.().catch(() => {});
+  else void goFullScreen();
 }
 
 // ---- The menu ----------------------------------------------------------------------------------------------------
@@ -1031,8 +1047,8 @@ addEventListener('pointerdown', (e) => {
 
 async function boot(): Promise<void> {
   if (handheld) {
-    // In this order: the lock's first touch must come before the block on an upright screen.
-    lockLandscape();
+    // In this order: the full screen request must see a tap before the block on an upright screen swallows it.
+    askForFullScreen();
     blockWhileUpright();
     addTouchControls();
   }

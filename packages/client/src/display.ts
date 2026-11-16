@@ -12,7 +12,10 @@ import { SCREEN_H, SCREEN_W } from './raster.js';
 export function isHandheld(): boolean {
   const coarse = matchMedia('(pointer: coarse)').matches && !matchMedia('(any-pointer: fine)').matches;
   const iPad = navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1;
-  return coarse || iPad || /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+  // A phone-sized touch screen, whatever else it says: phones with a stylus report a fine pointer too, and a browser
+  // asked for the desktop site drops "Mobile" from its user agent.
+  const phone = navigator.maxTouchPoints > 0 && matchMedia('(any-pointer: coarse)').matches && Math.min(screen.width, screen.height) <= 900;
+  return coarse || iPad || phone || /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
 }
 
 /** True while a handheld is held upright, when the game waits for it to be turned. */
@@ -50,17 +53,67 @@ export function blockWhileUpright(): void {
   }
 }
 
+type FullScreenRoot = HTMLElement & { webkitRequestFullscreen?: () => Promise<void> | void };
+type FullScreenDoc = Document & { webkitFullscreenElement?: Element | null; webkitFullscreenEnabled?: boolean };
+
+/** Whether the page fills the screen: full screen, or started from the home screen as an app. */
+export function isFullScreen(): boolean {
+  const d = document as FullScreenDoc;
+  return !!(d.fullscreenElement ?? d.webkitFullscreenElement) || matchMedia('(display-mode: fullscreen), (display-mode: standalone)').matches
+    || (navigator as Navigator & { standalone?: boolean }).standalone === true;
+}
+
+/** Whether this browser can put a page full screen at all (an iPhone's Safari cannot; an iPad's can). */
+export function canFullScreen(): boolean {
+  const d = document as FullScreenDoc;
+  const root = document.documentElement as FullScreenRoot;
+  return !!(d.fullscreenEnabled || d.webkitFullscreenEnabled) && !!(root.requestFullscreen || root.webkitRequestFullscreen);
+}
+
+function lockOrientation(): void {
+  (screen.orientation as ScreenOrientation & { lock?: (o: string) => Promise<void> } | undefined)?.lock?.('landscape')?.catch(() => {});
+}
+
 /**
- * On a handheld, the first touch asks for full screen and a landscape lock where the browser allows it (Android
- * Chrome does; iPhone Safari does neither, so the rotate notice in index.html covers it).
+ * Asks for full screen, then a landscape lock where the browser allows one. It must run inside a tap or key press:
+ * a browser lets a page go full screen only then.
  */
-export function lockLandscape(): void {
-  addEventListener('pointerdown', () => {
-    const root = document.documentElement;
-    const lock = () => (screen.orientation as ScreenOrientation & { lock?: (o: string) => Promise<void> }).lock?.('landscape')?.catch(() => {});
-    if (!document.fullscreenElement && root.requestFullscreen) root.requestFullscreen().then(lock, () => {});
-    else lock();
-  }, { once: true, capture: true });
+export function goFullScreen(): Promise<boolean> {
+  if (isFullScreen()) return Promise.resolve(true);
+  const root = document.documentElement as FullScreenRoot;
+  try {
+    const asked = root.requestFullscreen ? root.requestFullscreen({ navigationUI: 'hide' }) : root.webkitRequestFullscreen?.();
+    return Promise.resolve(asked).then(() => {
+      lockOrientation();
+      return isFullScreen();
+    }, () => false);
+  } catch {
+    return Promise.resolve(false);
+  }
+}
+
+/** Set while the next tap should ask for full screen; null until the taps are listened for. */
+let wantFullScreen: boolean | null = null;
+
+/**
+ * On a handheld, the next tap (or key) asks for full screen and a landscape lock: at the start, and again when a
+ * match starts if the player has left full screen since. It listens for the end of a tap, not its start: a browser
+ * counts a touch as the player's go-ahead only once the finger lifts, so asking on touchdown is refused on a real
+ * phone. iPhone Safari has no full screen for pages; there the rotate notice and Add to Home Screen stand in.
+ */
+export function askForFullScreen(): void {
+  if (!canFullScreen()) return;
+  const listening = wantFullScreen !== null;
+  wantFullScreen = !isFullScreen();
+  if (listening) return;
+  const tryNow = () => {
+    if (!wantFullScreen) return;
+    wantFullScreen = false;
+    void goFullScreen().then((ok) => {
+      if (!ok) wantFullScreen = true;
+    });
+  };
+  for (const type of ['pointerup', 'touchend', 'click', 'keydown'] as const) addEventListener(type, tryNow, { capture: true });
 }
 
 /**

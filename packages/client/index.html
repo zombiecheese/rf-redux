@@ -6,6 +6,13 @@
     <meta name="screen-orientation" content="landscape" />
     <title>Return Fire: Redux</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <!-- Added to a home screen, the game opens full screen in landscape: the way to play full screen on an iPhone. -->
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Return Fire" />
+    <meta name="theme-color" content="#000000" />
     <style>
       html, body { margin: 0; height: 100%; background: #000; color: #ddd; font: 14px system-ui, sans-serif; overflow: hidden; }
       canvas { display: block; touch-action: none; }
