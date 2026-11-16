@@ -446,6 +446,28 @@ body.replay .menu-fab { display: none; }
   body.handheld #rotate { display: flex; }
   body.handheld canvas { visibility: hidden; }
 }
+/* Out of full screen, a handheld shows this until tapped (display.ts requireFullScreen); upright, the rotate notice covers it. */
+body.handheld.needs-fullscreen #fullscreen { display: flex; }
+body.handheld.needs-fullscreen canvas { visibility: hidden; }
+#fullscreen { position: fixed; inset: 0; z-index: 99; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
+  padding: 24px; text-align: center; background: #10130f; color: var(--ui-muted); font: 15px/1.4 system-ui, -apple-system, sans-serif; cursor: pointer; }
+#fullscreen b { color: var(--ui-accent); font: 700 20px/1.2 "Courier New", monospace; letter-spacing: 2px; text-transform: uppercase; }
+#fullscreen span { max-width: 22em; }
+/* Four pixel corner brackets that step outwards, like a sprite: the screen growing to fill the device. */
+.fullscreen-icon { position: relative; width: 84px; height: 52px; margin-bottom: 18px; animation: fullscreen-grow 1.6s steps(1) infinite; }
+.fullscreen-icon::before, .fullscreen-icon::after { content: ""; position: absolute; inset: 0;
+  background:
+    linear-gradient(var(--ui-text), var(--ui-text)) left top / 18px 6px, linear-gradient(var(--ui-text), var(--ui-text)) left top / 6px 18px,
+    linear-gradient(var(--ui-text), var(--ui-text)) right top / 18px 6px, linear-gradient(var(--ui-text), var(--ui-text)) right top / 6px 18px,
+    linear-gradient(var(--ui-text), var(--ui-text)) left bottom / 18px 6px, linear-gradient(var(--ui-text), var(--ui-text)) left bottom / 6px 18px,
+    linear-gradient(var(--ui-text), var(--ui-text)) right bottom / 18px 6px, linear-gradient(var(--ui-text), var(--ui-text)) right bottom / 6px 18px;
+  background-repeat: no-repeat; }
+.fullscreen-icon::after { inset: 15px 24px; background: #3d6b8f; }
+@keyframes fullscreen-grow {
+  0%, 30% { transform: scale(.7); }
+  35%, 65% { transform: scale(.85); }
+  70%, 100% { transform: scale(1); }
+}
 #rotate { display: none; position: fixed; inset: 0; z-index: 100; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
   padding: 24px; text-align: center; background: #10130f; color: var(--ui-muted); font: 15px/1.4 system-ui, -apple-system, sans-serif; }
 #rotate b { color: var(--ui-accent); font: 700 20px/1.2 "Courier New", monospace; letter-spacing: 2px; text-transform: uppercase; }

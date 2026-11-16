@@ -35,6 +35,14 @@ docker compose up -d --no-build
 
 **My phone shows "turn your device sideways".** The game plays in landscape. The match waits until you turn it.
 
+**My phone shows "tap to play full screen".** Phones and tablets play full screen. Tap anywhere on the notice. It comes back if you leave full screen (with the back gesture, say); tap again to carry on.
+
+**My iPhone shows the browser's bars.** Safari on an iPhone cannot put a web page full screen. Tap **Share**, then **Add to Home Screen**, and start the game from that icon: it opens full screen in landscape.
+
+**There are no on-screen controls.** They are for phones and tablets only, and show only during a match. A computer with a touch screen uses the keyboard. If a phone or tablet shows none, open an issue with its model and browser.
+
+**The modern view is slow or jerky.** Try a lower **Options > View > Quality**, or leave it on Auto. Add `?stats=1` to the address to see the frame rate, and use its Copy button when reporting a problem.
+
 **The picture looks soft.** Add `?scale=integer` to the address to scale by whole numbers only, or change the scaling under **Options**.
 
 **My base went out and I still had tanks.** A base with no jeeps left is out, because only a jeep can capture a flag. See [[Game Rules]].

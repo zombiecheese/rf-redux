@@ -92,28 +92,59 @@ export function goFullScreen(): Promise<boolean> {
   }
 }
 
-/** Set while the next tap should ask for full screen; null until the taps are listened for. */
-let wantFullScreen: boolean | null = null;
+/** Whether a handheld is waiting behind the full screen notice (never where the browser has no full screen). */
+let fullScreenHeld = false;
+
+/** True while a handheld must still go full screen: the notice covers the page and a match waits. */
+export function needsFullScreen(): boolean {
+  return fullScreenHeld;
+}
+
+/** A handheld held upright, or not yet full screen: nothing moves on until both are put right. */
+export function heldBack(): boolean {
+  return isPortrait() || fullScreenHeld;
+}
 
 /**
- * On a handheld, the next tap (or key) asks for full screen and a landscape lock: at the start, and again when a
- * match starts if the player has left full screen since. It listens for the end of a tap, not its start: a browser
- * counts a touch as the player's go-ahead only once the finger lifts, so asking on touchdown is refused on a real
- * phone. iPhone Safari has no full screen for pages; there the rotate notice and Add to Home Screen stand in.
+ * A handheld plays full screen only: out of full screen (at the start, or after leaving it) the full screen notice
+ * in index.html covers the page, and every tap or key there goes to asking for full screen and nothing else. The
+ * request goes out as a tap ends: a browser counts a touch as the player's go-ahead only once the finger lifts.
+ * Full screen brings a landscape lock where the browser has one. iPhone Safari cannot put a page full screen at
+ * all, so there the notice never shows: landscape is all it asks (and the title says how to add it to the home
+ * screen, which opens full screen).
  */
-export function askForFullScreen(): void {
+export function requireFullScreen(): void {
   if (!canFullScreen()) return;
-  const listening = wantFullScreen !== null;
-  wantFullScreen = !isFullScreen();
-  if (listening) return;
-  const tryNow = () => {
-    if (!wantFullScreen) return;
-    wantFullScreen = false;
-    void goFullScreen().then((ok) => {
-      if (!ok) wantFullScreen = true;
-    });
+  const sync = () => {
+    fullScreenHeld = !isFullScreen();
+    document.body.classList.toggle('needs-fullscreen', fullScreenHeld);
   };
-  for (const type of ['pointerup', 'touchend', 'click', 'keydown'] as const) addEventListener(type, tryNow, { capture: true });
+  sync();
+  for (const type of ['fullscreenchange', 'webkitfullscreenchange'] as const) document.addEventListener(type, sync);
+  addEventListener('resize', sync);
+  const block = (e: Event) => {
+    if (!fullScreenHeld || isPortrait()) return;
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    const ask = e.type === 'click' || e.type === 'pointerup' || e.type === 'touchend' || (e.type === 'keydown' && (e as KeyboardEvent).key !== 'Escape');
+    if (ask) void goFullScreen().then(sync);
+  };
+  for (const type of ['keydown', 'keyup', 'pointerdown', 'pointerup', 'click', 'touchstart', 'touchend'] as const) {
+    addEventListener(type, block, { capture: true, passive: false });
+  }
+}
+
+/** Resolves once a handheld is in landscape and full screen (at once if it already is). */
+export function untilReady(): Promise<void> {
+  return new Promise((resolve) => {
+    const check = () => {
+      if (heldBack()) return;
+      clearInterval(timer);
+      resolve();
+    };
+    const timer = setInterval(check, 150);
+    check();
+  });
 }
 
 /**

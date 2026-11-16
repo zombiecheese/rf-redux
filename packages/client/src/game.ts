@@ -24,7 +24,7 @@ import {
 import type { GameAssets } from './assets.js';
 import { BAYS, drawBunker } from './bunker.js';
 import { Camera, FOCAL, layout } from './camera.js';
-import { isPortrait, type Display } from './display.js';
+import { heldBack, type Display } from './display.js';
 import { setTouchMode, touchModeFor } from './touch.js';
 import { Effects } from './effects.js';
 import { LINE, drawText, textWidth } from './font.js';
@@ -771,8 +771,8 @@ export class Game {
         ours = playKeys();
         keys.clear();
       }
-      // A handheld held upright shows the rotate notice instead, and the match waits.
-      const upright = this.o.handheld && isPortrait();
+      // A handheld held upright, or out of full screen, shows the rotate or full screen notice instead, and the match waits.
+      const upright = this.o.handheld && heldBack();
       // A modern match is drawn in the modern view from its first picture: once its code is here the renderer is made
       // at once, and until then the link-up screen shows (never the classic picture) and an offline match waits.
       if (wanted() === 'modern' && !modern && modernAvailable() && !modernFailed()) {
