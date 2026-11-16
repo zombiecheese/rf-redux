@@ -28,7 +28,7 @@ Every release on GitHub (see [Releasing](#releasing)) pushes the image to the Gi
    docker compose up -d
    ```
 
-To move to a newer release, download its `docker-compose.yml` over the old one (or set `RF_VERSION` in `.env`, for example `RF_VERSION=0.7.2`; `RF_VERSION=latest` follows the newest release), then `docker compose pull && docker compose up -d`. Everything else on this page, from HTTPS to backups, works the same way.
+To move to a newer release, download its `docker-compose.yml` over the old one (or set `RF_VERSION` in `.env`, for example `RF_VERSION=0.8.0`; `RF_VERSION=latest` follows the newest release), then `docker compose pull && docker compose up -d`. Everything else on this page, from HTTPS to backups, works the same way.
 
 ## Running it from a checkout
 
@@ -115,7 +115,7 @@ Releases are cut from `main` by pushing a version tag. `.github/workflows/releas
 2. Once it is merged, tag `main` and push the tag:
 
    ```sh
-   git tag v0.7.2 && git push origin v0.7.2
+   git tag v0.8.0 && git push origin v0.8.0
    ```
 
    Publishing a release for a new tag on the repository's Releases page does the same: the workflow fills in its title, notes and files.

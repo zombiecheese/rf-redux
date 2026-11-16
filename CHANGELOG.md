@@ -4,6 +4,10 @@ Each release's section below becomes its GitHub release notes (`.github/workflow
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-11-16
+
+Matches start together and never stop to load: everything is ready behind the loading screen, online waits for every player, and the match begins when the last player picks a vehicle. Also a free camera for replays, a Tilt-Shift switch, and a smoother lift and gates in the modern view.
+
 ### Added
 
 - Replays have a free camera. Drag the picture (or use W A S D or the arrows) to look anywhere on the map, and zoom with the mouse wheel, Q / E, Page Up / Page Down or a two-finger pinch; C or the bar's Free camera button turns it on and off, and picking a player goes back to following them. It works while the replay is paused, so a moment can be looked round. The modern view zooms from about twice as close as the follow camera to the whole island; the classic view zooms out to a third of its size and in no closer than its own 1:1 pixels, which the original never went beyond.
@@ -241,7 +245,9 @@ The first release: a browser remake of Return Fire (1995) that plays like the or
 
 - A Docker Compose stack with one image, `ghcr.io/zombiecheese/rf-redux`, published for every version tag together with a compose file, an `.env` template and a Caddyfile for HTTPS ([docs/deploy.md](docs/deploy.md)).
 
-[Unreleased]: https://github.com/zombiecheese/rf-redux/compare/v0.7.1...HEAD
+[Unreleased]: https://github.com/zombiecheese/rf-redux/compare/v0.8.0...HEAD
+[0.8.0]: https://github.com/zombiecheese/rf-redux/releases/tag/v0.8.0
+[0.7.2]: https://github.com/zombiecheese/rf-redux/releases/tag/v0.7.2
 [0.7.1]: https://github.com/zombiecheese/rf-redux/releases/tag/v0.7.1
 [0.7.0]: https://github.com/zombiecheese/rf-redux/releases/tag/v0.7.0
 [0.6.0]: https://github.com/zombiecheese/rf-redux/releases/tag/v0.6.0
