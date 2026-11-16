@@ -682,9 +682,9 @@ export class ModernRenderer {
   }
 
   /**
-   * How far the ground has moved across a view since its last thermal picture (modern pixels, y up), so the
-   * afterimage stays on the ground it was left on as the camera follows; null when there is no last picture of the
-   * same place: the first, a zoom or tilt, a resized view, or a cut. The camera must already be placed for v.
+   * Whether a view's last thermal picture can be burnt into this one (look.ts): the afterimage is burnt into the
+   * screen, so it stays where it was on the screen (no shift) as the camera moves; null when there is no last picture
+   * of the same place: the first, a zoom or tilt, a resized view, or a cut. The camera must already be placed for v.
    */
   private ghostShift(v: ModernView): { x: number; y: number } | null {
     const pose = v.cam.pose();
@@ -692,14 +692,14 @@ export class ModernRenderer {
     const was = this.ghostAt.get(v.viewer);
     this.ghostAt.set(v.viewer, { x: pose.x, y: pose.y, z: pose.z, pitch: pose.pitch, w: r.w, h: r.h });
     if (!was || was.z !== pose.z || was.pitch !== pose.pitch || was.w !== r.w || was.h !== r.h) return null;
-    // Where the last centre of the view is now, against where the centre is.
+    // How far the ground moved across the view: a jump this big is a cut, not the camera following.
     const then = GHOST_P.set(was.x, 0, was.y).project(this.camera);
     const tx = then.x;
     const ty = then.y;
     const now = GHOST_P.set(pose.x, 0, pose.y).project(this.camera);
     const x = ((tx - now.x) / 2) * r.w;
     const y = ((ty - now.y) / 2) * r.h;
-    return Math.abs(x) > 48 || Math.abs(y) > 48 ? null : { x, y };
+    return Math.abs(x) > 48 || Math.abs(y) > 48 ? null : { x: 0, y: 0 };
   }
 
   /** Stands the camera where the retro camera projects from, framing the rectangle as the retro view frames its own. */

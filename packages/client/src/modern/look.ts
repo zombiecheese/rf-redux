@@ -6,8 +6,8 @@
 // themselves: every material shows its heat instead of its lit colour (vehicles, soldiers and drones hot, wrecks
 // warm, buildings and ground cool, the sea cold, lit windows warm at night), so darkness hides nothing; the pass then
 // shows it white-hot, grainy and a touch soft, as an infrared camera does, and the hottest things leave a faint
-// afterimage as they move, as a real sensor's slow response does (Paul's ghosting): the last picture, held where the
-// ground under it has moved to, fading in a few tenths of a second.
+// afterimage as they move, as a real sensor's slow response does: the white-hot is burnt into the screen for a
+// moment and fades, leaving a trail.
 
 import * as THREE from 'three';
 import { ART } from './art.js';
@@ -180,14 +180,15 @@ const FRAGMENT = /* glsl */ `
       t += lum(texture2D(frame, uv + vec2(0.0, texel.y)).rgb) * 0.15;
       t += lum(texture2D(frame, uv - vec2(0.0, texel.y)).rgb) * 0.15;
       t = smoothstep(0.04, 0.92, t);
-      // The afterimage: the last picture where this ground was, its rim and scanline taken back out so they do not
-      // build up, kept only where it was white-hot, so a hot vehicle trails a faint smear and the cool ground none.
+      // The afterimage: the white-hot is burnt into the sensor for a moment, so the last picture stays where it was
+      // on the screen and fades, leaving a trail behind anything hot that moves across it. Its rim and scanline are
+      // taken back out so they do not build up, and only what was white-hot is kept, so the cool ground leaves none.
       vec2 hp = px - shift;
       vec2 hl = (hp - r.xy) / r.zw;
       if (ghost > 0.5 && hl.x > 0.0 && hl.x < 1.0 && hl.y > 0.0 && hl.y < 1.0) {
         float h = lum(texture2D(history, hp / res).rgb) / (rim(hl, r) * (0.965 + 0.035 * step(0.5, fract(hp.y * 0.5))));
         h *= fade;
-        t = max(t, mix(t, h, 0.9 * smoothstep(0.55, 0.75, h)));
+        t = max(t, mix(t, h, smoothstep(0.55, 0.78, h)));
       }
       t += grain * 0.07 + 0.012 * sin(px.y * 0.9 + time * 40.0);
       col = vec3(t) * vec3(0.98, 1.0, 1.02);
@@ -323,8 +324,8 @@ export class LookPass {
     u.drone!.value = drone ? 1 : 0;
     u.tilt!.value = tilt && ART.tiltShift && tiltShiftOn() ? 1 : 0;
     u.cctv!.value = cctv === 'night' ? 2 : cctv === 'day' ? 1 : 0;
-    // The afterimage: half of it gone every 250 ms and only what is still near white-hot
-    // kept, so a trail of about a fifth of a second whatever the frame rate.
+    // The afterimage: half of it gone every 800 ms and only what is still near white-hot kept, so a trail that
+    // fades over about a second whatever the frame rate.
     // Not after a pause or a hitch, nor from a picture of another size.
     let ghosting = false;
     if (thermal) {
@@ -335,7 +336,7 @@ export class LookPass {
       }
       const dt = seconds - this.historyAt;
       ghosting = this.historyAt >= 0 && dt > 0 && dt < 0.25;
-      u.fade!.value = ghosting ? Math.pow(0.5, dt / 0.25) : 0;
+      u.fade!.value = ghosting ? Math.pow(0.5, dt / 0.8) : 0;
       u.history!.value = this.history;
     }
     const sh = u.shifts!.value as THREE.Vector2[];
