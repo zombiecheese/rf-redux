@@ -631,7 +631,17 @@ export class ModernRenderer {
     this.fx.setScale(f);
     // The shadow box follows what this view looks at, in whole steps of its shadow map's texels across the sun's
     // view, so shadows stay put on the ground as the camera moves instead of crawling and shimmering at the edges.
-    const texel = (2 * SHADOW_SPAN) / this.sun.shadow.mapSize.x;
+    // A free camera pulled back (a replay's) has its shadow box grown to what it sees.
+    const span = Math.round(SHADOW_SPAN * cam.reach());
+    const sc = this.sun.shadow.camera;
+    if (sc.right !== span) {
+      sc.left = -span;
+      sc.right = span;
+      sc.top = span;
+      sc.bottom = -span;
+      sc.updateProjectionMatrix();
+    }
+    const texel = (2 * span) / this.sun.shadow.mapSize.x;
     const at = SUN_SIDE.clone().multiplyScalar(Math.round((pose.x * SUN_SIDE.x + (pose.y - 40) * SUN_SIDE.z) / texel) * texel)
       .addScaledVector(SUN_UP, Math.round((pose.x * SUN_UP.x + (pose.y - 40) * SUN_UP.z) / texel) * texel);
     // Back onto the ground along the sun's direction: moving a point along it moves nothing in the shadow map.
@@ -1125,7 +1135,8 @@ export class ModernRenderer {
 
     // Wrecks still moving, and the marks of those at rest.
     for (const w of m.wrecks) this.wreck(w.kind, w.base, w.x / 65536, w.y / 65536, w.z / 65536, w.heading, dt, w.model === 'body');
-    const near = (x: number, y: number) => cams.some((c) => Math.abs(c.centreX - x) < 420 && Math.abs(c.pose().y - y) < 360);
+    // A free camera pulled back (a replay's) sees further, and draws further.
+    const near = (x: number, y: number) => cams.some((c) => Math.abs(c.centreX - x) < 420 * c.reach() && Math.abs(c.pose().y - y) < 360 * c.reach());
     for (const w of extras.wrecks) {
       if (!near(w.x, w.y) || !drawMark(w, m.tick)) continue;
       this.wreck(w.kind, w.paint || w.variant, w.x, w.y, 0, w.heading, dt, false);
@@ -1159,7 +1170,10 @@ export class ModernRenderer {
         if (!this.chunkBuilt[cy * CHUNKS + cx]) continue;
         const x0 = cx * CHUNK * TILE;
         const y0 = cy * CHUNK * TILE;
-        if (!cams.some((c) => c.centreX > x0 - 520 && c.centreX < x0 + CHUNK * TILE + 520 && c.pose().y > y0 - 460 && c.pose().y < y0 + CHUNK * TILE + 460)) continue;
+        if (!cams.some((c) => {
+          const r = c.reach();
+          return c.centreX > x0 - 520 * r && c.centreX < x0 + CHUNK * TILE + 520 * r && c.pose().y > y0 - 460 * r && c.pose().y < y0 + CHUNK * TILE + 460 * r;
+        })) continue;
         for (let y = cy * CHUNK; y < cy * CHUNK + CHUNK; y++) {
           for (let x = cx * CHUNK; x < cx * CHUNK + CHUNK; x++) {
             const i = y * GRID + x;

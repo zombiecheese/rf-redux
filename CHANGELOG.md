@@ -4,6 +4,10 @@ Each release's section below becomes its GitHub release notes (`.github/workflow
 
 ## [Unreleased]
 
+### Added
+
+- Replays have a free camera. Drag the picture (or use W A S D or the arrows) to look anywhere on the map, and zoom with the mouse wheel, Q / E, Page Up / Page Down or a two-finger pinch; C or the bar's Free camera button turns it on and off, and picking a player goes back to following them. It works while the replay is paused, so a moment can be looked round. The modern view zooms from about twice as close as the follow camera to the whole island; the classic view zooms out to a third of its size and in no closer than its own 1:1 pixels, which the original never went beyond.
+
 ## [0.7.2] - 2026-11-16
 
 Themed loading screens, a fixed modern vehicle select, and no more pauses when blasts bring things down.

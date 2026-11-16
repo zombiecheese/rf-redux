@@ -198,6 +198,7 @@ export class ReplayBar {
   private readonly playBtn = el('button', { type: 'button', class: 'btn small' });
   private readonly warning = el('span', { class: 'hint warn' });
   private readonly followers: HTMLButtonElement[] = [];
+  private readonly freeBtn: HTMLButtonElement;
   private raf = 0;
   private dragging = false;
 
@@ -228,6 +229,9 @@ export class ReplayBar {
       this.followers.push(b);
       follow.append(b);
     });
+    this.freeBtn = button('Free camera', `Free camera: drag to move, the wheel or a pinch zooms (${keyName(REPLAY_KEYS.freeCamera[0])})`, () => ctl.roam(!ctl.free));
+    this.freeBtn.classList.add('free-cam');
+    follow.append(this.freeBtn);
     const k = REPLAY_KEYS;
     this.root.append(
       el('div', { class: 'row' },
@@ -253,7 +257,9 @@ export class ReplayBar {
     this.time.textContent = `${formatTime(ctl.frame * TICK_MS)} / ${formatTime(ctl.frames * TICK_MS)}`;
     this.speedText.textContent = `${ctl.speed}×`;
     this.playBtn.textContent = this.paused() ? '▶' : '❚❚';
-    this.followers.forEach((b, i) => b.classList.toggle('default', i === ctl.watching));
+    this.followers.forEach((b, i) => b.classList.toggle('default', !ctl.free && i === ctl.watching));
+    this.freeBtn.classList.toggle('default', ctl.free);
+    this.freeBtn.setAttribute('aria-pressed', String(ctl.free));
     this.warning.textContent = ctl.outOfStep ? 'Recorded on another version of the game: this may not be what happened.' : '';
   }
 
