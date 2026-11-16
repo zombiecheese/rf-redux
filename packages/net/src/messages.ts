@@ -7,7 +7,7 @@ import type { RfwMap, Snapshot } from '@rfw/sim';
  * Bump whenever a message, the frame format or the sim changes in a way an older client would get wrong. The
  * server tells a client with another version to reload the page.
  */
-export const PROTOCOL_VERSION = 6;
+export const PROTOCOL_VERSION = 7;
 
 export type Role = 'player' | 'moderator' | 'admin' | 'owner';
 
@@ -151,6 +151,11 @@ export interface MatchSeat {
   difficulty?: number;
 }
 
+/** The human players of a match, whose first picks its start gate waits for (sim StartGate). */
+export function humanGate(seats: readonly MatchSeat[]): number[] {
+  return seats.filter((s) => !s.bot).map((s) => s.player);
+}
+
 /** Everything a client needs to set up a match: the map itself (custom maps are not in the assets), seats and seed. */
 export interface MatchStart {
   gameId: string;
@@ -194,6 +199,8 @@ export interface SeatStatus {
   ping?: number;
   /** A bot has taken the seat over from a player who left. */
   botTakeover?: boolean;
+  /** Before the match starts: whether this player has loaded it (the match waits for every human). */
+  loaded?: boolean;
 }
 
 // ---- Friends -----------------------------------------------------------------------------------------------------

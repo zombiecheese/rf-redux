@@ -162,6 +162,24 @@ export class SoundFont {
     return b;
   }
 
+  /**
+   * Makes the sample buffers a note would play ahead of time (voice makes them the first time they sound, which
+   * copies the whole sample: a hitch mid-match for a long one).
+   */
+  prime(ctx: BaseAudioContext, bank: number, program: number, note: number, vel: number): void {
+    const preset = this.presets.get(bank * 128 + program) ?? (bank === 128 ? this.presets.get(128 * 128) : this.presets.get(program));
+    if (!preset) return;
+    for (const pz of preset.zones) {
+      if (note < pz.keyLo || note > pz.keyHi || vel < pz.velLo || vel > pz.velHi) continue;
+      const instrument = this.instruments[pz.gens.get(G.instrument)!];
+      if (!instrument) continue;
+      for (const iz of instrument.zones) {
+        if (note < iz.keyLo || note > iz.keyHi || vel < iz.velLo || vel > iz.velHi) continue;
+        this.buffer(ctx, iz.gens.get(G.sampleID) ?? instrument.global.get(G.sampleID) ?? 0);
+      }
+    }
+  }
+
   /** A voice for a note on a bank (128 is drums) and program, or null when the SoundFont has no such preset. */
   voice(ctx: BaseAudioContext, dest: AudioNode, bank: number, program: number, note: number, vel: number, time: number, bend: number): Voice | null {
     const preset = this.presets.get(bank * 128 + program) ?? (bank === 128 ? this.presets.get(128 * 128) : this.presets.get(program));

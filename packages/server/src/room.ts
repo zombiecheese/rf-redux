@@ -17,13 +17,16 @@ import {
   type BotState, type BuildingDef, type Match, type RfwMap, type ShoreTable, type Snapshot,
 } from '@rfw/sim';
 import { type LobbyLighting, type LobbyVisuals, 
-  applyFrame, commandCode, encodeFrames, packInput,
+  applyFrame, commandCode, encodeFrames, humanGate, packInput,
   type Frame, type MatchResult, type MatchSeat, type MatchStart, type SeatStatus, type ServerMessage,
 } from '@rfw/net';
 
 export const RECONNECT_MS = 60_000;
-/** How long the match waits for every player to load before it starts anyway. */
-export const LOAD_WAIT_MS = 15_000;
+/**
+ * How long the match waits for every human player to load it (the map, the sprites and sounds, and in the modern
+ * view the 3D world and its shaders) before it starts anyway. Bots need no loading.
+ */
+export const LOAD_WAIT_MS = 90_000;
 /** Snapshots kept for desync reports: the last few hash checkpoints. */
 const KEEP_SNAPSHOTS = 4;
 /** At most this many ticks are played at once when the server falls behind; beyond that it lets time slip. */
@@ -100,7 +103,10 @@ export class Room {
 
   constructor(readonly o: RoomOptions) {
     const world = buildWorld(o.map, o.defs, o.shore);
-    this.match = createMatch(world, o.map, o.seats.map((s) => ({ base: s.base, team: s.team })), o.seed, { difficulty: o.difficulty, handicap: o.handicap === true });
+    this.match = createMatch(world, o.map, o.seats.map((s) => ({ base: s.base, team: s.team })), o.seed, {
+      difficulty: o.difficulty, handicap: o.handicap === true, gate: humanGate(o.seats),
+    });
+    // With two or more humans the sim's start gate holds every launch until the last of them has picked a vehicle.
     // Bots wait in their bunkers until every human has launched a vehicle (or a grace time after the first did),
     // so a player still picking one on the lift screen is not overrun.
     const humans = o.seats.filter((s) => !s.bot).map((s) => s.player);
@@ -203,8 +209,8 @@ export class Room {
   seatStatus(): SeatStatus[] {
     return this.o.seats.map((s) => {
       const h = this.humans.get(s.player);
-      if (!h) return { player: s.player, connected: true };
-      return { player: s.player, connected: !!h.peer, ping: h.peer?.ping, botTakeover: !!h.bot };
+      if (!h) return { player: s.player, connected: true, ...(this.running ? {} : { loaded: true }) };
+      return { player: s.player, connected: !!h.peer, ping: h.peer?.ping, botTakeover: !!h.bot, ...(this.running ? {} : { loaded: h.loaded || !!h.bot }) };
     });
   }
 
@@ -218,8 +224,15 @@ export class Room {
 
   // ---- Input ----
 
+  /** A player has loaded everything the match needs; the others hear who is still loading. */
   loaded(peer: Peer): void {
-    for (const h of this.humans.values()) if (h.peer === peer) h.loaded = true;
+    let changed = false;
+    for (const h of this.humans.values()) {
+      if (h.peer !== peer || h.loaded) continue;
+      h.loaded = true;
+      changed = true;
+    }
+    if (changed && !this.running) this.sendSeats();
   }
 
   input(peer: Peer, packed: number): void {
@@ -297,6 +310,8 @@ export class Room {
       if (all || Date.now() - this.waitingSince > LOAD_WAIT_MS) {
         this.running = true;
         this.acc = 0;
+        // Everyone's loading screens move on from waiting for the others.
+        this.sendSeats();
       }
     }
     const wasPaused = this.paused;
@@ -353,7 +368,11 @@ export class Room {
     for (let p = 0; p < m.players.length; p++) frame.inputs[p] ??= 0;
     const before = m.players.map((p) => p.state);
     applyFrame(m, frame);
-    for (const [p, code] of frame.commands) if (code < VEHICLE_KINDS.length && before[p] === 'bunker' && m.players[p]!.state === 'launching') this.stats[p]!.launches[code]!++;
+    // A launch is counted as its vehicle goes up: at once, or behind the start gate when it opens.
+    for (const p of m.players) {
+      const kind = p.elevator?.kind;
+      if (kind && before[p.id] === 'bunker' && p.state === 'launching') this.stats[p.id]!.launches[VEHICLE_KINDS.indexOf(kind)]!++;
+    }
     if (this.firstLaunch < 0 && [...this.humans.keys()].some((p) => this.launched(p))) this.firstLaunch = m.tick;
     for (const e of m.events) {
       if (e.type === 'destroyed') this.stats[e.player]!.lost++;

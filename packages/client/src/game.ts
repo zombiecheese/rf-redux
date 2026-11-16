@@ -13,12 +13,12 @@
 // Modern (modern/renderer.ts: the playfield in 3D at 1280 x 720 with its own HUD). Both draw the same match.
 
 import {
-  HASH_EVERY, ONE, TICK_MS, botThink, buildWorld, createBot, createMatch, dock, hashMatch, launch, liftOf, restoreMatch, rivalOf, skullLook, startingLives,
+  HASH_EVERY, ONE, TICK_MS, botThink, buildWorld, createBot, createMatch, dock, gateLeft, hashMatch, launch, liftOf, restoreMatch, rivalOf, skullLook, startingLives,
   snapshotMatch, stepMatch,
   VEHICLE_KINDS, type Match, type MatchEvent, type Snapshot, type VehicleInput, type VehicleKind,
 } from '@rfw/sim';
 import {
-  DOCK, ReplayPlayer, ReplayRecorder, SoloRecorder, applyFrame, commandCode, lobbyLighting, lobbyVisuals, packInput,
+  DOCK, ReplayPlayer, ReplayRecorder, SoloRecorder, applyFrame, commandCode, humanGate, lobbyLighting, lobbyVisuals, packInput,
   type MatchResult, type MatchStart, type Replay, type SoloLog,
 } from '@rfw/net';
 import type { GameAssets } from './assets.js';
@@ -38,12 +38,13 @@ import type { Sound } from './sound.js';
 import { drawSkull } from './skull.js';
 import { drawView } from './view.js';
 import { MODERN_H, MODERN_W, modernAvailable, modernLayout, type ModernRect } from './modern/layout.js';
-import type { ModernRenderer, ModernScreen } from './modern/renderer.js';
+import type { ModernRenderer, ModernScreen, ModernView } from './modern/renderer.js';
 import type { ModernFinale } from './modern/finale.js';
 import { giveUpModern, loadModern, modernFailed, modernLoaded } from './modern/load.js';
 import { stats } from './modern/stats.js';
+import { showcase } from './modern/showcase.js';
 import { PRESETS, PRESET_NAMES, Pacer, activePreset, type Preset } from './quality.js';
-import { loadingState } from './loading.js';
+import { FEED_STEP, loadingState } from './loading.js';
 import { bunkerBayAt, dimView, drawBanner, drawLinkUp, drawBunkerPanel, drawChatLines, drawLog, drawFeed, drawModernHud, drawName, drawNote, drawScoreTable, setTouchHud } from './modern/hud.js';
 import { TEAMS } from './paint.js';
 
@@ -105,7 +106,18 @@ export interface GameOptions {
   lighting?: () => 'day' | 'night';
   /** Whether the modern view's thermal camera is on (its key or button in the match). */
   thermal?: () => boolean;
+  /** Each part of getting the match ready, as it is done, for the loading screen (PREP_STEPS' labels). */
+  onStep?: (label: string) => void;
 }
+
+/**
+ * What a match gets ready behind the loading screen once its map is in, so nothing is loaded or made for the first
+ * time mid-match: the sounds and music, then in the modern view its renderer and every model and shader it can need.
+ * Online the match then waits for the other players (SYNC_STEP). Labels as the modern feed's log shows them.
+ */
+export const AUDIO_STEP: [string, string] = ['AUDIO BANK', 'Loading sounds and music'];
+export const SHADER_STEP: [string, string] = ['SHADER CACHE', 'Warming up the 3D view'];
+export const SYNC_STEP: [string, string] = ['SQUAD SYNC', 'Waiting for the other players'];
 
 /** What a replay's controls (main.ts) show and change. */
 export interface ReplayControl {
@@ -157,12 +169,19 @@ export class Game {
   /** The match as it ended, for the win scene; null until then. */
   finale: { match: Match; assets: GameAssets; modern: ModernFinale | null } | null = null;
   private finish!: (o: Outcome | null) => void;
+  /**
+   * Settles once the match is on screen: everything loaded and made ready (see AUDIO_STEP), and online the server
+   * started it (every player has loaded). Until then the loading screen stays up and nothing is drawn.
+   */
+  readonly live: Promise<void>;
+  private goLive!: () => void;
   private readonly abort = new AbortController();
   private raf = 0;
   private held = false;
 
   constructor(private readonly o: GameOptions) {
     this.done = new Promise((resolve) => (this.finish = resolve));
+    this.live = new Promise((resolve) => (this.goLive = resolve));
     // The bars round the picture go back to the neutral camo once the match is over.
     void this.done.then(() => (o.display.sides = []));
     this.run();
@@ -247,13 +266,15 @@ export class Game {
     const replay = this.o.replay;
     // The modern renderer's code is fetched now, if it is not here yet, so the match can open in it.
     if (wanted() === 'modern' && modernAvailable()) void loadModern();
+    // With two or more people playing, the match starts when the last of them has picked a vehicle (sim StartGate).
+    const gate = start ? humanGate(start.seats) : players >= 2 ? Array.from({ length: players }, (_, p) => p) : undefined;
     let match: Match = replayer
       ? replayer.match
       : start
       ? start.snapshot
         ? restoreMatch(start.snapshot, statics)
-        : createMatch(world, start.map, start.seats.map((s) => ({ base: s.base, team: s.team })), start.seed, { difficulty: start.difficulty, handicap: start.handicap === true })
-      : createMatch(world, assets.map, order.map((base, i) => ({ base, team: this.o.teams?.[i] ?? base })), this.o.seed, { difficulty: this.o.difficulty, handicap: this.o.handicap === true });
+        : createMatch(world, start.map, start.seats.map((s) => ({ base: s.base, team: s.team })), start.seed, { difficulty: start.difficulty, handicap: start.handicap === true, gate })
+      : createMatch(world, assets.map, order.map((base, i) => ({ base, team: this.o.teams?.[i] ?? base })), this.o.seed, { difficulty: this.o.difficulty, handicap: this.o.handicap === true, gate });
 
     /** Each player's vehicles at the start, for the skull's row of lives. */
     const handicap = (replay ? replay.handicap : start ? start.handicap : this.o.handicap) === true;
@@ -324,13 +345,13 @@ export class Game {
       return seat ? seat.name : `Base ${base + 1}`;
     };
     const playerName = (id: number) => (shown ? shown.seats[id]?.name ?? `Player ${id + 1}` : baseName(match.players[id]!.base));
-    music.startMatch(match, online || replay ? (me === null ? [] : [me]) : Array.from({ length: players }, (_, p) => p));
 
     // The replay of this match: how it started, then each frame as it is played.
     const recording = replay ? null : new ReplayRecorder({
       at: Date.now(), mode: online ? 'online' : players === 2 ? 'tournament' : 'training',
       mapId: start?.mapId ?? this.o.mapId ?? '', mapName: this.o.mapName ?? (start?.map ?? assets.map).name ?? 'Untitled',
       map: start?.map ?? assets.map, seed: start?.seed ?? this.o.seed, difficulty: start?.difficulty ?? this.o.difficulty, ...(handicap ? { handicap } : {}),
+      ...(gate && gate.length >= 2 ? { gate } : {}),
       look: { visuals: wanted() === 'modern' && modernAvailable() ? 'modern' : 'retro', lighting: nightNow() ? 'night' : 'day' },
       seats: start ? start.seats.map((x) => ({ base: x.base, team: x.team, name: x.name }))
         : match.players.map((p) => ({ base: p.base, team: p.team, name: names[p.base] ?? `Base ${p.base + 1}` })),
@@ -514,7 +535,17 @@ export class Game {
         if (e.type === 'eliminated') outHint(e.base);
         if (e.type === 'captured') captures[e.player] = (captures[e.player] ?? 0) + 1;
         if (e.type === 'destroyed') lost[e.player] = (lost[e.player] ?? 0) + 1;
+        if (e.type === 'go' && me !== null) {
+          // Online the lift's own sound plays as the frame comes in (playFrame).
+          if (!net) sound.ui('raise');
+          say(wanted() === 'modern' ? 'ALL OPERATORS READY: DEPLOYING' : 'All players ready: go!');
+        }
       }
+      aimCameras();
+    };
+
+    /** Each view's camera on the vehicle it follows, or its base's lift. */
+    const aimCameras = () => {
       const v = viewers();
       cameras.forEach((cam, i) => {
         const pl = match.players[v[i]!]!;
@@ -533,9 +564,16 @@ export class Game {
     const tick = () => {
       /** This tick's bunker commands, in the order they were applied, for the replay. */
       const commands: [number, number][] = [];
-      const doLaunch = (p: number, kind: VehicleKind) => {
+      /** True for a launch, false for none, null for a pick behind the start gate (it clicks). */
+      const doLaunch = (p: number, kind: VehicleKind): boolean | null => {
         commands.push([p, commandCode({ launch: kind })]);
-        return launch(match, p, kind);
+        const gated = !!match.gate;
+        const ok = launch(match, p, kind);
+        if (ok && gated) {
+          if (p < players) sound.ui('click');
+          return null;
+        }
+        return ok;
       };
       const doDock = (p: number) => {
         commands.push([p, DOCK]);
@@ -562,7 +600,8 @@ export class Game {
           if (match.players[p]!.state !== 'bunker') continue;
           if (c.fire.includes(code)) {
             if (p === 0) recorder?.command(commandCode({ launch: selected[p]! }));
-            sound.ui(doLaunch(p, selected[p]!) ? 'raise' : 'click');
+            const r = doLaunch(p, selected[p]!);
+            if (r !== null) sound.ui(r ? 'raise' : 'click');
           } else if (moveSelection(p, code)) sound.ui('click');
         }
       }
@@ -574,7 +613,8 @@ export class Game {
           continue;
         }
         if (p === 0) recorder?.command(commandCode({ launch: kind }));
-        sound.ui(doLaunch(p, kind) ? 'raise' : 'click');
+        const r = doLaunch(p, kind);
+        if (r !== null) sound.ui(r ? 'raise' : 'click');
       }
       const inputs = match.players.map((_, p) => input(p));
       recorder?.input(packInput(inputs[0]));
@@ -669,11 +709,10 @@ export class Game {
             match = restoreMatch(s.snapshot, statics);
             recording?.repair(s.snapshot);
           }
-          net.send({ t: 'loaded' });
+          if (!preparing) net.send({ t: 'loaded' });
         }),
       ];
       signal.addEventListener('abort', () => offs.forEach((off) => off()));
-      net.send({ t: 'loaded' });
     }
 
     /** Online keys: launch and dock go to the server as commands; arrows and fire still pick a bay locally. */
@@ -762,7 +801,97 @@ export class Game {
     /** The modern view's quality preset in use, and what holds its frame rate. */
     let preset: Preset = activePreset(!!this.o.handheld);
     const pacer = new Pacer(!!this.o.handheld);
+
+    /** Makes the modern renderer, once its code is here. */
+    const makeModern = (mod: NonNullable<ReturnType<typeof modernLoaded>>) => {
+      if (modern || signal.aborted) return;
+      try {
+        modern = new mod.ModernRenderer(assets);
+        // Straight onto the page, with the HUD over it at the screen's own resolution.
+        modern.direct = true;
+        preset = activePreset(!!this.o.handheld);
+        modern.setQuality(PRESETS[preset], PRESET_NAMES[preset]);
+      } catch (err) {
+        console.error('The modern view could not start:', err);
+        giveUpModern();
+      }
+    };
+
+    // ---- Getting ready, behind the loading screen ----
+
+    /** Until everything is ready the loop draws nothing (the loading screen is up) and the match waits. */
+    let preparing = true;
+    /** Once the match's first picture is up (online: once the server has started it). */
+    let isLive = false;
+    /** A breath between pieces of getting ready, so the loading screen keeps moving. */
+    const breath = () => new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+    /** The modern view: the 3D world, both screens, every model and the shaders for every look, made now. */
+    const prepareModern = async (r: ModernRenderer) => {
+      const rects = modernLayout(cameras.length);
+      const night = nightNow();
+      aimCameras();
+      r.setNight(night);
+      r.setLook(true, false);
+      r.resolution(display.rect.w * (devicePixelRatio || 1), pacer.scale);
+      const v = viewers();
+      const field = (m: Match): ModernView[] => cameras.map((cam, i) => ({ cam, rect: rects[i]!, viewer: v[i]!, skip: false }));
+      const screen = (sc: (p: Match['players'][number]) => ModernScreen): ModernView[] => cameras.map((cam, i) => {
+        const pl = match.players[v[i]!]!;
+        return { cam, rect: rects[i]!, viewer: v[i]!, skip: true, screen: sc(pl) };
+      });
+      const frames: { m: Match; views: readonly ModernView[]; thermal?: boolean }[] = [
+        { m: match, views: field(match) },
+        { m: match, views: screen((pl) => ({ kind: 'bunker', base: pl.base, lives: pl.lives, selected: 'tank', elevator: null, tick: match.tick })) },
+        {
+          m: match,
+          views: screen((pl) => ({ kind: 'skull', look: skullLook(1), rival: rivalOf(match, pl.base), base: pl.base, lost: 'tank', left: pl.lives.tank, start: startLives[pl.id]!.tank })),
+        },
+      ];
+      for (const m of showcase(match, replay?.map ?? start?.map ?? assets.map, assets.defs, assets.shore)) {
+        frames.push({ m, views: field(m) });
+        // The thermal camera is the night's: its look too.
+        if (night) frames.push({ m, views: field(m), thermal: true });
+      }
+      // Last the match itself again, so the stand-ins are gone and the opening screens are in place.
+      frames.push({ m: match, views: screen((pl) => ({ kind: 'bunker', base: pl.base, lives: pl.lives, selected: 'tank', elevator: null, tick: match.tick })) });
+      await r.prepare(frames, breath);
+    };
+    const prepare = async () => {
+      try {
+        await Promise.all([sound.preload(), music.prepare()]).catch(() => {});
+        this.o.onStep?.(AUDIO_STEP[0]);
+        if (wanted() === 'modern' && modernAvailable() && !modernFailed()) {
+          const mod = modernLoaded() ?? (await loadModern());
+          if (mod) makeModern(mod);
+          this.o.onStep?.(FEED_STEP[0]);
+          if (modern && !signal.aborted) await prepareModern(modern);
+        }
+      } catch (err) {
+        // Anything not made now is made when it is first needed, as before.
+        console.error('Getting the match ready:', err);
+      }
+      this.o.onStep?.(SHADER_STEP[0]);
+      preparing = false;
+      // Online the server starts the match once every player has said so.
+      if (net && !signal.aborted) net.send({ t: 'loaded' });
+    };
+    /** The match's first picture: the music starts with it. */
+    const showLive = () => {
+      isLive = true;
+      music.startMatch(match, online || replay ? (me === null ? [] : [me]) : Array.from({ length: players }, (_, p) => p));
+      this.goLive();
+    };
+
     const loop = (now: number) => {
+      if (preparing || (!isLive && net && match.tick === 0 && !net.frames.length)) {
+        // Keys pressed while the loading screen is up are not the match's.
+        pressed.length = 0;
+        taps.length = 0;
+        last = now;
+        this.raf = requestAnimationFrame(loop);
+        return;
+      }
+      if (!isLive) showLive();
       stats?.frame(now);
       // Keys changed from the menu (Options > Controls) take effect at once.
       if (keysVersion !== bindingsVersion()) {
@@ -779,18 +908,7 @@ export class Game {
       if (wanted() === 'modern' && !modern && modernAvailable() && !modernFailed()) {
         const mod = modernLoaded();
         if (!mod) void loadModern();
-        else if (!signal.aborted) {
-          try {
-            modern = new mod.ModernRenderer(assets);
-            // Straight onto the page, with the HUD over it at the screen's own resolution.
-            modern.direct = true;
-            preset = activePreset(!!this.o.handheld);
-            modern.setQuality(PRESETS[preset], PRESET_NAMES[preset]);
-          } catch (err) {
-            console.error('The modern view could not start:', err);
-            giveUpModern();
-          }
-        }
+        else makeModern(mod);
       }
       const linking = wanted() === 'modern' && !modern && modernAvailable() && !modernFailed();
       const rate = replayer ? speed : 1;
@@ -885,7 +1003,13 @@ export class Game {
       }
       const outcome = ended();
       const lines = liveLog(log);
-      const notes = v.map((p, i) => viewNote(match, p, i, me === null ? null : seats(), playerName));
+      const local = me === null ? null : seats();
+      const notes = v.map((p, i) => (local?.[i] === p ? gateNote(match, p, useModern) : null) ?? viewNote(match, p, i, local, playerName));
+      // Behind the start gate the bunker shows the bay picked.
+      v.forEach((p, i) => {
+        const pick = local?.[i] === p ? match.gate?.picks[p] : null;
+        if (pick) selected[i] = pick;
+      });
       const result = outcome ? resultText(match, outcome, names, shown) : null;
       if (!useModern) {
         drawMessages(frame, cameras.map((c) => c.view), lines, notes, result);
@@ -1010,6 +1134,7 @@ export class Game {
       this.raf = requestAnimationFrame(loop);
     };
     this.raf = requestAnimationFrame(loop);
+    void prepare();
     if (this.o.handheld) signal.addEventListener('abort', () => setTouchMode(null));
     signal.addEventListener('abort', () => display.hideModern());
     if (replay) {
@@ -1041,6 +1166,25 @@ export class Game {
 function viewNote(m: Match, p: number, i: number, seats: number[] | null, playerName: (id: number) => string): string | null {
   const pl = m.players[p]!;
   return seats === null || seats[i] !== p ? `Watching ${playerName(p)}` : pl.state === 'out' ? 'Out' : m.flags.some((f) => f.carrier === p) ? 'Get the flag home!' : null;
+}
+
+/**
+ * Behind the start gate (two or more people playing): what a player's bunker says while the match waits for the
+ * last of them to pick a vehicle, and the time left once someone has. The modern view words it as its feed does.
+ */
+function gateNote(m: Match, p: number, modern: boolean): string | null {
+  const g = m.gate;
+  if (!g || !g.players.includes(p) || m.players[p]?.state !== 'bunker') return null;
+  const left = gateLeft(m);
+  const secs = left === null ? null : Math.ceil((left * TICK_MS) / 1000);
+  const pick = g.picks[p];
+  const others = g.waiting.filter((id) => id !== p).length;
+  if (modern) {
+    const t = secs === null ? '' : `  //  T-${secs}S`;
+    return pick ? `${LABEL[pick].toUpperCase()} LOCKED  //  AWAITING ${others} OPERATOR${others === 1 ? '' : 'S'}${t}` : `SELECT VEHICLE TO DEPLOY${t}`;
+  }
+  const t = secs === null ? '' : ` (${secs}s)`;
+  return pick ? `${LABEL[pick]} ready: ${others} more${t}` : `Pick a vehicle${t}`;
 }
 
 /** The match messages still showing, the last three; the ones that have run out are dropped from the log. */

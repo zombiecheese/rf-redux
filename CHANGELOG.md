@@ -4,6 +4,15 @@ Each release's section below becomes its GitHub release notes (`.github/workflow
 
 ## [Unreleased]
 
+### Added
+
+- The match starts when the last player picks a vehicle. With two or more people playing (split screen, or online with more than one human), each picks their first vehicle on the bunker screen, and nothing goes up the lifts until the last of them has; then every pick launches on the same tick and the bots set off too. A pick can be changed until then. The bunker says what is happening ("Tank ready: 1 more", or in the modern view "TANK LOCKED // AWAITING 1 OPERATOR"), and once someone has picked, the others have 30 seconds before the match starts anyway, so one player who has walked away cannot hold everyone up. Training (one player) is unchanged.
+- Online, the match does not start until every human player has finished loading it. The loading screen gets a last step, Squad Sync / Waiting for the other players, which names who is still loading. A player who never finishes is waited for up to 90 seconds (was 15).
+
+### Changed
+
+- Everything a match can need is now loaded and made ready behind the loading screen, so the match never stops mid-play to load something. The sound effects are decoded, every piece of the soundtrack is prepared (and the SoundFont's samples it uses, with sampled instruments), and in the modern view the 3D world, both bunker and skull screens, every vehicle in every side's colours, their shots, mines, wrecks, soldiers, drones and flags, the explosions and the night and thermal looks are all built and their shaders made before the first picture. The loading screen lists the new steps (Audio Bank, Drone Feed, Shader Cache). This covers matches, replays and online matches, in both views.
+
 ## [0.7.2] - 2026-11-16
 
 Themed loading screens, a fixed modern vehicle select, and no more pauses when blasts bring things down.

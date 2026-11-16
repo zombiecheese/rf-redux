@@ -40,7 +40,7 @@ Still to come: two-player maps of the project's own.
 
 - Difficulty 1–9 (default 5). Bots shell flag sites, clear the gun towers round an exposed flag before sending a jeep, float jeeps across water, hunt a jeep carrying their flag, use every weapon and go home to repair once per vehicle.
 - With three or four sides each team of bots draws its target afresh every minute, so no base is always attacked first.
-- Bots wait in their bunkers until every human player has launched a vehicle, or 45 seconds after the first did.
+- With two or more people playing, the match starts when the last of them picks a vehicle (or 30 seconds after the first did); online it also waits for every player to finish loading. With one player, the bots wait until that player has launched.
 
 **Online** ([docs/online.md](docs/online.md))
 

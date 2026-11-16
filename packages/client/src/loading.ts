@@ -20,6 +20,8 @@ export interface LoadingStep {
   /** The same step in the classic screen's words. */
   plain: string;
   done: boolean;
+  /** Who or what it waits on, while under way (the players still loading, for an online match). */
+  detail?: string;
 }
 
 /** What the loading screens show. */
@@ -110,6 +112,12 @@ export class LoadingScreen {
   /** What is known once the map has loaded. */
   update(info: Partial<Pick<LoadingState, 'map' | 'mode' | 'night' | 'backdrop'>>): void {
     if (current) Object.assign(current, info);
+  }
+
+  /** Says who or what a step waits on (null: nothing more to say). */
+  detail(label: string, detail: string | null): void {
+    const s = current?.steps.find((x) => x.label === label);
+    if (s) s.detail = detail ?? undefined;
   }
 
   /** Marks a step done. */
@@ -228,7 +236,8 @@ export function drawClassicLoading(f: Frame, now: number, s: LoadingState): void
 
   // What is loading now.
   const active = s.steps.find((x) => !x.done);
-  centred(f, active ? `${active.plain.toUpperCase()}${dots}` : 'READY', 170, active ? C.ink : C.green);
+  const doing = active?.detail ? `WAITING FOR ${active.detail}` : active?.plain.toUpperCase();
+  centred(f, active ? `${doing!.slice(0, 48)}${dots}` : 'READY', 170, active ? C.ink : C.green);
 
   // A tip along the bottom.
   const tip = wrap(`TIP: ${s.tip.toUpperCase()}`, 50);

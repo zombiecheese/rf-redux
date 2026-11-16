@@ -16,7 +16,7 @@ import {
 } from './dialogs.js';
 import { Display, goFullScreen, blockWhileUpright, canFullScreen, isFullScreen, isHandheld, requireFullScreen, untilReady } from './display.js';
 import { listDrafts, loadDraft } from './editor/storage.js';
-import { Game, type Outcome } from './game.js';
+import { AUDIO_STEP, Game, SHADER_STEP, SYNC_STEP, type Outcome } from './game.js';
 import { ReplayBar, replaysDialog, saveReplay } from './replays.js';
 import { resultsScreen, winnerTitle } from './results.js';
 import { openAdmin } from './admin/panel.js';
@@ -248,18 +248,33 @@ async function showTitleArt(): Promise<void> {
  */
 function startLoading(kind: LoadingState['kind'], visuals: Settings['visuals'], info: Pick<LoadingState, 'map' | 'mode' | 'night'>): void {
   const modern = visuals === 'modern' && modernAvailable() && !modernFailed();
-  loading.start(modern ? 'modern' : 'retro', { kind, ...info }, modern ? [...MATCH_STEPS, FEED_STEP] : MATCH_STEPS);
+  loading.start(modern ? 'modern' : 'retro', { kind, ...info }, [
+    ...MATCH_STEPS, AUDIO_STEP, ...(modern ? [FEED_STEP, SHADER_STEP] : []), ...(kind === 'online' ? [SYNC_STEP] : []),
+  ]);
   if (modern) {
     void loadModern();
     void stage.titleArt('modern').then((img) => loading.update({ backdrop: img }));
   }
 }
 
-/** The assets are here and the match is about to be made: the loading screen hands the screen over to it. */
-function finishLoading(): void {
-  // A modern match whose renderer is still on its way shows the same screen as its link-up until it is here.
-  loading.handOver(modernLoaded() ? [] : [FEED_STEP[0]]);
+/** What the match gets ready itself once it is made, behind the loading screen (game.ts AUDIO_STEP). */
+const PREP_STEPS = [AUDIO_STEP[0], FEED_STEP[0], SHADER_STEP[0], SYNC_STEP[0]];
+
+/** The map is here and the match is about to be made: it gets the rest ready with the loading screen still up. */
+function mapLoaded(): void {
+  loading.handOver(PREP_STEPS);
+}
+
+/**
+ * Waits, with the loading screen up, until the match is ready and on screen (online: until every player has loaded
+ * and the server has started it), then hands the screen over to it. False if the match was left meanwhile.
+ */
+async function untilLive(g: Game, mine: number): Promise<boolean> {
+  const live = await Promise.race([g.live.then(() => true), g.done.then(() => false)]);
+  if (!live || mine !== run) return false;
+  loading.handOver();
   loading.stop();
+  return true;
 }
 
 /** The loading screen's few words on a match: Training or Split Screen, the bases and teams, and the skill. */
@@ -318,7 +333,7 @@ async function startGame(opts: { bots?: boolean; seed?: number } = {}): Promise<
     const bases = assets.map.bases.length;
     const teams = bases > 2 ? teamsFor(settings.teams, bases, settings.players) : undefined;
     loading.update({ map: entry?.name ?? assets.map.name, mode: matchMode(settings.players, bases, teams ? settings.teams.layout : null, settings.difficulty) });
-    finishLoading();
+    mapLoaded();
     thermal = params.get('thermal') === '1';
     let replay: Replay | null = null;
     game = new Game({
@@ -326,7 +341,9 @@ async function startGame(opts: { bots?: boolean; seed?: number } = {}): Promise<
       difficulty: settings.difficulty, names: settings.names, swapSides: settings.swapSides, bots: opts.bots ?? (settings.players === 1 || settings.teams.bots), handheld,
       teams, handicap: teams !== undefined && settings.teams.handicap,
       mapId: settings.mapId, mapName: entry?.name ?? assets.map.name, onReplay: (r) => { replay = r; void saveReplay(r); }, visuals, lighting, thermal: thermalOn,
+      onStep: (label) => loading.done(label),
     });
+    if (!(await untilLive(game, mine))) return;
     setScreen('game');
     const { picture } = game;
     const played = game;
@@ -387,13 +404,14 @@ async function watchReplay(r: Replay): Promise<void> {
     const assets = await loadAssetsWith(r.map);
     status.textContent = '';
     if (mine !== run) return;
-    finishLoading();
+    mapLoaded();
     thermal = params.get('thermal') === '1';
     const g = new Game({
       assets, display, sound, music, seed: r.seed, players: 1, difficulty: r.difficulty, names: [], swapSides: false, bots: false, handheld,
-      replay: r, visuals, lighting, thermal: thermalOn,
+      replay: r, visuals, lighting, thermal: thermalOn, onStep: (label) => loading.done(label),
     });
     game = g;
+    if (!(await untilLive(g, mine))) return;
     replayBar = new ReplayBar(g.replayControl!, r, () => g.paused, () => void togglePause(), () => void leave());
     setScreen('game');
     await g.done;
@@ -633,13 +651,21 @@ async function startOnline(s: MatchStart): Promise<void> {
     const assets = await loadAssetsWith(s.map);
     status.textContent = '';
     if (mine !== run) return;
-    finishLoading();
+    mapLoaded();
     onlineStart = s;
     thermal = params.get('thermal') === '1';
     game = new Game({
       assets, display, sound, music, seed: s.seed, players: 1, difficulty: s.difficulty, names: settings.names, swapSides: false, bots: false, handheld,
       online: { start: s, net }, mapName: s.map.name, onReplay: (r) => void saveReplay(r), visuals, lighting, thermal: thermalOn,
+      onStep: (label) => loading.done(label),
     });
+    // Once this browser is ready the match waits for the other players: the loading screen says who.
+    const offSeats = net.on('seats', (seats) => {
+      const names = seats.filter((x) => x.loaded === false && x.player !== s.you).map((x) => s.seats[x.player]?.name ?? `Player ${x.player + 1}`);
+      loading.detail(SYNC_STEP[0], names.length ? names.join(', ').toUpperCase() : null);
+    });
+    const live = await untilLive(game, mine).finally(offSeats);
+    if (!live) return;
     setScreen('game');
     const { picture } = game;
     const played = game;
