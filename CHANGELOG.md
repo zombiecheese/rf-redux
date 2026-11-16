@@ -4,6 +4,10 @@ Each release's section below becomes its GitHub release notes (`.github/workflow
 
 ## [Unreleased]
 
+### Added
+
+- Each vehicle has its own lights in the modern view. The jeep has twin headlamps (two pools of light side by side) and red tail lights that brighten as it brakes or backs up. The tank has dim hooded blackout lamps that light only the ground just ahead, and small convoy tail lamps. The ASV carries navigation lights (red to port, green to starboard, white masthead and stern) and a narrow searchlight that sweeps slowly across the water ahead. The helicopter has a searchlight under its nose whose hard-edged pool wanders over the ground below, red and green navigation lights on its stub wings, a white tail strobe and a red anti-collision beacon on its tail fin that flashes day and night. The small lights are glows drawn in a single batch, so they cost next to nothing; each vehicle still has just one real light for its beam.
+
 ### Changed
 
 - The modern view does less work every frame. Lights that are off (the blasts' flashes between blasts, and at night the headlights of vehicles not on the map) are no longer worked out for every pixel. The thermal camera no longer draws the sun's shadows or lights a picture it then replaces with heat. The map is no longer gone through tile by tile every frame to see what changed, and less garbage is made each frame for the browser to clear up.
@@ -11,7 +15,6 @@ Each release's section below becomes its GitHub release notes (`.github/workflow
 ### Fixed
 
 - No more stutter in the modern view when a building is knocked down or a lift comes up. The shoreline and the ground's smaller copies (its mipmaps) are now worked out again only round the tiles that changed, not over the whole 4096 x 4096 ground.
-
 - The loading screens no longer freeze while a match gets ready. Building the modern view's 3D world (painting the ground and putting up every block of buildings) is now done a little at a time between the loading screen's frames instead of in one go, the big textures go up to the graphics card one at a time, and the shaders are compiled in the background where the browser can (most desktop Chrome and Edge). The sprites are also unpacked without a round trip to the graphics card. Add `?stats=1` to the address to have the console report how long loading took and the longest the screen stood still.
 
 ## [0.8.1] - 2026-11-16
