@@ -4,6 +4,10 @@ Each release's section below becomes its GitHub release notes (`.github/workflow
 
 ## [Unreleased]
 
+## [0.7.2] - 2026-11-16
+
+Themed loading screens, a fixed modern vehicle select, and no more pauses when blasts bring things down.
+
 ### Added
 
 - Loading screens in the look of the match about to start. Modern: the drone feed linking up over a blurred last picture, with the link's progress, a mission card (map, kind of match, day or night), a log of what has loaded and an intel tip; it carries on as the modern view's link-up until the 3D picture is ready. Classic: the burning pixel logo, the map and match, a bar of blocks, the step under way and a tip, under the CRT. Shown for matches, replays and online matches, in place of the plain "Loading..." text.
@@ -11,6 +15,8 @@ Each release's section below becomes its GitHub release notes (`.github/workflow
 ### Fixed
 
 - The modern vehicle select (the bunker's security camera) no longer shows as a grey-white sheet at night, and its daytime picture is no longer greyed over. Its washed-out colour and night infrared are now part of the 3D picture rather than drawn on the see-through layer above it.
+- Modern view: the picture no longer stops for a moment when a blast brings down a building, tree or bush. Each one rebuilt the 3D models of its whole 8 x 8 tile patch of the map, a frame of 30-100 ms; now only the tile that changed is swapped, a few milliseconds.
+- Modern view: the first scorch mark of a match no longer stalls the picture while its shader is made. The effects are now made ready early in the match with the lights the picture really has.
 
 ## [0.7.1] - 2026-11-16
 

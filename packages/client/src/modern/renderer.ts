@@ -159,6 +159,8 @@ export class ModernRenderer {
   private readonly charred = charredPlastic();
   /** The garden's rocks, in photo-scanned stone. */
   private readonly stone = rockMaterial();
+  /** A patch's buildings by material: toys (the playset's plastic), plants, burnt-out ones and rocks. */
+  private readonly chunkMaterials: readonly THREE.Material[] = [this.playset, this.material, this.charred, this.stone];
   /** The photographed skies the plastic reflects, once they have loaded (ART.photoSky). */
   private skies: PhotoSkies | null = null;
   private readonly glowMaterial = new THREE.MeshBasicMaterial({ color: 0xffe08a });
@@ -193,6 +195,10 @@ export class ModernRenderer {
   private lampsStale: { x0: number; y0: number; x1: number; y1: number } | 'all' | null = 'all';
   /** Each chunk's building lights, kept with its geometry. */
   private readonly chunkLamps: Lamp[][] = Array.from({ length: CHUNKS * CHUNKS }, () => []);
+  /** Where each tile's building lies in its patch's merged mesh (the mesh and its run of vertices). */
+  private readonly tileRuns = new Map<number, { mesh: THREE.Mesh; start: number; count: number }>();
+  /** Each patch's tiles changed since it was built, drawn as a small mesh a material of their own. */
+  private readonly chunkPatches: Map<number, TileGeometry>[] = Array.from({ length: CHUNKS * CHUNKS }, () => new Map());
   /** How much windows and lamps glow: 0 by day, 1 at night. */
   private readonly glow = { value: 0 };
   private skull: SkullScene | null = null;
@@ -827,7 +833,10 @@ export class ModernRenderer {
       this.chunks[i] = null;
       this.chunkBuilt[i] = false;
       this.chunkLamps[i] = [];
+      for (const t of this.chunkPatches[i]!.values()) t.g.dispose();
+      this.chunkPatches[i]!.clear();
     }
+    this.tileRuns.clear();
     this.lampsStale = 'all';
     this.fx.clear();
     for (const rig of this.rigs.values()) this.dynamic.remove(rig.root);
@@ -842,12 +851,15 @@ export class ModernRenderer {
     let ay0 = GRID;
     let ax1 = 0;
     let ay1 = 0;
+    const changedTiles: number[] = [];
     for (let cy = 0; cy < CHUNKS; cy++) {
       for (let cx = 0; cx < CHUNKS; cx++) {
-        // Every patch is built once even with no buildings, for the garden's scatter; then again only when a
-        // building in it changes (destroyed, or a flag changing hands).
+        // Every patch is built whole once, even with no buildings, for the garden's scatter. After that a building
+        // that changes (destroyed, burnt, or a flag changing hands) is swapped on its own tile: rebuilding the whole
+        // patch for it took a frame of 30-100 ms, a stutter at every blast that brought something down.
         const c = cy * CHUNKS + cx;
-        let changed = !this.chunkBuilt[c];
+        const fresh = !this.chunkBuilt[c];
+        changedTiles.length = 0;
         for (let y = cy * CHUNK; y < cy * CHUNK + CHUNK; y++) {
           for (let x = cx * CHUNK; x < cx * CHUNK + CHUNK; x++) {
             const i = y * GRID + x;
@@ -856,56 +868,138 @@ export class ModernRenderer {
             if (b !== this.seenBuilding[i] || o !== this.seenOwner[i]) {
               this.seenBuilding[i] = b;
               this.seenOwner[i] = o;
-              changed = true;
+              changedTiles.push(i);
             }
           }
         }
-        if (!changed) continue;
-        this.chunkBuilt[c] = true;
-        ax0 = Math.min(ax0, cx * CHUNK);
-        ay0 = Math.min(ay0, cy * CHUNK);
-        ax1 = Math.max(ax1, (cx + 1) * CHUNK);
-        ay1 = Math.max(ay1, (cy + 1) * CHUNK);
-        const old = this.chunks[c];
-        if (old) {
-          this.statics.remove(old);
-          disposeChunk(old);
-          this.chunks[c] = null;
+        if (!fresh && !changedTiles.length) continue;
+        if (fresh) {
+          this.buildChunk(world, c, cx, cy);
+          ax0 = Math.min(ax0, cx * CHUNK);
+          ay0 = Math.min(ay0, cy * CHUNK);
+          ax1 = Math.max(ax1, (cx + 1) * CHUNK);
+          ay1 = Math.max(ay1, (cy + 1) * CHUNK);
+          continue;
         }
-        const toys: THREE.BufferGeometry[] = [];
-        const plants: THREE.BufferGeometry[] = [];
-        const burnt: THREE.BufferGeometry[] = [];
-        const rocks: THREE.BufferGeometry[] = [];
-        const lamps: Lamp[] = (this.chunkLamps[c] = []);
-        for (let y = cy * CHUNK; y < cy * CHUNK + CHUNK; y++) {
-          for (let x = cx * CHUNK; x < cx * CHUNK + CHUNK; x++) {
-            const t = this.tileGeometry(world, y * GRID + x, lamps);
-            if (t) (t.burnt ? burnt : t.stone ? rocks : t.toy ? toys : plants).push(t.g);
-          }
+        this.patchChunk(world, c, changedTiles);
+        for (const i of changedTiles) {
+          const tx = i % GRID;
+          const ty = Math.floor(i / GRID);
+          ax0 = Math.min(ax0, tx);
+          ay0 = Math.min(ay0, ty);
+          ax1 = Math.max(ax1, tx + 1);
+          ay1 = Math.max(ay1, ty + 1);
         }
-        this.staleLamps(cx * CHUNK * TILE, cy * CHUNK * TILE, (cx + 1) * CHUNK * TILE, (cy + 1) * CHUNK * TILE);
-        const group = new THREE.Group();
-        for (const [geos, material] of [[toys, this.playset], [plants, this.material], [burnt, this.charred], [rocks, this.stone]] as const) {
-          if (!geos.length) continue;
-          const merged = mergeGeometries(geos, false);
-          for (const g of geos) g.dispose();
-          if (!merged) continue;
-          const mesh = new THREE.Mesh(merged, material);
-          mesh.castShadow = true;
-          mesh.receiveShadow = true;
-          group.add(mesh);
-        }
-        const ground = this.ground;
-        if (ground) {
-          const blocked = (x: number, y: number) => world.building[Math.floor(y / TILE) * GRID + Math.floor(x / TILE)]! !== 0;
-          for (const mesh of scatterPatch(cx * CHUNK * TILE, cy * CHUNK * TILE, (cx + 1) * CHUNK * TILE, (cy + 1) * CHUNK * TILE, (x, y) => ground.cover(x, y), blocked, this.stone, this.material)) group.add(mesh);
-        }
-        if (!group.children.length) continue;
-        this.chunks[c] = group;
-        this.statics.add(group);
       }
     }
     if (ART.ao && this.ground && ax1 > ax0) this.ground.paintAo(ax0, ay0, ax1, ay1, (tx, ty) => this.footOf(world, ty * GRID + tx));
+  }
+
+  /** Builds a patch of the map whole: its buildings merged into a mesh a material, and the garden's scatter. */
+  private buildChunk(world: World, c: number, cx: number, cy: number): void {
+    this.chunkBuilt[c] = true;
+    const old = this.chunks[c];
+    if (old) {
+      this.statics.remove(old);
+      disposeChunk(old);
+      this.chunks[c] = null;
+    }
+    for (const g of this.chunkPatches[c]!.values()) g.g.dispose();
+    this.chunkPatches[c]!.clear();
+    const sets: TileGeometry[][] = [[], [], [], []];
+    const lamps: Lamp[] = (this.chunkLamps[c] = []);
+    for (let y = cy * CHUNK; y < cy * CHUNK + CHUNK; y++) {
+      for (let x = cx * CHUNK; x < cx * CHUNK + CHUNK; x++) {
+        const i = y * GRID + x;
+        const lamp = this.tileLamp(world, i);
+        if (lamp) lamps.push(lamp);
+        const t = this.tileGeometry(world, i);
+        if (t) sets[t.set]!.push(t);
+      }
+    }
+    this.staleLamps(cx * CHUNK * TILE, cy * CHUNK * TILE, (cx + 1) * CHUNK * TILE, (cy + 1) * CHUNK * TILE);
+    const group = new THREE.Group();
+    sets.forEach((tiles, set) => {
+      if (!tiles.length) return;
+      const merged = mergeGeometries(tiles.map((t) => t.g), false);
+      for (const t of tiles) t.g.dispose();
+      if (!merged) return;
+      const mesh = new THREE.Mesh(merged, this.chunkMaterials[set]!);
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      group.add(mesh);
+      // Where each tile's building lies in the merged mesh, so it can be taken out on its own later.
+      let start = 0;
+      for (const t of tiles) {
+        const count = t.g.getAttribute('position').count;
+        this.tileRuns.set(t.tile, { mesh, start, count });
+        start += count;
+      }
+    });
+    const ground = this.ground;
+    if (ground) {
+      const blocked = (x: number, y: number) => world.building[Math.floor(y / TILE) * GRID + Math.floor(x / TILE)]! !== 0;
+      for (const mesh of scatterPatch(cx * CHUNK * TILE, cy * CHUNK * TILE, (cx + 1) * CHUNK * TILE, (cy + 1) * CHUNK * TILE, (x, y) => ground.cover(x, y), blocked, this.stone, this.material)) group.add(mesh);
+    }
+    if (!group.children.length) return;
+    this.chunks[c] = group;
+    this.statics.add(group);
+  }
+
+  /**
+   * Swaps the buildings of a few tiles of a built patch: each one's old shape in the merged mesh is folded away to a
+   * point (a small upload), and what stands there now joins the patch's few changed tiles, kept as a mesh a
+   * material of their own. The scatter stays as it was.
+   */
+  private patchChunk(world: World, c: number, tiles: readonly number[]): void {
+    const patches = this.chunkPatches[c]!;
+    for (const i of tiles) {
+      const run = this.tileRuns.get(i);
+      if (run) {
+        foldAway(run.mesh.geometry, run.start, run.count);
+        this.tileRuns.delete(i);
+      }
+      patches.get(i)?.g.dispose();
+      patches.delete(i);
+      const t = this.tileGeometry(world, i);
+      if (t) patches.set(i, t);
+      const tx = i % GRID;
+      const ty = Math.floor(i / GRID);
+      this.staleLamps(tx * TILE, ty * TILE, (tx + 1) * TILE, (ty + 1) * TILE);
+    }
+    // The patch's lamps again, without building anything.
+    const cx = c % CHUNKS;
+    const cy = Math.floor(c / CHUNKS);
+    const lamps: Lamp[] = (this.chunkLamps[c] = []);
+    for (let y = cy * CHUNK; y < cy * CHUNK + CHUNK; y++) {
+      for (let x = cx * CHUNK; x < cx * CHUNK + CHUNK; x++) {
+        const lamp = this.tileLamp(world, y * GRID + x);
+        if (lamp) lamps.push(lamp);
+      }
+    }
+    let group = this.chunks[c];
+    if (!group) {
+      group = new THREE.Group();
+      this.chunks[c] = group;
+      this.statics.add(group);
+    }
+    for (const o of [...group.children]) {
+      if (!o.userData.patch) continue;
+      group.remove(o);
+      (o as THREE.Mesh).geometry.dispose();
+    }
+    const sets: THREE.BufferGeometry[][] = [[], [], [], []];
+    for (const t of patches.values()) sets[t.set]!.push(t.g);
+    sets.forEach((geos, set) => {
+      if (!geos.length) return;
+      const merged = geos.length === 1 ? geos[0]!.clone() : mergeGeometries(geos, false);
+      if (!merged) return;
+      const mesh = new THREE.Mesh(merged, this.chunkMaterials[set]!);
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      mesh.userData.patch = true;
+      group.add(mesh);
+    });
   }
 
   /** A tile's building's footprint about the tile's middle and its height, for ambient occlusion; null for none. */
@@ -920,12 +1014,8 @@ export class ModernRenderer {
     return { x0: box.x0 + box.ox, y0: box.y0 + box.oy, x1: box.x1 + box.ox, y1: box.y1 + box.oy, h: box.h };
   }
 
-  private tileGeometry(world: World, i: number, lamps: Lamp[]): { g: THREE.BufferGeometry; toy: boolean; burnt: boolean; stone: boolean } | null {
-    const bid = world.building[i]!;
-    if (!bid) return null;
-    const def = world.defs[bid];
-    if (!def) return null;
-    const owner = world.owner[i]!;
+  /** Where a tile's building stands (pixels): the tile's middle, moved by the map's jitter for its kind. */
+  private tileSpot(world: World, i: number, def: { jitter: boolean }): { ox: number; oy: number } {
     const tx = i % GRID;
     const ty = Math.floor(i / GRID);
     let ox = tx * TILE + TILE / 2;
@@ -935,17 +1025,38 @@ export class ModernRenderer {
       ox += world.scenery[e * 2]!;
       oy += world.scenery[e * 2 + 1]!;
     }
+    return { ox, oy };
+  }
+
+  /** The lamp a tile's building has lit at night, if any. */
+  private tileLamp(world: World, i: number): Lamp | null {
+    const bid = world.building[i]!;
+    if (!bid || bid === BROKEN_BRIDGE) return null;
+    const def = world.defs[bid];
+    if (!def) return null;
+    const lamp = lightOf(def.name, this.boxes[bid] ?? null);
+    // Not every house has its lamp on: a street of them, every door lit, would be as bright as day.
+    const home = lookOf(def.name) === 'house' && ((Math.imul(i, 2654435761) >>> 16) & 3) !== 0;
+    if (!lamp || home) return null;
+    const { ox, oy } = this.tileSpot(world, i, def);
+    return { ...lamp, x: lamp.x + ox, y: lamp.y + oy };
+  }
+
+  /** A tile's building, built where it stands, and which of the patch's materials it takes. */
+  private tileGeometry(world: World, i: number): TileGeometry | null {
+    const bid = world.building[i]!;
+    if (!bid) return null;
+    const def = world.defs[bid];
+    if (!def) return null;
+    const owner = world.owner[i]!;
+    const { ox, oy } = this.tileSpot(world, i, def);
     let kit: Kit | null;
     if (bid === BROKEN_BRIDGE) kit = brokenBridge(world, i);
     else kit = building(def, def.name, this.boxes[bid] ?? null, i);
     if (!kit) return null;
-    const lamp = bid === BROKEN_BRIDGE ? null : lightOf(def.name, this.boxes[bid] ?? null);
-    // Not every house has its lamp on: a street of them, every door lit, would be as bright as day.
-    const home = lookOf(def.name) === 'house' && ((Math.imul(i, 2654435761) >>> 16) & 3) !== 0;
-    if (lamp && !home) lamps.push({ ...lamp, x: lamp.x + ox, y: lamp.y + oy });
     const g = kit.build(owner < 0 ? NEUTRAL : this.paints[owner] ?? NEUTRAL);
     g.translate(ox, 0, oy);
-    return { g, toy: kit.toy, burnt: kit.burnt, stone: kit.stone };
+    return { tile: i, g, set: kit.burnt ? 2 : kit.stone ? 3 : kit.toy ? 0 : 1 };
   }
 
   // ---- Things that move ---------------------------------------------------------------------------------------
@@ -1457,9 +1568,12 @@ export class ModernRenderer {
           this.gl.compile(k.dim, k.camera);
         },
         () => {
-          // Far off the map, where nobody sees it: its particles, smoke and shards go through the shaders once.
+          // Far off the map, where nobody sees it: its particles, smoke, scorch marks and shards go through the
+          // shaders once. Compiled as part of the whole scene: the effects' own flash lights, counted a second time
+          // when they were compiled on their own, made shaders for 8 lights where the picture has 4, and the first
+          // real scorch mark still stopped the picture to make its own.
           this.fx.explosion(-4000, -4000, 2, 1.5, { scorch: true, chunks: [new THREE.Color(0x6b8f3a)], smokeFor: 0.5 });
-          this.gl.compile(this.fx.group, this.camera, this.scene);
+          this.gl.compile(this.scene, this.camera);
         },
         ...bases.flatMap((b) => kinds.map((kind) => () => {
           const mesh = new THREE.Mesh(this.meltGeometry(kind, b), this.charred);
@@ -1500,6 +1614,7 @@ export class ModernRenderer {
     this.pass?.dispose();
     this.marks.dispose();
     for (const c of this.chunks) if (c) disposeChunk(c);
+    for (const p of this.chunkPatches) for (const t of p.values()) t.g.dispose();
     for (const g of this.geoCache.values()) g.dispose();
     this.gl.dispose();
     this.gl.forceContextLoss();
@@ -1558,6 +1673,30 @@ function playsetPlastic(): THREE.MeshPhysicalMaterial {
   m.roughness = 0.4;
   m.clearcoat = 0.25;
   return m;
+}
+
+/** A tile's building built where it stands, and which of a patch's materials it takes (renderer.chunkMaterials). */
+interface TileGeometry {
+  tile: number;
+  g: THREE.BufferGeometry;
+  set: number;
+}
+
+/**
+ * Folds a run of a merged mesh's vertices onto its first, so the triangles there have no area and draw nothing, and
+ * uploads only that run.
+ */
+function foldAway(g: THREE.BufferGeometry, start: number, count: number): void {
+  const pos = g.getAttribute('position') as THREE.BufferAttribute;
+  const a = pos.array;
+  const s = start * 3;
+  for (let k = s + 3; k < s + count * 3; k += 3) {
+    a[k] = a[s]!;
+    a[k + 1] = a[s + 1]!;
+    a[k + 2] = a[s + 2]!;
+  }
+  pos.addUpdateRange(s, count * 3);
+  pos.needsUpdate = true;
 }
 
 function disposeChunk(c: THREE.Group): void {
