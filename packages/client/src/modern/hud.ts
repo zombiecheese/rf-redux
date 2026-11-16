@@ -7,6 +7,7 @@ import { BUILDING, GRID, NO_TERRAIN, ONE, UNLIMITED, VEHICLES, WATER_TERRAIN, ty
 import { TEAMS } from '../paint.js';
 import type { ModernRect } from './layout.js';
 import { BAY_AT } from './layout.js';
+import type { LoadingState } from '../loading.js';
 
 const PANEL = 'rgba(16, 19, 15, 0.78)';
 const LINE = 'rgba(255, 255, 255, 0.14)';
@@ -551,19 +552,13 @@ function wander(t: number, seed: number): number {
 
 let scan: { canvas: HTMLCanvasElement; pattern: CanvasPattern | null } | null = null;
 
-/** The security camera's picture: washed out by day and black and white infrared by night, scanlines, a rolling bar and a dark rim. */
-function cctv(g: CanvasRenderingContext2D, rect: ModernRect, night: boolean, t: number): void {
+/**
+ * Over the security camera's picture: scanlines, a rolling bar and a dark rim. Its colour (washed out by day, black and
+ * white infrared by night) is the renderer's (look.ts), since this draws on a see-through canvas over the picture,
+ * where a blending mode has nothing to blend with and would paint the view over in grey.
+ */
+function cctv(g: CanvasRenderingContext2D, rect: ModernRect, t: number): void {
   g.save();
-  g.globalCompositeOperation = 'saturation';
-  g.fillStyle = night ? '#808080' : 'rgba(128, 128, 128, 0.45)';
-  g.fillRect(rect.x, rect.y, rect.w, rect.h);
-  if (night) {
-    // Infrared lifts the dark and flattens the picture.
-    g.globalCompositeOperation = 'screen';
-    g.fillStyle = 'rgba(46, 52, 48, 1)';
-    g.fillRect(rect.x, rect.y, rect.w, rect.h);
-  }
-  g.globalCompositeOperation = 'source-over';
   if (!scan) {
     const c = document.createElement('canvas');
     c.width = 4;
@@ -682,7 +677,7 @@ export function drawBunkerPanel(g: CanvasRenderingContext2D, rect: ModernRect, a
   g.beginPath();
   g.rect(rect.x, rect.y, rect.w, rect.h);
   g.clip();
-  cctv(g, rect, f.night, t);
+  cctv(g, rect, t);
   const s = Math.min(1, rect.w / 900);
   const chosen = elevator?.kind ?? selected;
   // Room beside the bays for the cards; on a narrow view only the chosen vehicle's card shows, below the bays.
@@ -1201,14 +1196,67 @@ export function drawVerdict(g: CanvasRenderingContext2D, width: number, height: 
 }
 
 /**
- * The modern view's link-up screen, shown while its renderer is still loading as a match starts: a dark feed with
- * static, the corner brackets and a CV read-out, so a modern match never opens on the classic picture.
+ * The modern view's link-up screen, shown while its renderer is still loading as a match starts: the loading screen
+ * (drawLoadingFeed) carried on from the loading of the match, or the bare feed linking up when there was none, so a
+ * modern match never opens on the classic picture.
  */
-export function drawLinkUp(g: CanvasRenderingContext2D, width: number, height: number, ms: number): void {
-  g.save();
+export function drawLinkUp(g: CanvasRenderingContext2D, width: number, height: number, ms: number, s: LoadingState | null = null): void {
+  drawLoadingFeed(g, width, height, ms, s ?? { kind: 'match', map: '', mode: '', night: false, steps: [{ label: 'DRONE FEED', plain: '', done: false }], since: 0, tip: '' }, false);
+}
+
+let backdrop: { from: CanvasImageSource; canvas: OffscreenCanvas } | null = null;
+
+/** The loading screen's backdrop made once from its picture: filling the screen, blurred, washed out and dark. */
+function backdropOf(from: CanvasImageSource, width: number, height: number): OffscreenCanvas {
+  if (backdrop?.from === from) return backdrop.canvas;
+  const canvas = new OffscreenCanvas(width, height);
+  const g = canvas.getContext('2d')!;
+  const img = from as CanvasImageSource & { width: number; height: number };
+  // Zoomed past its edges, so the blur has no dark rim and the picture's own read-outs are mostly out of frame.
+  const fit = Math.max(width / img.width, height / img.height) * 1.25;
   g.fillStyle = '#05080a';
   g.fillRect(0, 0, width, height);
-  // Faint static bands drifting down the picture.
+  g.filter = 'blur(7px)';
+  g.drawImage(img, (width - img.width * fit) / 2, (height - img.height * fit) / 2, img.width * fit, img.height * fit);
+  g.filter = 'none';
+  g.globalCompositeOperation = 'saturation';
+  g.fillStyle = 'rgba(128, 128, 128, 0.8)';
+  g.fillRect(0, 0, width, height);
+  g.globalCompositeOperation = 'source-over';
+  g.fillStyle = 'rgba(5, 8, 10, 0.72)';
+  g.fillRect(0, 0, width, height);
+  backdrop = { from, canvas };
+  return canvas;
+}
+
+const LOADING_HEAD: Record<LoadingState['kind'], string> = {
+  match: 'ACQUIRING DRONE FEED',
+  replay: 'DECODING FLIGHT RECORDING',
+  online: 'JOINING OPERATION',
+  boot: 'SYSTEM START',
+};
+
+/**
+ * The modern view's loading screen, as the drone's feed linking up: the last picture it had (the backdrop) dark and
+ * washed out under static, a search grid sweeping it, the link's progress in the middle, the mission's details and the
+ * system's log of what has loaded below, and an intel line (a tip) along the bottom. full: nothing of the page's sits
+ * over the top left corner (in a match the menu button does, so its corner bracket is left out).
+ */
+export function drawLoadingFeed(g: CanvasRenderingContext2D, width: number, height: number, ms: number, s: LoadingState, full = true): void {
+  const t = ms - s.since;
+  g.save();
+  g.globalCompositeOperation = 'source-over';
+  g.fillStyle = '#05080a';
+  g.fillRect(0, 0, width, height);
+  if (s.backdrop) {
+    // The feed's last picture, out of focus, dark and nearly black and white, drifting in slowly.
+    const img = backdropOf(s.backdrop, width, height);
+    const zoom = 1 + 0.05 * Math.min(1, t / 20000);
+    g.globalAlpha = Math.min(1, t / 600);
+    g.drawImage(img, (width - width * zoom) / 2, (height - height * zoom) / 2, width * zoom, height * zoom);
+    g.globalAlpha = 1;
+  }
+  // Faint static bands drifting down the picture, and a brighter band rolling through.
   let seed = (Math.floor(ms / 60) * 2654435761) >>> 0;
   const rand = () => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296);
   for (let i = 0; i < 28; i++) {
@@ -1219,17 +1267,113 @@ export function drawLinkUp(g: CanvasRenderingContext2D, width: number, height: n
   const roll = ((ms / 9) % (height + 120)) - 60;
   g.fillStyle = 'rgba(236, 242, 232, 0.035)';
   g.fillRect(0, roll, width, 60);
-  drawFeed(g, { x: 0, y: 0, w: width, h: height }, { name: 'UAV-1', mode: 'NO SIGNAL', lines: [], now: new Date() });
+  // The search grid, and its sweep.
+  g.strokeStyle = 'rgba(98, 224, 255, 0.07)';
+  g.lineWidth = 1;
+  g.beginPath();
+  for (let x = (width / 2) % 80; x < width; x += 80) {
+    g.moveTo(Math.round(x) + 0.5, 0);
+    g.lineTo(Math.round(x) + 0.5, height);
+  }
+  for (let y = (height / 2) % 80; y < height; y += 80) {
+    g.moveTo(0, Math.round(y) + 0.5);
+    g.lineTo(width, Math.round(y) + 0.5);
+  }
+  g.stroke();
+  const sweep = ((ms / 6) % (width + 300)) - 150;
+  const band = g.createLinearGradient(sweep - 150, 0, sweep, 0);
+  band.addColorStop(0, 'rgba(98, 224, 255, 0)');
+  band.addColorStop(1, 'rgba(98, 224, 255, 0.09)');
+  g.fillStyle = band;
+  g.fillRect(sweep - 150, 0, 150, height);
+  g.fillStyle = 'rgba(98, 224, 255, 0.35)';
+  g.fillRect(Math.round(sweep), 0, 1, height);
+
+  const linking = s.steps.some((x) => !x.done);
+  drawFeed(g, { x: 0, y: 0, w: width, h: height }, { name: 'UAV-1', mode: linking ? 'NO SIGNAL' : 'SIGNAL OK', lines: [], now: new Date(), full });
+
+  // The link's progress: a share for each step done, and the one under way creeping on.
+  const n = s.steps.length || 1;
+  const done = s.steps.filter((x) => x.done).length;
+  const creep = done < n ? 1 - Math.exp(-t / 1500) : 0;
+  const share = Math.min(1, (done + 0.9 * creep) / n);
   const dots = '.'.repeat(1 + (Math.floor(ms / 400) % 3)).padEnd(3, ' ');
-  const s = 28;
-  g.font = `800 ${s}px ${MONO}`;
+  const head = LOADING_HEAD[s.kind];
+  const size = 28;
+  g.font = `800 ${size}px ${MONO}`;
   g.textAlign = 'center';
   g.textBaseline = 'middle';
-  const t = `ACQUIRING DRONE FEED${dots}`;
-  const w = g.measureText('ACQUIRING DRONE FEED...').width + s * 1.6;
-  const h = s * 2;
-  readout(g, (width - w) / 2, height / 2 - h / 2, w, h, 'SYS', AMBER);
+  const bw = Math.max(g.measureText(`${head}...`).width + size * 1.6, 460);
+  const bh = size * 2 + 34;
+  const bx = (width - bw) / 2;
+  const by = height * 0.42 - bh / 2;
+  readout(g, bx, by, bw, bh, 'SYS', AMBER);
   g.fillStyle = INK;
-  g.fillText(t, width / 2, height / 2 + 2);
+  g.fillText(`${head}${dots}`, width / 2, by + size + 2);
+  // The bar, in ticks, and the share in figures.
+  const tx = bx + 22;
+  const tw = bw - 44 - 64;
+  const ty = by + bh - 26;
+  const ticks = 40;
+  const lit = share * ticks;
+  for (let i = 0; i < ticks; i++) {
+    const on = i < Math.floor(lit);
+    g.fillStyle = on ? AMBER : i < lit ? 'rgba(255, 196, 74, 0.5)' : 'rgba(236, 242, 232, 0.14)';
+    g.fillRect(tx + (i * tw) / ticks, ty, tw / ticks - 2, 10);
+  }
+  g.font = `700 13px ${MONO}`;
+  g.textAlign = 'right';
+  g.fillStyle = AMBER;
+  g.fillText(`${String(Math.floor(share * 100)).padStart(3, '0')}%`, bx + bw - 22, ty + 5);
+
+  // The mission, bottom left; the system's log, bottom right.
+  const cardY = by + bh + 40;
+  const cardW = 360;
+  const row = 20;
+  const mission: [string, string][] = [
+    ['AO', (s.map || 'UNKNOWN').toUpperCase()],
+    ['OPERATION', s.mode || '-'],
+    ['CONDITIONS', s.night ? 'NIGHT  /  LOW LIGHT' : 'DAY  /  CLEAR'],
+  ];
+  const left = width / 2 - cardW - 20;
+  const right = width / 2 + 20;
+  const logRows = s.steps.length;
+  const cardH = Math.max(mission.length, logRows) * row + 26;
+  readout(g, left, cardY, cardW, cardH, 'MISSION', FRIEND);
+  readout(g, right, cardY, cardW, cardH, 'LOG', FRIEND);
+  g.font = `600 13px ${MONO}`;
+  g.textBaseline = 'middle';
+  mission.forEach(([k, v], i) => {
+    const y = cardY + 22 + i * row;
+    g.textAlign = 'left';
+    g.fillStyle = 'rgba(236, 242, 232, 0.55)';
+    g.fillText(k, left + 14, y);
+    g.fillStyle = INK;
+    g.fillText(v, left + 120, y, cardW - 134);
+  });
+  let first = true;
+  s.steps.forEach((step, i) => {
+    const y = cardY + 22 + i * row;
+    const now = !step.done && first;
+    if (!step.done) first = false;
+    g.textAlign = 'left';
+    g.fillStyle = step.done ? INK : now ? AMBER : 'rgba(236, 242, 232, 0.4)';
+    g.fillText(`> ${step.label}`, right + 14, y);
+    g.textAlign = 'right';
+    g.fillStyle = step.done ? '#7cf08a' : now ? AMBER : 'rgba(236, 242, 232, 0.4)';
+    g.fillText(step.done ? 'OK' : now ? `SYNC ${'|/-\\'[Math.floor(ms / 120) % 4]}` : 'STANDBY', right + cardW - 14, y);
+  });
+
+  // The intel line.
+  if (s.tip) {
+    g.font = `600 14px ${MONO}`;
+    g.textAlign = 'center';
+    const text = s.tip.toUpperCase();
+    const iw = Math.min(width - 120, g.measureText(text).width + 40);
+    const iy = height - 92;
+    readout(g, (width - iw) / 2, iy, iw, 34, 'INTEL', AMBER);
+    g.fillStyle = INK;
+    g.fillText(text, width / 2, iy + 18, iw - 30);
+  }
   g.restore();
 }
