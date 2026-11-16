@@ -4,6 +4,11 @@ Each release's section below becomes its GitHub release notes (`.github/workflow
 
 ## [Unreleased]
 
+### Changed
+
+- Modern view: the bunker lift on the map moves smoothly. The platform eases away from rest and settles into its stop (over the same time as before), and is drawn between game ticks, so it glides at any frame rate. The hatch's two doors meet in the middle and slide away under the ground beside the shaft, instead of lying on the ground beside the hole and vanishing. Amber beacons flash at the shaft's corners while it moves, dust puffs out as the hatch opens and as the lift locks at the top, and a vehicle dips on its springs as it rolls off. The platform's deck now sits flush with the ground at the top. You also hear the hatch's motors and the clunk of the lift locking.
+- Modern view: base gates are fixed and open smoothly. Their posts stand at the edges of the road, where the original has them, instead of one in the middle of it, and the two barred leaves slide back into the posts (eased, and between ticks) instead of being squashed. Beacons on the posts blink while a gate moves.
+
 ## [0.7.2] - 2026-11-16
 
 Themed loading screens, a fixed modern vehicle select, and no more pauses when blasts bring things down.

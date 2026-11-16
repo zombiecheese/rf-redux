@@ -498,6 +498,8 @@ export class Game {
     };
 
     /** Effects, sounds, messages and cameras after a tick, local or online. */
+    /** Each lift on the map's phase when last heard (modern view). */
+    const liftHeard = new Map<(typeof match.lifts)[number], string>();
     const afterTick = () => {
       effects.add(match.events, match);
       if (modern && !quiet) modern.events(match.events, match);
@@ -505,7 +507,18 @@ export class Game {
       if (!quiet) {
         sound.events(match, match.events, !!assets.effects, viewers());
         sound.scripted(scripted);
+        // In the modern view the lift on the map is heard too: its hatch opening, and the platform locking at the top.
+        if (wanted() === 'modern' && modern) {
+          for (const l of match.lifts) {
+            const was = liftHeard.get(l);
+            if (was === l.phase) continue;
+            if (l.phase === 'rise' || (l.phase === 'sink' && !was)) sound.lift('open', l.tile);
+            else if (l.phase === 'up') sound.lift('lock', l.tile);
+            liftHeard.set(l, l.phase);
+          }
+        }
       }
+      for (const l of liftHeard.keys()) if (!match.lifts.includes(l)) liftHeard.delete(l);
       sound.update(match, cameras.map((c) => ({ x: c.x, y: c.y })));
       music.tick(match, match.events);
       for (const e of match.events) {
@@ -915,6 +928,8 @@ export class Game {
           modern.setQuality(PRESETS[want], PRESET_NAMES[want]);
         }
         modern.resolution(display.rect.w * (devicePixelRatio || 1), pacer.scale);
+        // How far on to the next tick this frame is: the lifts and gates are drawn between ticks.
+        modern.part = Math.max(0, Math.min(1, acc / TICK_MS));
         modern.draw(match, cameras.map((cam, i) => ({ cam, rect: rects[i]!, viewer: v[i]!, skip: !field[i], screen: screens[i] })), extras);
         modernRects = rects;
         const hudFrom = performance.now();

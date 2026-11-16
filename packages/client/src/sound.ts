@@ -331,6 +331,11 @@ export class Sound {
     this.start(sound === 'raise' ? RAISE : GCLICK, null);
   }
 
+  /** The bunker lift on the map (the modern view): its hatch's motors as it opens, and the clunk as it locks at the top. */
+  lift(event: 'open' | 'lock', at: number): void {
+    this.start(event === 'open' ? SERVO : GATE_CLOSE, tile(at));
+  }
+
   /** Plays the explosion scripts' sounds (index into the sound table, positions in pixels). */
   scripted(sounds: readonly { sound: number; x: number; y: number }[]): void {
     for (const s of sounds) {
