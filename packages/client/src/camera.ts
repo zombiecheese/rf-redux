@@ -25,6 +25,23 @@ const MOVING_TICKS = 30;
 const EASE_ACCEL = 0.08;
 const EASE_DECEL = 0.04;
 const EASE_MAX = 1;
+/** Free roam (replays) looks down at the moving pitch, steeper than at rest, which suits looking over the map. */
+const PITCH_FREE = PITCH_MOVING;
+/** The map's width and height in pixels (128 tiles of 32). */
+const MAP_PX = 128 * 32;
+
+/**
+ * How near and far a free camera may go: its distance from the ground point it looks at, which the focal length
+ * (FOCAL) puts at 1:1. The classic view closes in no further than the original's own 1:1, so its pixels stay its own.
+ */
+export interface RoamRange {
+  near: number;
+  far: number;
+}
+export const ROAM_CLASSIC: RoamRange = { near: FOCAL, far: FOCAL * 3 };
+export const ROAM_MODERN: RoamRange = { near: FOCAL * 0.45, far: FOCAL * 4.5 };
+/** The distance the follow camera stands back at most (the start, and the jeep moving), for what a view can see. */
+const FOLLOW_FAR = FOCAL + START_Z;
 
 /** A player's view rectangle in the 320 x 240 frame, and where the player sits in it. */
 export interface ViewRect {
@@ -94,10 +111,94 @@ export class Camera {
   private cx = 0;
   private cy = 0;
 
+  /** Free roam (replays): the camera stays where it is panned and zoomed to, and update() leaves it there. */
+  private roaming = false;
+
   constructor(readonly view: ViewRect) {}
+
+  get free(): boolean {
+    return this.roaming;
+  }
+
+  /**
+   * Free roam on or off. Going free keeps the picture where it is (the look-ahead folded into the ground point);
+   * going back, the camera eases back onto whoever it follows, as it does after a jump.
+   */
+  roam(on: boolean): void {
+    if (on === this.roaming) return;
+    this.roaming = on;
+    if (!on) {
+      // Back from wherever the zoom left it to within the follow camera's own range, to ease from there.
+      this.z.value = Math.max(0, Math.min(START_Z, this.z.value));
+      return;
+    }
+    this.x += this.leadX.value;
+    this.y += this.leadY.value;
+    for (const e of [this.leadX, this.leadY]) {
+      e.value = 0;
+      e.vel = 0;
+    }
+    this.z.vel = 0;
+  }
+
+  /** A free camera's picture frame: its pitch eases round to the free pitch, as the follow camera's does. */
+  roamFrame(): void {
+    if (this.roaming) this.pitch.step(PITCH_FREE);
+  }
+
+  /** Moves a free camera by this many pixels across the ground, kept over the map. */
+  pan(dx: number, dy: number): void {
+    this.x = Math.max(0, Math.min(MAP_PX, this.x + dx));
+    this.y = Math.max(0, Math.min(MAP_PX, this.y + dy));
+  }
+
+  /** Drags the ground under a point of the view (offset from the view's centre, in view pixels) to another point. */
+  drag(fromX: number, fromY: number, toX: number, toY: number): void {
+    const a = this.groundAt(fromX, fromY);
+    const b = this.groundAt(toX, toY);
+    if (a && b) this.pan(a.x - b.x, a.y - b.y);
+  }
+
+  /**
+   * Zooms a free camera by a factor (above 1 closes in), keeping the ground under a point of the view (offset from
+   * its centre) where it is, within a range of distances.
+   */
+  zoom(factor: number, range: RoamRange, atX = 0, atY = 0): void {
+    const before = this.groundAt(atX, atY);
+    const d = Math.max(range.near, Math.min(range.far, (FOCAL + this.z.value) / factor));
+    this.z.value = d - FOCAL;
+    this.z.vel = 0;
+    const after = this.groundAt(atX, atY);
+    if (before && after) this.pan(before.x - after.x, before.y - after.y);
+  }
+
+  /** How much further this camera sees than the follow camera can (1 when no further): for what a view must draw. */
+  reach(): number {
+    return Math.max(1, (FOCAL + this.z.value) / FOLLOW_FAR);
+  }
+
+  /** The view's projection centre in the 320 x 240 frame, which offsets for drag() and zoom() are measured from. */
+  get centre(): { x: number; y: number } {
+    const v = this.view;
+    return { x: v.x + v.w / 2 + v.dx, y: v.y + v.h / 2 + v.dy };
+  }
+
+  /** The ground point under an offset from the view's centre, relative to the point the camera looks at. */
+  private groundAt(ox: number, oy: number): { x: number; y: number } | null {
+    const a = (this.pitch.value / 256) * Math.PI * 2;
+    const sin = Math.sin(a);
+    const cos = Math.cos(a);
+    const k = oy / FOCAL;
+    const den = sin + k * cos;
+    if (den <= 0.05) return null;
+    const y = (k * (FOCAL + this.z.value)) / den;
+    const depth = FOCAL + this.z.value - y * cos;
+    return { x: (ox * depth) / FOCAL, y };
+  }
 
   /** One tick of camera movement, following a vehicle (or its wreck) or resting on the bunker. */
   update(v: Pick<Vehicle, 'kind' | 'x' | 'y' | 'heading' | 'speed'> | null, homeX: number, homeY: number): void {
+    if (this.roaming) return;
     if (!v) {
       this.movingFor = 0;
       this.x = homeX;

@@ -23,7 +23,7 @@ import {
 } from '@rfw/net';
 import type { GameAssets } from './assets.js';
 import { BAYS, drawBunker } from './bunker.js';
-import { Camera, FOCAL, layout } from './camera.js';
+import { Camera, FOCAL, ROAM_CLASSIC, ROAM_MODERN, layout } from './camera.js';
 import { heldBack, type Display } from './display.js';
 import { setTouchMode, touchModeFor } from './touch.js';
 import { Effects } from './effects.js';
@@ -59,6 +59,8 @@ const BUFFER_FRAMES = 3;
 const CATCH_UP_FRAMES = 8;
 /** Online: snapshots kept at the last few hash checkpoints, for a desync report. */
 const KEEP_SNAPSHOTS = 4;
+/** Every key a replay answers to, kept from the page (Page Up and Down would scroll it). */
+const REPLAY_CODES = new Set<string>(Object.values(REPLAY_KEYS).flat());
 /** Replay speeds, slowest first; 1 is real time. Above 2x the sound effects are left out. */
 export const REPLAY_SPEEDS = [0.25, 0.5, 1, 2, 4, 8] as const;
 /** Ten seconds of frames, for the replay's back and on keys. */
@@ -128,7 +130,13 @@ export interface ReplayControl {
   readonly outOfStep: boolean;
   setSpeed(speed: number): void;
   seek(frame: number): void;
+  /** Follows a player (and leaves the free camera). */
   follow(player: number): void;
+  /** Whether the free camera is on: panned and zoomed by hand, following nobody. */
+  readonly free: boolean;
+  roam(on: boolean): void;
+  /** Zooms the free camera (turning it on) by a factor: above 1 closes in. */
+  zoom(factor: number): void;
 }
 
 /** How a match ended: the winning side (0 Brown, 1 Green), or null when every base was out at once. */
@@ -221,6 +229,8 @@ export class Game {
     this.held = on;
     this.o.sound.hold(on);
     this.o.music.hold(on);
+    // A paused replay keeps drawing, so the free camera can look round the moment it holds.
+    if (this.o.replay) return;
     if (on) cancelAnimationFrame(this.raf);
     else this.resume?.();
   }
@@ -394,8 +404,9 @@ export class Game {
     addEventListener('keydown', (e) => {
       // The chat line, a dialog's text box or an open menu has the keyboard; so do Ctrl, Alt and the system key,
       // which only the shortcuts use.
-      if (this.held || chat?.typing || typingIn(e) || document.body.classList.contains('menu-open')) return;
+      if ((this.held && !replayer) || chat?.typing || typingIn(e) || document.body.classList.contains('menu-open')) return;
       if (e.ctrlKey || e.altKey || e.metaKey) return;
+      if (replayer && REPLAY_CODES.has(e.code)) e.preventDefault();
       // A key still held from the chat line or a dialog repeats, but it was not pressed in the match.
       if (e.repeat && !keys.has(e.code)) return;
       if (chat && e.code === ONLINE_KEYS.chat && !e.repeat) {
@@ -519,6 +530,8 @@ export class Game {
     };
 
     /** Effects, sounds, messages and cameras after a tick, local or online. */
+    /** Each lift on the map's phase when last heard (modern view). */
+    const liftHeard = new Map<(typeof match.lifts)[number], string>();
     const afterTick = () => {
       effects.add(match.events, match);
       if (modern && !quiet) modern.events(match.events, match);
@@ -526,7 +539,18 @@ export class Game {
       if (!quiet) {
         sound.events(match, match.events, !!assets.effects, viewers());
         sound.scripted(scripted);
+        // In the modern view the lift on the map is heard too: its hatch opening, and the platform locking at the top.
+        if (wanted() === 'modern' && modern) {
+          for (const l of match.lifts) {
+            const was = liftHeard.get(l);
+            if (was === l.phase) continue;
+            if (l.phase === 'rise' || (l.phase === 'sink' && !was)) sound.lift('open', l.tile);
+            else if (l.phase === 'up') sound.lift('lock', l.tile);
+            liftHeard.set(l, l.phase);
+          }
+        }
       }
+      for (const l of liftHeard.keys()) if (!match.lifts.includes(l)) liftHeard.delete(l);
       sound.update(match, cameras.map((c) => ({ x: c.x, y: c.y })));
       music.tick(match, match.events);
       for (const e of match.events) {
@@ -664,8 +688,109 @@ export class Game {
         },
         follow: (p) => {
           if (p >= 0 && p < match.players.length) watched = p;
+          cameras[0]!.roam(false);
+        },
+        get free() { return cameras[0]!.free; },
+        roam: (on) => cameras[0]!.roam(on),
+        zoom: (factor) => {
+          cameras[0]!.roam(true);
+          cameras[0]!.zoom(factor, roamRange());
         },
       };
+    }
+    /** How near and far the free camera goes: closer in the modern view; the classic view keeps its pixels 1:1 at most. */
+    const roamRange = () => (wanted() === 'modern' && modern ? ROAM_MODERN : ROAM_CLASSIC);
+    /** The free camera, a picture at a time: held keys pan and zoom it at a rate in real time, whatever the speed. */
+    let roamLast = performance.now();
+    const roamFrame = (now: number) => {
+      const dt = Math.min(0.1, (now - roamLast) / 1000);
+      roamLast = now;
+      const cam = cameras[0]!;
+      const held = (codes: readonly string[]) => codes.some((k) => keys.has(k));
+      const k = REPLAY_KEYS;
+      const dx = (held(k.panRight) ? 1 : 0) - (held(k.panLeft) ? 1 : 0);
+      const dy = (held(k.panDown) ? 1 : 0) - (held(k.panUp) ? 1 : 0);
+      const dz = (held(k.zoomIn) ? 1 : 0) - (held(k.zoomOut) ? 1 : 0);
+      if (dx || dy || dz) cam.roam(true);
+      if (!cam.free) return;
+      cam.roamFrame();
+      // Panning covers about a view's width in a second and a half, whatever the zoom.
+      const step = (FOCAL + cam.pose().z) * 1.1 * dt;
+      if (dx || dy) cam.pan(dx * step, dy * step);
+      cam.zoom(Math.exp(dz * 1.4 * dt), roamRange());
+    };
+    /** A point on the page as an offset from the replay view's centre, in the 320 x 240 view's pixels. */
+    const viewOffset = (clientX: number, clientY: number): { x: number; y: number } | null => {
+      const r = display.rect;
+      if (!r.w || !r.h) return null;
+      const fx = (clientX - r.x) / r.w;
+      const fy = (clientY - r.y) / r.h;
+      const cam = cameras[0]!;
+      const view = cam.view;
+      if (wanted() === 'modern' && modern) {
+        const rect = (modernRects ?? modernLayout(cameras.length))[0]!;
+        const k = rect.w / view.w;
+        return { x: (fx * MODERN_W - rect.x - rect.w / 2 - view.dx * k) / k, y: (fy * MODERN_H - rect.y - rect.h / 2 - view.dy * k) / k };
+      }
+      const c = cam.centre;
+      return { x: fx * SCREEN_W - c.x, y: fy * SCREEN_H - c.y };
+    };
+    if (replayer) {
+      // Drag to move the free camera, pinch or the mouse wheel to zoom it; a tap that does not move leaves it be.
+      const canvas = display.canvas;
+      const points = new Map<number, { x: number; y: number }>();
+      let travelled = 0;
+      canvas.style.cursor = 'grab';
+      signal.addEventListener('abort', () => (canvas.style.cursor = ''));
+      canvas.addEventListener('pointerdown', (e) => {
+        if (document.body.classList.contains('menu-open') || (e.pointerType === 'mouse' && e.button !== 0)) return;
+        e.preventDefault();
+        if (!points.size) travelled = 0;
+        points.set(e.pointerId, { x: e.clientX, y: e.clientY });
+        canvas.setPointerCapture(e.pointerId);
+        canvas.style.cursor = 'grabbing';
+      }, { signal });
+      canvas.addEventListener('pointermove', (e) => {
+        const was = points.get(e.pointerId);
+        if (!was) return;
+        const now = { x: e.clientX, y: e.clientY };
+        const cam = cameras[0]!;
+        const other = [...points].find(([id]) => id !== e.pointerId)?.[1];
+        travelled += Math.hypot(now.x - was.x, now.y - was.y);
+        points.set(e.pointerId, now);
+        if (travelled < 6) return;
+        cam.roam(true);
+        if (other) {
+          // Two fingers: the gap between them zooms, and the point between them moves the camera.
+          const gap0 = Math.hypot(was.x - other.x, was.y - other.y);
+          const gap1 = Math.hypot(now.x - other.x, now.y - other.y);
+          const m0 = viewOffset((was.x + other.x) / 2, (was.y + other.y) / 2);
+          const m1 = viewOffset((now.x + other.x) / 2, (now.y + other.y) / 2);
+          if (!m0 || !m1) return;
+          if (gap0 > 8 && gap1 > 8) cam.zoom(gap1 / gap0, roamRange(), m0.x, m0.y);
+          cam.drag(m0.x, m0.y, m1.x, m1.y);
+          return;
+        }
+        const a = viewOffset(was.x, was.y);
+        const b = viewOffset(now.x, now.y);
+        if (a && b) cam.drag(a.x, a.y, b.x, b.y);
+      }, { signal });
+      const lift = (e: PointerEvent) => {
+        points.delete(e.pointerId);
+        if (!points.size) canvas.style.cursor = 'grab';
+      };
+      canvas.addEventListener('pointerup', lift, { signal });
+      canvas.addEventListener('pointercancel', lift, { signal });
+      canvas.addEventListener('wheel', (e) => {
+        if (document.body.classList.contains('menu-open')) return;
+        e.preventDefault();
+        const at = viewOffset(e.clientX, e.clientY);
+        const cam = cameras[0]!;
+        cam.roam(true);
+        // A notch of a wheel (about 100 px, or 3 lines) closes in or pulls back by about a sixth.
+        const delta = e.deltaY * (e.deltaMode === 1 ? 33 : e.deltaMode === 2 ? 400 : 1);
+        cam.zoom(Math.exp(-delta * 0.0016), roamRange(), at?.x ?? 0, at?.y ?? 0);
+      }, { signal, passive: false });
     }
     const replayKeys = () => {
       const ctl = this.replayControl!;
@@ -676,6 +801,7 @@ export class Game {
         else if (has(REPLAY_KEYS.faster)) ctl.setSpeed(REPLAY_SPEEDS[Math.min(REPLAY_SPEEDS.length - 1, at + 1)]!);
         else if (has(REPLAY_KEYS.back)) ctl.seek(ctl.frame - REPLAY_JUMP);
         else if (has(REPLAY_KEYS.forward)) ctl.seek(ctl.frame + REPLAY_JUMP);
+        else if (has(REPLAY_KEYS.freeCamera)) ctl.roam(!ctl.free);
         else {
           const n = (REPLAY_KEYS.follow as readonly string[]).indexOf(code);
           if (n >= 0) ctl.follow(n);
@@ -911,12 +1037,13 @@ export class Game {
         else makeModern(mod);
       }
       const linking = wanted() === 'modern' && !modern && modernAvailable() && !modernFailed();
-      const rate = replayer ? speed : 1;
+      const rate = replayer ? (this.held ? 0 : speed) : 1;
       acc = (upright || linking) && !online ? 0 : Math.min(acc + (now - last) * rate, 250 * rate);
       last = now;
       const simFrom = performance.now();
       if (replayer) {
         replayKeys();
+        roamFrame(now);
         if (seekTo !== null) {
           const until = performance.now() + SEEK_BUDGET_MS;
           quiet = true;
@@ -971,8 +1098,11 @@ export class Game {
         const pl = match.players[v[i]!]!;
         field[i] = false;
         screens[i] = undefined;
-        // The bunker until the elevator has gone up and the screen faded out, then the map fading in round the lift.
-        if (pl.state === 'bunker' || (pl.state === 'launching' && pl.elevator)) {
+        // The free camera always shows the map, whatever its player is doing.
+        if (cam.free) {
+          if (useModern) field[i] = true;
+          else drawView(frame, cam, match, assets, v[i]!, extras);
+        } else if (pl.state === 'bunker' || (pl.state === 'launching' && pl.elevator)) {
           if (useModern) screens[i] = { kind: 'bunker', base: pl.base, lives: pl.lives, selected: selected[i] ?? 'tank', elevator: pl.elevator, tick: match.tick };
           else drawBunker(frame, cam.view, assets, pl.base, pl.lives, selected[i] ?? 'tank', pl.elevator, match.tick, pl.fade);
         } else if (pl.state === 'skull' && pl.death) {
@@ -1004,7 +1134,7 @@ export class Game {
       const outcome = ended();
       const lines = liveLog(log);
       const local = me === null ? null : seats();
-      const notes = v.map((p, i) => (local?.[i] === p ? gateNote(match, p, useModern) : null) ?? viewNote(match, p, i, local, playerName));
+      const notes = v.map((p, i) => (cameras[i]!.free ? 'Free camera' : (local?.[i] === p ? gateNote(match, p, useModern) : null) ?? viewNote(match, p, i, local, playerName)));
       // Behind the start gate the bunker shows the bay picked.
       v.forEach((p, i) => {
         const pick = local?.[i] === p ? match.gate?.picks[p] : null;
@@ -1039,6 +1169,8 @@ export class Game {
           modern.setQuality(PRESETS[want], PRESET_NAMES[want]);
         }
         modern.resolution(display.rect.w * (devicePixelRatio || 1), pacer.scale);
+        // How far on to the next tick this frame is: the lifts and gates are drawn between ticks.
+        modern.part = Math.max(0, Math.min(1, acc / TICK_MS));
         modern.draw(match, cameras.map((cam, i) => ({ cam, rect: rects[i]!, viewer: v[i]!, skip: !field[i], screen: screens[i] })), extras);
         modernRects = rects;
         const hudFrom = performance.now();
@@ -1064,13 +1196,13 @@ export class Game {
               const pose = cam.pose();
               const tile = (n: number) => String(Math.max(0, Math.floor(n / 32))).padStart(2, '0');
               drawFeed(g, r, {
-                name: `UAV-${i + 1}`,
+                name: cam.free ? `UAV-${i + 1}  MANUAL` : `UAV-${i + 1}`,
                 mode: look.thermal ? 'IR  WHT' : night ? 'EO  NIGHT' : 'EO  DAY',
                 lines: [`ALT ${Math.round((FOCAL + pose.z) * 6)}FT`, 'HDG 000', `GRID ${tile(pose.x)}-${tile(pose.y)}`, `ZOOM ${(FOCAL / (FOCAL + pose.z) * 2).toFixed(1)}X`],
                 now: new Date(),
               });
             }
-            dimView(g, r, pl.fade);
+            if (!cam.free) dimView(g, r, pl.fade);
             drawModernHud(g, match, r, v[i]!, (x, y, z) => modern!.project(cam, r, x, y, z));
           }
           if (notes[i]) drawNote(g, r, notes[i]!);
@@ -1078,7 +1210,7 @@ export class Game {
           if (shown) {
             for (const p of match.players) {
               const o = p.vehicle;
-              if (!o || p.id === v[i]) continue;
+              if (!o || (p.id === v[i] && !cam.free)) continue;
               const at = modern!.project(cam, r, o.x / 65536, o.y / 65536, Math.max(0, o.z / 65536) + 18);
               if (!at || at.x < r.x || at.x > r.x + r.w || at.y < r.y + 20 || at.y > r.y + r.h) continue;
               drawName(g, shown.seats[p.id]?.name ?? '', at.x, at.y, TEAMS[p.base]?.css ?? '#fff');
@@ -1140,6 +1272,8 @@ export class Game {
     if (replay) {
       const k = REPLAY_KEYS;
       say(`Replay: ${keyName(k.slower[0])} ${keyName(k.faster[0])} speed, ${keyName(k.back[0])} ${keyName(k.forward[0])} jump`);
+      const pan = [k.panUp, k.panLeft, k.panDown, k.panRight].map((x) => keyName(x[0])).join('');
+      say(this.o.handheld ? 'Free camera: drag to look round, pinch to zoom' : `Free camera: drag or ${pan}, wheel zooms, ${keyName(k.freeCamera[0])} on / off`);
       say('1-4 follow a player');
     } else if (this.o.handheld) {
       // The touch controls carry their own labels.

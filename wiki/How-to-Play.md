@@ -147,8 +147,13 @@ Every match is recorded in your browser: the last 20, plus any you star. A repla
 | , / . | Ten seconds back / on |
 | P | Pause |
 | 1 to 4 | Follow that player |
+| C | Free camera on / off |
+| W A S D or the arrows | Move the free camera |
+| Q / E (or Page Down / Page Up) | Zoom the free camera out / in |
 | Alt+R | Start again |
 | Esc | Leave |
+
+The **free camera** looks anywhere on the map: drag the picture with the mouse or a finger, and zoom with the mouse wheel or a two-finger pinch. Moving or zooming turns it on, and picking a player on the bar goes back to following them. It works while the replay is paused too. In the modern view it zooms from close in to the whole island; the classic view zooms out but no closer than its own pixels.
 
 Replays save as `.rfwreplay.json` files or, signed in, to your account.
 
@@ -168,6 +173,7 @@ Replays save as `.rfwreplay.json` files or, signed in, to your account.
 *The same spot with the thermal camera on: the tank runs white-hot against the cool ground.*
 
 - **Quality** (Options > View, modern view only): Auto (the default), Low, Medium, High or Ultra. It is each device's own setting, even online, and the game remembers it in this browser. The presets change how much a frame costs, never what you see in the match: the 3D picture's resolution, shadows, which headlights cast shadows, the focus blur and how much of the garden's scatter is drawn. Auto starts on High (Medium on phones and tablets) and steps down if the device cannot keep up. Dynamic resolution then holds 60 frames a second (30 on phones and tablets) by drawing the 3D picture a little smaller while the device falls behind; the HUD stays sharp.
+- **Tilt-Shift** (Options > View, modern view only): On (the default) or Off. The tilt-shift focus keeps a band across the middle of the drone feed sharp and softens the top and bottom, so the battlefield reads as a miniature; switch it off for a picture that is sharp all over. Like Quality it is each device's own setting, remembered in this browser. Low quality always leaves it off.
 - **Picture:** how the classic picture is scaled.
 - **Swap Sides:** gives player 1 the right-hand keys.
 

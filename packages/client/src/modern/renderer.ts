@@ -9,13 +9,13 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import {
-  DEEP, DOORS_OPEN, skullLook, FINE_TURN, LAND, SHALLOW, groundAt, type Elevator, type Lives, type SkullLook, GRID, LIFT_SPEED, PROJECTILES, VEHICLES, mineArmed, sceneryEntry, subFrame, type Match, type MatchEvent, type Vehicle, type VehicleKind, type World,
+  DEEP, DOORS_OPEN, GATE_OPEN, GATE_SPEED, LIFT_DEPTH, skullLook, FINE_TURN, LAND, SHALLOW, groundAt, type Elevator, type Lives, type SkullLook, GRID, LIFT_SPEED, PROJECTILES, VEHICLES, mineArmed, sceneryEntry, subFrame, type Match, type MatchEvent, type Vehicle, type VehicleKind, type World,
 } from '@rfw/sim';
 import type { GameAssets, Model } from '../assets.js';
 import { FOCAL, type Camera } from '../camera.js';
 import { drawMark, type Splat, type Wreck as MarkWreck } from '../effects.js';
 import { TEAMS } from '../paint.js';
-import { building, gateLeaf, lightOf, lookOf, playset, towerGun, type Box } from './buildings.js';
+import { GATE_POST, building, gateLeaf, lightOf, lookOf, playset, towerGun, type Box } from './buildings.js';
 import { Fx } from './fx.js';
 import { LAMP_REACH, LampMap, lampLight, type Lamp } from './lampmap.js';
 import { LIGHT_TIME, LookPass, THERMAL, grainLights, heatFragment } from './look.js';
@@ -80,6 +80,42 @@ export interface ModernView {
 
 const radians = (heading: number) => (heading / 65536 / 64) * Math.PI * 2;
 const rand = (a: number, b: number) => a + Math.random() * (b - a);
+/** A gate's leaf, post to middle (px). */
+const GATE_LEAF = 16;
+/** Smooth start and stop: 0 to 1 over 0 to 1, with no speed at either end. */
+const smooth = (u: number) => {
+  const t = Math.max(0, Math.min(1, u));
+  return t * t * t * (t * (t * 6 - 15) + 10);
+};
+
+/**
+ * How far a gate's leaves have slid back (px), part of a tick on from the sim's opening (they move a steady half
+ * pixel a tick), eased over the whole of their travel: the same start, end and timing as the sim's, only softer.
+ */
+export function gateSlide(opening: number, target: number, part: number): number {
+  const step = Math.sign(target - opening) * Math.min(Math.abs(target - opening), GATE_SPEED * part);
+  return (GATE_OPEN / 65536) * smooth((opening + step) / GATE_OPEN);
+}
+
+/**
+ * How high a lift's platform stands (px, -32 to 0), part of a tick on from the sim's (it moves a steady 0.3 px a
+ * tick), eased over its whole travel so it pulls away from rest and settles into its stop rather than starting and
+ * stopping dead. It takes the same ticks as the sim's: only the drawing is eased.
+ */
+export function liftHeight(z: number, phase: string, part: number): number {
+  const dir = phase === 'rise' ? 1 : phase === 'sink' ? -1 : 0;
+  const at = Math.max(-LIFT_DEPTH, Math.min(0, z + dir * LIFT_SPEED * part));
+  return (LIFT_DEPTH / 65536) * (smooth(1 + at / LIFT_DEPTH) - 1);
+}
+
+/** How far a lift's hatch doors have slid apart (px, 0 to 16, when they are under the ground), from their timer. */
+export function hatchSlide(doors: number, phase: string, part: number): number {
+  const dir = phase === 'rise' ? 1 : phase === 'sink' ? -1 : 0;
+  const open = Math.max(0, doors + dir * part) * LIFT_SPEED;
+  return HATCH * smooth(open / DOORS_OPEN);
+}
+/** Each hatch door's width: they meet in the middle of the shaft and slide under the ground beside it. */
+const HATCH = 16;
 /** Sim ticks a second, for vehicles' speeds in pixels a second. */
 const TICKS = 62.5;
 /** Where the moon stands for its path on the sea: high in the north-west, ahead of the camera. */
@@ -113,6 +149,9 @@ interface VehicleRig {
   /** How low it sits in the water (px), eased; and seconds to its next ripple ring. */
   wade: number;
   ringIn: number;
+  /** Whether it was last drawn on a lift, and seconds since it rolled off one (its suspension settling). */
+  lifted: boolean;
+  settle: number;
 }
 
 /** Objects of one kind reused frame to frame: take() hands out the next, end() hides the ones not taken. */
@@ -181,6 +220,13 @@ export class ModernRenderer {
   private readonly pools = new Map<string, Pool<THREE.Object3D>>();
   private readonly rigs = new Map<Vehicle, VehicleRig>();
   private lastTime = performance.now();
+  /**
+   * How far on to the next sim tick this frame is drawn (0-1, set by the game from its tick clock). The lifts and
+   * gates move at a steady rate, so they are drawn where they are between ticks, smooth at any frame rate.
+   */
+  part = 0;
+  /** Each lift's phase when last drawn, to see a hatch open and a lift lock at the top. */
+  private liftSeen = new Map<object, string>();
   private readonly boxes: (Box | null)[];
   private bunker: BunkerScene | null = null;
   private night = false;
@@ -631,7 +677,17 @@ export class ModernRenderer {
     this.fx.setScale(f);
     // The shadow box follows what this view looks at, in whole steps of its shadow map's texels across the sun's
     // view, so shadows stay put on the ground as the camera moves instead of crawling and shimmering at the edges.
-    const texel = (2 * SHADOW_SPAN) / this.sun.shadow.mapSize.x;
+    // A free camera pulled back (a replay's) has its shadow box grown to what it sees.
+    const span = Math.round(SHADOW_SPAN * cam.reach());
+    const sc = this.sun.shadow.camera;
+    if (sc.right !== span) {
+      sc.left = -span;
+      sc.right = span;
+      sc.top = span;
+      sc.bottom = -span;
+      sc.updateProjectionMatrix();
+    }
+    const texel = (2 * span) / this.sun.shadow.mapSize.x;
     const at = SUN_SIDE.clone().multiplyScalar(Math.round((pose.x * SUN_SIDE.x + (pose.y - 40) * SUN_SIDE.z) / texel) * texel)
       .addScaledVector(SUN_UP, Math.round((pose.x * SUN_UP.x + (pose.y - 40) * SUN_UP.z) / texel) * texel);
     // Back onto the ground along the sun's direction: moving a point along it moves nothing in the shadow map.
@@ -1098,25 +1154,51 @@ export class ModernRenderer {
     const seen = new Set<Vehicle>();
 
     for (const pl of m.players) if (pl.vehicle) this.vehicle(pl.vehicle, 0, seen, dt);
+    // The bunker lifts. The hatch's two doors slide apart under the ground beside the shaft (they meet in the
+    // middle when shut, so there is never a gap or a door left lying on the ground), the platform eases up or down
+    // the shaft, and amber beacons at the shaft's corners turn while it moves. A hatch opening puffs dust out of the
+    // shaft; a lift locking at the top kicks a little dust from its edges, and the vehicle settles on its springs as
+    // it rolls off.
+    const seenLifts = new Set<object>();
     for (const l of m.lifts) {
       if (l.phase === 'wait') continue;
+      seenLifts.add(l);
       const tx = l.tile % GRID;
       const ty = Math.floor(l.tile / GRID);
       const x = tx * TILE + TILE / 2;
       const y = ty * TILE + TILE / 2;
-      const z = l.z / 65536;
+      const z = liftHeight(l.z, l.phase, this.part);
       const base = l.vehicle.base;
       const team = this.paints[base] ?? NEUTRAL;
-      this.pool(`shaft`, () => this.mesh('shaft', V.liftShaft, NEUTRAL)).take().position.set(x, 0, y);
-      this.pool(`platform:${base}`, () => this.mesh(`platform:${base}`, V.liftPlatform, team)).take().position.set(x, z, y);
-      this.vehicle(l.vehicle, z, seen, dt, true);
-      // The hatch doors slide apart 0.3 px a tick of their timer from 5 px either side of the middle, and are gone
-      // once 18 px apart (as view.ts draws them).
-      const open = (l.doors * LIFT_SPEED) / 65536;
-      if (open * 65536 < DOORS_OPEN) {
-        for (const s of [-1, 1]) this.pool('door', () => this.mesh('door', V.liftDoor, NEUTRAL)).take().position.set(x + s * (5 + open), s > 0 ? 0.5 : 0.4, y);
+      const was = this.liftSeen.get(l);
+      if (was !== l.phase) {
+        this.liftSeen.set(l, l.phase);
+        // (By day: at night the dust would glow in the lamps' light it does not have.)
+        if (!was && !this.night) for (let k = 0; k < 3; k++) this.fx.smokeAt(x + rand(-8, 8), y + rand(-8, 8), 0.5);
+        if (l.phase === 'up' && !this.night) for (const [a, b] of [[-14, 0], [14, 0], [0, -14], [0, 14]] as const) this.fx.smokeAt(x + a, y + b, 0.5);
       }
+      this.pool(`shaft`, () => this.mesh('shaft', V.liftShaft, NEUTRAL)).take().position.set(x, 0, y);
+      // The platform's deck is level with its trim, so it is flush with the ground at the top.
+      this.pool(`platform:${base}`, () => this.mesh(`platform:${base}`, V.liftPlatform, team)).take().position.set(x, z - 0.6, y);
+      this.vehicle(l.vehicle, z, seen, dt, true);
+      const slide = hatchSlide(l.doors, l.phase, this.part);
+      if (slide < HATCH) {
+        for (const s of [-1, 1]) {
+          const door = this.pool('hatch', () => this.mesh('hatch', V.liftDoor, NEUTRAL)).take();
+          door.position.set(x + s * slide, -1.4, y);
+          door.rotation.set(0, s < 0 ? Math.PI : 0, 0);
+        }
+      }
+      // The beacons flash round the shaft in turn while the lift moves.
+      const beat = (performance.now() / 1000) * 2.2;
+      ([[-1, -1], [1, -1], [1, 1], [-1, 1]] as const).forEach(([a, b], k) => {
+        this.pool('beacon', () => this.mesh('beacon', V.liftBeacon, NEUTRAL)).take().position.set(x + a * 14.5, 0, y + b * 14.5);
+        if ((beat + k / 4) % 1 > 0.5) return;
+        const lens = this.pool('beaconlens', () => new THREE.Mesh(new THREE.SphereGeometry(1.05, 10, 6), new THREE.MeshBasicMaterial({ color: 0xffb020 }))).take();
+        lens.position.set(x + a * 14.5, 1.6, y + b * 14.5);
+      });
     }
+    for (const l of [...this.liftSeen.keys()]) if (!seenLifts.has(l)) this.liftSeen.delete(l);
     for (const [v, rig] of [...this.rigs]) {
       if (seen.has(v)) continue;
       this.dynamic.remove(rig.root);
@@ -1125,7 +1207,8 @@ export class ModernRenderer {
 
     // Wrecks still moving, and the marks of those at rest.
     for (const w of m.wrecks) this.wreck(w.kind, w.base, w.x / 65536, w.y / 65536, w.z / 65536, w.heading, dt, w.model === 'body');
-    const near = (x: number, y: number) => cams.some((c) => Math.abs(c.centreX - x) < 420 && Math.abs(c.pose().y - y) < 360);
+    // A free camera pulled back (a replay's) sees further, and draws further.
+    const near = (x: number, y: number) => cams.some((c) => Math.abs(c.centreX - x) < 420 * c.reach() && Math.abs(c.pose().y - y) < 360 * c.reach());
     for (const w of extras.wrecks) {
       if (!near(w.x, w.y) || !drawMark(w, m.tick)) continue;
       this.wreck(w.kind, w.paint || w.variant, w.x, w.y, 0, w.heading, dt, false);
@@ -1159,7 +1242,10 @@ export class ModernRenderer {
         if (!this.chunkBuilt[cy * CHUNKS + cx]) continue;
         const x0 = cx * CHUNK * TILE;
         const y0 = cy * CHUNK * TILE;
-        if (!cams.some((c) => c.centreX > x0 - 520 && c.centreX < x0 + CHUNK * TILE + 520 && c.pose().y > y0 - 460 && c.pose().y < y0 + CHUNK * TILE + 460)) continue;
+        if (!cams.some((c) => {
+          const r = c.reach();
+          return c.centreX > x0 - 520 * r && c.centreX < x0 + CHUNK * TILE + 520 * r && c.pose().y > y0 - 460 * r && c.pose().y < y0 + CHUNK * TILE + 460 * r;
+        })) continue;
         for (let y = cy * CHUNK; y < cy * CHUNK + CHUNK; y++) {
           for (let x = cx * CHUNK; x < cx * CHUNK + CHUNK; x++) {
             const i = y * GRID + x;
@@ -1189,35 +1275,47 @@ export class ModernRenderer {
         }
       }
     }
-    // Gate leaves: each hinged at the inside of its post, reaching 8 px to the middle when shut and drawn in as the
-    // gate opens (it opens 16 px). A shut gate is a building on its tile; an opening one is taken off the tile (the
-    // sim's Gate), so its posts are drawn here too until it settles back into a building.
-    const gates: { tile: number; bid: number; opening: number }[] = m.gates.map((g) => ({ tile: g.tile, bid: g.building, opening: g.opening / 65536 }));
+    // Gates: two barred leaves meeting in the middle of the tile, between posts just outside its edges on the line
+    // of the wall. Opening, each leaf slides back into its post (the sim's opening, 0-15 px, the same as its
+    // halves' collision shapes), eased so it pulls away gently and slows into its stop; a beacon on each post blinks
+    // while the gate moves. A shut gate is a building on its tile; a moving one is the sim's Gate, so its posts are
+    // drawn here too until it settles back into a building.
+    const gates: { tile: number; bid: number; slide: number }[] = m.gates.map((g) => ({ tile: g.tile, bid: g.building, slide: gateSlide(g.opening, g.target, this.part) }));
     for (let i = 0; i < GRID * GRID; i++) {
       const bid = world.building[i]!;
-      if (bid === GATE_H || bid === GATE_H + 1) gates.push({ tile: i, bid, opening: 0 });
+      if (bid === GATE_H || bid === GATE_H + 1) gates.push({ tile: i, bid, slide: 0 });
     }
-    const moving = new Set(m.gates.map((g) => g.tile));
-    for (const { tile: i, bid, opening } of gates) {
-      const len = Math.max(0.3, 8 * (1 - Math.min(16, opening) / 16));
+    const moving = new Map(m.gates.map((g) => [g.tile, g]));
+    const blink = Math.floor(performance.now() / 260) % 2 === 0;
+    for (const { tile: i, bid, slide } of gates) {
       const owner = world.owner[i]!;
       const team = owner < 0 ? NEUTRAL : this.paints[owner] ?? NEUTRAL;
       const cx = (i % GRID) * TILE + TILE / 2;
       const cy = Math.floor(i / GRID) * TILE + TILE / 2;
-      if (moving.has(i)) {
+      const across = bid === GATE_H;
+      const g = moving.get(i);
+      if (g) {
         const def = world.defs[bid];
         const key = `gateposts:${bid}:${owner}`;
         const posts = def && this.pool(key, () => this.mesh(key, () => building(def, def.name, this.boxes[bid] ?? null, i) ?? new Kit(), team, playset(def.name) ? this.playset : this.material)).take();
         posts?.position.set(cx, 0, cy);
+        // The beacons blink while the leaves move, and while it waits to settle once shut.
+        if (blink && (g.opening !== g.target || g.opening === 0)) {
+          for (const s of [-1, 1]) {
+            const lamp = this.pool('gatelamp', () => new THREE.Mesh(new THREE.SphereGeometry(1.3, 8, 5), new THREE.MeshBasicMaterial({ color: 0xffa020 }))).take();
+            lamp.position.set(cx + (across ? s * GATE_POST : 0), 21, cy + (across ? 0 : s * GATE_POST));
+          }
+        }
       }
       for (const s of [-1, 1]) {
-        const leaf = this.pool(`leaf:${owner}`, () => this.mesh(`leaf:${owner}`, () => gateLeaf(1), team, this.playset)).take();
-        leaf.scale.set(len, 1, 1);
-        if (bid === GATE_H) {
-          leaf.position.set(cx + s * 8, 0, cy);
+        const leaf = this.pool(`leaf:${owner}`, () => this.mesh(`leaf:${owner}`, () => gateLeaf(GATE_LEAF), team, this.playset)).take();
+        // Each leaf runs from its post's side (16 px out) to the middle, slid back by the opening.
+        const from = s * (GATE_LEAF + slide);
+        if (across) {
+          leaf.position.set(cx + from, 0, cy);
           leaf.rotation.set(0, s < 0 ? 0 : Math.PI, 0);
         } else {
-          leaf.position.set(cx, 0, cy + s * 8);
+          leaf.position.set(cx, 0, cy + from);
           leaf.rotation.set(0, s < 0 ? -Math.PI / 2 : Math.PI / 2, 0);
         }
       }
@@ -1301,6 +1399,13 @@ export class ModernRenderer {
     const z = onLift ? liftZ : v.z / 65536;
     rig.root.visible = true;
     rig.root.position.set(v.x / 65536, z, v.y / 65536);
+    // Rolled off a lift that has just locked at the top: it dips once on its springs and settles.
+    if (rig.lifted && !onLift && liftZ === 0) rig.settle = 0;
+    rig.lifted = onLift;
+    if (rig.settle < 0.6 && v.kind !== 'heli') {
+      rig.settle += dt;
+      rig.root.position.y -= Math.sin(rig.settle * 16) * Math.exp(-rig.settle * 7) * 0.7;
+    }
     rig.root.rotation.set(0, -radians(v.heading), 0);
     if (rig.turret) rig.turret.rotation.set(0, -radians(v.turret), 0);
     if (rig.barrel) rig.barrel.rotation.set(-(v.barrel / 0x400000) * Math.PI * 2, 0, 0);
@@ -1480,7 +1585,7 @@ export class ModernRenderer {
     this.dynamic.add(root);
     const body = this.mesh(`${key}:body`, () => kits.body, team, this.hot);
     root.add(body);
-    rig = { root, body, wheels: [], inflate: v.tyres ? 1 : 0, wade: 0, ringIn: 0 };
+    rig = { root, body, wheels: [], inflate: v.tyres ? 1 : 0, wade: 0, ringIn: 0, lifted: false, settle: 9 };
     if (kits.turret) {
       rig.turret = new THREE.Group();
       rig.turret.add(this.mesh(`${key}:turret`, () => kits.turret!, team, this.hot));

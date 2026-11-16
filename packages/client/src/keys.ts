@@ -189,8 +189,16 @@ export const REPLAY_KEYS = {
   /** Ten seconds back or on. */
   back: ['Comma'],
   forward: ['Period'],
-  /** Follow player 1-4. */
+  /** Follow player 1-4 (and leave the free camera). */
   follow: ['Digit1', 'Digit2', 'Digit3', 'Digit4'],
+  /** The free camera on or off; panning or zooming turns it on too. Nobody drives in a replay, so these are free. */
+  freeCamera: ['KeyC'],
+  panUp: ['KeyW', 'ArrowUp'],
+  panDown: ['KeyS', 'ArrowDown'],
+  panLeft: ['KeyA', 'ArrowLeft'],
+  panRight: ['KeyD', 'ArrowRight'],
+  zoomIn: ['KeyE', 'PageUp'],
+  zoomOut: ['KeyQ', 'PageDown'],
 } as const;
 
 export type ShortcutId = 'help' | 'newGame' | 'pause' | 'fullScreen' | 'restart' | 'hallOfFame' | 'menus' | 'swapSides' | 'mute';
