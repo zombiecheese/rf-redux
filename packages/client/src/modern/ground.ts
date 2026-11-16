@@ -8,11 +8,23 @@ import * as THREE from 'three';
 import { BEAM_SHAPE_GLSL, LIGHT_TIME, THERMAL, grainLights } from './look.js';
 import { DepthMap, RINGS } from './water.js';
 import { ART } from './art.js';
+import { sameBytes } from './bytes.js';
 import { photoMaps, photoShader, type PhotoMaps } from './photoground.js';
 import { GRID, NO_TERRAIN, type World } from '@rfw/sim';
 import type { GameAssets } from '../assets.js';
 
 export const TILE = 32;
+/** The ground texture's mipmap level kept whole in memory (64 x 64 texels at 4096): see Ground.refreshMips. */
+const MIP_KEEP = 6;
+/** sRGB bytes to linear light, and back. */
+const TO_LINEAR = Float32Array.from({ length: 256 }, (_, i) => {
+  const c = i / 255;
+  return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+});
+const toSrgb = (l: number): number => {
+  const c = l <= 0.0031308 ? l * 12.92 : 1.055 * l ** (1 / 2.4) - 0.055;
+  return Math.max(0, Math.min(255, Math.round(c * 255)));
+};
 /** Sea mask resolution: texels a tile. */
 const SHORE_TEX = 4;
 const WATER_CEL = 2;
@@ -88,6 +100,10 @@ export class Ground {
   private readonly texture: THREE.DataTexture;
   private readonly shoreTex: THREE.DataTexture;
   private readonly shore = new Uint8Array(GRID * SHORE_TEX * GRID * SHORE_TEX);
+  /** How much of each shore texel is land (0-1), before the blur: kept, so a change is worked out where it is. */
+  private readonly land = new Float32Array(GRID * SHORE_TEX * GRID * SHORE_TEX);
+  /** Whether the shore's texture has gone up to the graphics card whole (after that, only changes). */
+  private shoreLive = false;
   /** One texel a tile: 255 where a lift's shaft is open and the ground has a hole. */
   private readonly pits = new Uint8Array(GRID * GRID);
   private readonly pitTex: THREE.DataTexture;
@@ -131,7 +147,11 @@ export class Ground {
       this.copyTexels(0, 0, this.SIZE, this.SIZE);
       this.texture.needsUpdate = true;
     }
-    this.texture.onUpdate = () => (this.live = true);
+    // Once it is on the graphics card, changes go up by hand (sendChange), mipmaps and all.
+    this.texture.onUpdate = () => {
+      this.live = true;
+      this.keepMips();
+    };
     this.texture.magFilter = THREE.LinearFilter;
     this.texture.colorSpace = THREE.SRGBColorSpace;
     this.texture.anisotropy = 4;
@@ -164,14 +184,17 @@ export class Ground {
       shader.uniforms.thermal = THERMAL;
       shader.fragmentShader = shader.fragmentShader
         .replace('void main() {', 'uniform sampler2D pits;\nuniform float thermal;\nvoid main() {')
-        // The ground on the thermal camera: cool, its sand and grass and roads just told apart.
-        .replace('#include <dithering_fragment>', `#include <dithering_fragment>
-          if (thermal > 0.5) gl_FragColor = vec4(vec3(0.2 + dot(diffuseColor.rgb, vec3(0.3, 0.59, 0.11)) * 0.26), 1.0);`)
+        // The ground on the thermal camera: cool, its sand and grass and roads just told apart. Drawn as soon as its
+        // colour is known, ahead of the lighting and shadows it would throw away.
         .replace('#include <alphatest_fragment>', `#include <alphatest_fragment>
           {
             vec2 t = vMapUv * ${GRID}.0;
             vec2 f = fract(t);
             if (texture2D(pits, (floor(t) + 0.5) / ${GRID}.0).r > 0.5 && f.x > 0.06 && f.x < 0.94 && f.y > 0.06 && f.y < 0.94) discard;
+          }
+          if (thermal > 0.5) {
+            gl_FragColor = vec4(vec3(0.2 + dot(diffuseColor.rgb, vec3(0.3, 0.59, 0.11)) * 0.26), 1.0);
+            return;
           }`);
       grainLights(shader);
       lit?.(shader);
@@ -185,7 +208,9 @@ export class Ground {
     this.shoreTex = new THREE.DataTexture(this.shore, GRID * SHORE_TEX, GRID * SHORE_TEX, THREE.RedFormat, THREE.UnsignedByteType);
         this.shoreTex.magFilter = THREE.LinearFilter;
     this.shoreTex.minFilter = THREE.LinearFilter;
-    this.makeShore();
+    this.shoreTex.onUpdate = () => (this.shoreLive = true);
+    // (A ground left for later has no land yet: paintIn and paintNow make the shore once it is painted.)
+    if (!later) this.makeShore();
     this.depth = new DepthMap(world);
     this.water = waterMaterial(this.shoreTex, this.pitTex, this.depth.texture, sun, sea);
     const margin = 4096;
@@ -221,6 +246,7 @@ export class Ground {
       this.paintSplat(0, ty, GRID, Math.min(GRID, ty + 8));
       await pause();
     }
+    this.makeShore();
     this.pending = false;
   }
 
@@ -235,6 +261,12 @@ export class Ground {
     this.copyTexels(0, 0, this.SIZE, this.SIZE);
     this.texture.needsUpdate = true;
     this.paintSplat(0, 0, GRID, GRID);
+    this.makeShore();
+  }
+
+  /** The renderer the ground is drawn with, for sending changes to its texture by hand. */
+  useRenderer(renderer: THREE.WebGLRenderer): void {
+    this.renderer = renderer;
   }
 
   /**
@@ -259,7 +291,10 @@ export class Ground {
   }
 
   /** Repaints tiles whose terrain changed (a building become rubble, a lift's pad), and the lifts' open shafts. */
-  update(world: World, openLifts: Iterable<number>): void {
+  update(world: World, openLifts: readonly number[]): void {
+    this.updateLifts(openLifts);
+    // Nothing changed (the usual frame): seen in one compare, not tile by tile.
+    if (sameBytes(world.terrain, this.terrain)) return;
     let x0 = GRID;
     let y0 = GRID;
     let x1 = -1;
@@ -285,24 +320,28 @@ export class Ground {
       const px1 = Math.min(GRID, x1 + 2);
       const py1 = Math.min(GRID, y1 + 2);
       this.paint(px0, py0, px1, py1);
-      // Only the repainted rows' stretch goes up to the graphics card, never the whole 64 MB texture.
+      // Only the repainted texels go up to the graphics card, with their mipmaps: never the whole 64 MB texture, nor
+      // all of its mipmaps made again for them.
       this.copyTexels(px0 * this.TEX, py0 * this.TEX, px1 * this.TEX, py1 * this.TEX);
-      this.texture.needsUpdate = true;
+      this.sendChange(px0 * this.TEX, py0 * this.TEX, px1 * this.TEX, py1 * this.TEX);
       this.paintSplat(px0, py0, px1, py1);
-      this.makeShore();
+      this.makeShore(px0, py0, px1, py1);
       if (wet) this.depth.update(world, x0, y0, x1 + 1, y1 + 1);
     }
-    const want = new Set(openLifts);
-    let changed = false;
-    for (let i = 0; i < this.pits.length; i++) {
-      const v = want.has(i) ? 255 : 0;
-      const at = (GRID - 1 - ((i / GRID) | 0)) * GRID + (i % GRID);
-      if (this.pits[at] !== v) {
-        this.pits[at] = v;
-        changed = true;
-      }
-    }
-    if (changed) this.pitTex.needsUpdate = true;
+  }
+
+  /** The lifts' shafts open last frame (tiles), to see whether the pits changed. */
+  private lifts: number[] = [];
+
+  /** The holes in the ground over lifts' open shafts: worked out again only when the lifts open or close. */
+  private updateLifts(openLifts: readonly number[]): void {
+    const was = this.lifts;
+    if (was.length === openLifts.length && was.every((t, i) => t === openLifts[i])) return;
+    const pit = (tile: number) => (GRID - 1 - ((tile / GRID) | 0)) * GRID + (tile % GRID);
+    for (const t of was) this.pits[pit(t)] = 0;
+    for (const t of openLifts) this.pits[pit(t)] = 255;
+    this.lifts = [...openLifts];
+    this.pitTex.needsUpdate = true;
   }
 
   /** Marks the splat's texels over tiles [x0, x1) x [y0, y1) to go up to the graphics card, and only those once it has the rest. */
@@ -322,9 +361,35 @@ export class Ground {
       const from = (y * S + x0) * 4;
       const to = ((S - 1 - y) * S + x0) * 4;
       this.texels.set(src.subarray(from, (y * S + x1) * 4), to);
-      // Until the texture is on the graphics card it goes up whole.
-      if (this.live) this.texture.addUpdateRange(to, (x1 - x0) * 4);
     }
+  }
+
+  /**
+   * Sends a rectangle of the picture (pixels, rows top to bottom) already copied into the texels to the graphics
+   * card: the whole texture until it is there, after that the rectangle and its mipmaps.
+   */
+  private sendChange(x0: number, y0: number, x1: number, y1: number): void {
+    const S = this.SIZE;
+    const renderer = this.renderer;
+    const tex = (renderer?.properties.get(this.texture) as { __webglTexture?: WebGLTexture } | undefined)?.__webglTexture;
+    if (!this.live || !renderer || !tex) {
+      this.texture.needsUpdate = true;
+      return;
+    }
+    const gl = renderer.getContext() as WebGL2RenderingContext;
+    renderer.state.bindTexture(gl.TEXTURE_2D, tex);
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+    gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+    gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+    gl.pixelStorei(gl.UNPACK_ROW_LENGTH, S);
+    gl.pixelStorei(gl.UNPACK_SKIP_PIXELS, 0);
+    gl.pixelStorei(gl.UNPACK_SKIP_ROWS, 0);
+    // The texture's rows run bottom to top.
+    const ty0 = S - y1;
+    const ty1 = S - y0;
+    gl.texSubImage2D(gl.TEXTURE_2D, 0, x0, ty0, x1 - x0, ty1 - ty0, gl.RGBA, gl.UNSIGNED_BYTE, this.texels, (ty0 * S + x0) * 4);
+    gl.pixelStorei(gl.UNPACK_ROW_LENGTH, 0);
+    this.refreshMips(x0, ty0, x1, ty1);
   }
 
   tick(seconds: number): void {
@@ -537,43 +602,197 @@ export class Ground {
     }
   }
 
-  /** How near each point of the sea is to land: 255 on land, falling off over about two tiles. */
-  private makeShore(): void {
+  /**
+   * How near each point of the sea is to land: 255 on land, falling off over about two tiles. Worked out again only
+   * round tiles [x0, x1) x [y0, y1) (all the map when left out), and only that part sent to the graphics card: done
+   * whole, it read the whole 4096 x 4096 ground every time a building fell or a lift came up, a stutter every time.
+   */
+  private makeShore(x0 = 0, y0 = 0, x1 = GRID, y1 = GRID): void {
     const n = GRID * SHORE_TEX;
     const step = this.TEX / SHORE_TEX;
     const px = this.image.data;
-    const land = new Float32Array(n * n);
-    for (let y = 0; y < n; y++) {
-      for (let x = 0; x < n; x++) {
+    const land = this.land;
+    // Two passes of a separable box blur, radius 4 texels (one tile), keeping land itself at full: a point's nearness
+    // reaches 8 texels out. Worked out over a window 16 texels wider each way than what changes, so the window's edge
+    // (clamped to the window, not the map) is too far out to touch it; at the map's edges it is the map's, as before.
+    const r = 4;
+    const M = 4 * r;
+    // What changes: the changed tiles' texels and the 8 texels the blur carries a change out to.
+    const ox0 = Math.max(0, x0 * SHORE_TEX - 2 * r);
+    const oy0 = Math.max(0, y0 * SHORE_TEX - 2 * r);
+    const ox1 = Math.min(n, x1 * SHORE_TEX + 2 * r);
+    const oy1 = Math.min(n, y1 * SHORE_TEX + 2 * r);
+    const wx0 = Math.max(0, ox0 - M);
+    const wy0 = Math.max(0, oy0 - M);
+    const wx1 = Math.min(n, ox1 + M);
+    const wy1 = Math.min(n, oy1 + M);
+    const w = wx1 - wx0;
+    const h = wy1 - wy0;
+    // The land under the window, from the painted ground's alpha.
+    for (let y = wy0; y < wy1; y++) {
+      for (let x = wx0; x < wx1; x++) {
         let a = 0;
-        for (let j = 0; j < step; j++) for (let i = 0; i < step; i++) a += px[((y * step + j) * this.SIZE + x * step + i) * 4 + 3]!;
+        for (let j = 0; j < step; j++) {
+          const row = ((y * step + j) * this.SIZE + x * step) * 4 + 3;
+          for (let i = 0; i < step; i++) a += px[row + i * 4]!;
+        }
         land[y * n + x] = a / (step * step * 255);
       }
     }
-    // Two passes of a separable box blur, radius 4 texels (one tile), keeping land itself at full.
-    let cur = land;
+    let cur = new Float32Array(w * h);
+    for (let y = 0; y < h; y++) cur.set(land.subarray((wy0 + y) * n + wx0, (wy0 + y) * n + wx1), y * w);
+    const ground = cur;
+    const tmp = new Float32Array(w * h);
     for (let pass = 0; pass < 2; pass++) {
-      const tmp = new Float32Array(n * n);
-      const out = new Float32Array(n * n);
-      const r = 4;
-      for (let y = 0; y < n; y++) {
-        for (let x = 0; x < n; x++) {
-          let s = 0;
-          for (let i = -r; i <= r; i++) s += cur[y * n + Math.min(n - 1, Math.max(0, x + i))]!;
-          tmp[y * n + x] = s / (r * 2 + 1);
+      const out = new Float32Array(w * h);
+      for (let y = 0; y < h; y++) {
+        for (let x = 0; x < w; x++) {
+          let sum = 0;
+          for (let i = -r; i <= r; i++) sum += cur[y * w + Math.min(w - 1, Math.max(0, x + i))]!;
+          tmp[y * w + x] = sum / (r * 2 + 1);
         }
       }
-      for (let y = 0; y < n; y++) {
-        for (let x = 0; x < n; x++) {
-          let s = 0;
-          for (let i = -r; i <= r; i++) s += tmp[Math.min(n - 1, Math.max(0, y + i)) * n + x]!;
-          out[y * n + x] = Math.max(land[y * n + x]!, s / (r * 2 + 1));
+      for (let y = 0; y < h; y++) {
+        for (let x = 0; x < w; x++) {
+          let sum = 0;
+          for (let i = -r; i <= r; i++) sum += tmp[Math.min(h - 1, Math.max(0, y + i)) * w + x]!;
+          out[y * w + x] = Math.max(ground[y * w + x]!, sum / (r * 2 + 1));
         }
       }
       cur = out;
     }
-    for (let i = 0; i < n * n; i++) this.shore[(n - 1 - ((i / n) | 0)) * n + (i % n)] = Math.min(255, cur[i]! * 255 * 1.6);
+    // The texture's rows run south to north (its v runs north).
+    for (let y = oy0; y < oy1; y++) {
+      const row = (n - 1 - y) * n;
+      for (let x = ox0; x < ox1; x++) this.shore[row + x] = Math.min(255, cur[(y - wy0) * w + x - wx0]! * 255 * 1.6);
+      if (this.shoreLive) this.shoreTex.addUpdateRange(row + ox0, ox1 - ox0);
+    }
     this.shoreTex.needsUpdate = true;
+  }
+
+  // ---- The ground texture's mipmaps -----------------------------------------------------------------------------
+
+  /**
+   * The ground's smaller copies (its mipmaps), kept up to date by hand once it is on the graphics card: three.js
+   * would make every one of them again from the whole 4096 x 4096 picture for the few tiles that changed. Each level up
+   * to MIP_KEEP is made from the changed tiles' texels; the level MIP_KEEP is kept here whole (small), and the levels
+   * past it made again from it.
+   */
+  private mipKeep: Float32Array | null = null;
+  private renderer: THREE.WebGLRenderer | null = null;
+
+  /** Level MIP_KEEP of the ground (linear light, RGBA), made from the whole picture: once it has been painted. */
+  private keepMips(): void {
+    const n = this.SIZE >> MIP_KEEP;
+    const keep = (this.mipKeep ??= new Float32Array(n * n * 4));
+    this.averageInto(keep, n, 0, 0, n, n, MIP_KEEP);
+  }
+
+  /**
+   * The average (linear light for colour, straight for alpha) of each b x b block of the texture's texels (b =
+   * 1 << level) over level texels [u0, u1) x [v0, v1), into out: the level's rows from row (n texels a row, RGBA).
+   */
+  private averageInto(out: Float32Array, n: number, u0: number, v0: number, u1: number, v1: number, level: number, row = 0): void {
+    const S = this.SIZE;
+    const b = 1 << level;
+    const t = this.texels;
+    const area = b * b;
+    for (let v = v0; v < v1; v++) {
+      for (let u = u0; u < u1; u++) {
+        let r = 0;
+        let g = 0;
+        let bl = 0;
+        let a = 0;
+        for (let j = 0; j < b; j++) {
+          let o = ((v * b + j) * S + u * b) * 4;
+          for (let i = 0; i < b; i++, o += 4) {
+            r += TO_LINEAR[t[o]!]!;
+            g += TO_LINEAR[t[o + 1]!]!;
+            bl += TO_LINEAR[t[o + 2]!]!;
+            a += t[o + 3]!;
+          }
+        }
+        const k = ((v - row) * n + u) * 4;
+        out[k] = r / area;
+        out[k + 1] = g / area;
+        out[k + 2] = bl / area;
+        out[k + 3] = a / area;
+      }
+    }
+  }
+
+  /**
+   * Sends the mipmaps over texture texels [x0, x1) x [y0, y1) (rows south to north, as the texture holds them) to the
+   * graphics card, the level 0 texels having gone up already or going up with this frame's picture.
+   */
+  private refreshMips(x0: number, y0: number, x1: number, y1: number): void {
+    const renderer = this.renderer;
+    const keep = this.mipKeep;
+    const tex = (renderer?.properties.get(this.texture) as { __webglTexture?: WebGLTexture } | undefined)?.__webglTexture;
+    if (!renderer || !keep || !tex) return;
+    const gl = renderer.getContext() as WebGL2RenderingContext;
+    renderer.state.bindTexture(gl.TEXTURE_2D, tex);
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+    gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+    gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+    gl.pixelStorei(gl.UNPACK_ROW_LENGTH, 0);
+    gl.pixelStorei(gl.UNPACK_SKIP_PIXELS, 0);
+    gl.pixelStorei(gl.UNPACK_SKIP_ROWS, 0);
+    const S = this.SIZE;
+    const nKeep = S >> MIP_KEEP;
+    /** Sends level texels [u0, u1) x [v0, v1) from a buffer of the level's rows from row (n texels a row). */
+    const send = (level: number, u0: number, v0: number, u1: number, v1: number, from: Float32Array, n: number, row = 0) => {
+      const w = u1 - u0;
+      const h = v1 - v0;
+      const bytes = new Uint8Array(w * h * 4);
+      for (let v = 0; v < h; v++) {
+        for (let u = 0; u < w; u++) {
+          const k = ((v0 + v - row) * n + u0 + u) * 4;
+          const o = (v * w + u) * 4;
+          bytes[o] = toSrgb(from[k]!);
+          bytes[o + 1] = toSrgb(from[k + 1]!);
+          bytes[o + 2] = toSrgb(from[k + 2]!);
+          bytes[o + 3] = Math.round(from[k + 3]!);
+        }
+      }
+      gl.texSubImage2D(gl.TEXTURE_2D, level, u0, v0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, bytes);
+    };
+    // Levels 1 to MIP_KEEP over the changed texels, each straight from the picture.
+    for (let level = 1; level <= MIP_KEEP; level++) {
+      const b = 1 << level;
+      const n = S >> level;
+      const u0 = Math.floor(x0 / b);
+      const v0 = Math.floor(y0 / b);
+      const u1 = Math.ceil(x1 / b);
+      const v1 = Math.ceil(y1 / b);
+      if (level === MIP_KEEP) {
+        this.averageInto(keep, n, u0, v0, u1, v1, level);
+        send(level, u0, v0, u1, v1, keep, n);
+        continue;
+      }
+      const rows = new Float32Array((v1 - v0) * n * 4);
+      this.averageInto(rows, n, u0, v0, u1, v1, level, v0);
+      send(level, u0, v0, u1, v1, rows, n, v0);
+    }
+    // The levels past it, made whole again from the level kept here (64 x 64 texels and smaller).
+    let from = keep;
+    let n = nKeep;
+    for (let level = MIP_KEEP + 1; n > 1; level++) {
+      const m = n >> 1;
+      const next = new Float32Array(m * m * 4);
+      for (let v = 0; v < m; v++) {
+        for (let u = 0; u < m; u++) {
+          for (let c = 0; c < 4; c++) {
+            const at = (x: number, y: number) => from[(y * n + x) * 4 + c]!;
+            next[(v * m + u) * 4 + c] = (at(2 * u, 2 * v) + at(2 * u + 1, 2 * v) + at(2 * u, 2 * v + 1) + at(2 * u + 1, 2 * v + 1)) / 4;
+          }
+        }
+      }
+      send(level, 0, 0, m, m, next, m);
+      from = next;
+      n = m;
+    }
+    gl.pixelStorei(gl.UNPACK_ALIGNMENT, 4);
   }
 
   /**
