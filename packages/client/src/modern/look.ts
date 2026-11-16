@@ -106,6 +106,8 @@ const FRAGMENT = /* glsl */ `
   uniform float glitches[2];
   uniform int count;
   uniform float tilt;
+  /** The bunker's security camera: 0 not it, 1 its washed-out colour by day, 2 its black and white infrared by night. */
+  uniform float cctv;
   varying vec2 vUv;
 
   float hash(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
@@ -195,6 +197,13 @@ const FRAGMENT = /* glsl */ `
       col = mix(vec3(g), col, 0.85);
       col = col * vec3(0.94, 1.0, 0.98) * 0.94 + vec3(0.015, 0.02, 0.02);
       col += grain * 0.06;
+      // The bunker's security camera: its colour washed out by day; by night infrared, black and white, with the
+      // dark lifted and the picture flattened.
+      if (cctv > 0.5) {
+        float night = step(1.5, cctv);
+        col = mix(col, vec3(lum(col)), mix(0.45, 1.0, night));
+        col = mix(col, 1.0 - (1.0 - col) * (1.0 - vec3(0.18, 0.2, 0.19)), night);
+      }
     }
     // A broken macroblock: its colours crushed to a few steps and pushed green or magenta.
     if (hit > 0.5) {
@@ -242,6 +251,7 @@ export class LookPass {
         glitches: { value: [0, 0] },
         count: { value: 0 },
         tilt: { value: 0 },
+        cctv: { value: 0 },
       },
       vertexShader: VERTEX,
       fragmentShader: FRAGMENT,
@@ -255,9 +265,12 @@ export class LookPass {
 
   /**
    * Copies what gl has drawn so far and draws it back through the look. rects are the map views, top-left origin,
-   * so each gets its own lens.
+   * so each gets its own lens. cctv makes it the bunker's security camera instead, by day or by night.
    */
-  apply(gl: THREE.WebGLRenderer, rects: readonly LookRect[], glitch: readonly number[], drone: boolean, thermal: boolean, seconds: number, tilt = false): void {
+  apply(
+    gl: THREE.WebGLRenderer, rects: readonly LookRect[], glitch: readonly number[], drone: boolean, thermal: boolean, seconds: number, tilt = false,
+    cctv: 'day' | 'night' | null = null,
+  ): void {
     gl.setViewport(0, 0, this.w, this.h);
     gl.setScissor(0, 0, this.w, this.h);
     const u = this.material.uniforms;
@@ -276,6 +289,7 @@ export class LookPass {
     u.thermal!.value = thermal ? 1 : 0;
     u.drone!.value = drone ? 1 : 0;
     u.tilt!.value = tilt && ART.tiltShift ? 1 : 0;
+    u.cctv!.value = cctv === 'night' ? 2 : cctv === 'day' ? 1 : 0;
     const list = u.rects!.value as THREE.Vector4[];
     const n = Math.min(2, rects.length);
     for (let i = 0; i < n; i++) {

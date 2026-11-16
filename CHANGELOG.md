@@ -4,6 +4,14 @@ Each release's section below becomes its GitHub release notes (`.github/workflow
 
 ## [Unreleased]
 
+### Added
+
+- Loading screens in the look of the match about to start. Modern: the drone feed linking up over a blurred last picture, with the link's progress, a mission card (map, kind of match, day or night), a log of what has loaded and an intel tip; it carries on as the modern view's link-up until the 3D picture is ready. Classic: the burning pixel logo, the map and match, a bar of blocks, the step under way and a tip, under the CRT. Shown for matches, replays and online matches, in place of the plain "Loading..." text.
+
+### Fixed
+
+- The modern vehicle select (the bunker's security camera) no longer shows as a grey-white sheet at night, and its daytime picture is no longer greyed over. Its washed-out colour and night infrared are now part of the 3D picture rather than drawn on the see-through layer above it.
+
 ## [0.7.1] - 2026-11-16
 
 Phones and tablets now always play full screen and in landscape, and get their on-screen controls reliably.

@@ -43,6 +43,7 @@ import type { ModernFinale } from './modern/finale.js';
 import { giveUpModern, loadModern, modernFailed, modernLoaded } from './modern/load.js';
 import { stats } from './modern/stats.js';
 import { PRESETS, PRESET_NAMES, Pacer, activePreset, type Preset } from './quality.js';
+import { loadingState } from './loading.js';
 import { bunkerBayAt, dimView, drawBanner, drawLinkUp, drawBunkerPanel, drawChatLines, drawLog, drawFeed, drawModernHud, drawName, drawNote, drawScoreTable, setTouchHud } from './modern/hud.js';
 import { TEAMS } from './paint.js';
 
@@ -834,7 +835,7 @@ export class Game {
       stats?.add('sim', performance.now() - simFrom);
       if (linking) {
         linkUp ??= new OffscreenCanvas(MODERN_W, MODERN_H);
-        drawLinkUp(linkUp.getContext('2d')! as unknown as CanvasRenderingContext2D, MODERN_W, MODERN_H, now);
+        drawLinkUp(linkUp.getContext('2d')! as unknown as CanvasRenderingContext2D, MODERN_W, MODERN_H, now, loadingState());
         display.present(linkUp, 1, true);
         this.raf = requestAnimationFrame(loop);
         return;

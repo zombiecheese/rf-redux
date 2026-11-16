@@ -176,6 +176,12 @@ export class Logo {
     this.raf = requestAnimationFrame(tick);
   }
 
+  /** One step of the fire, drawn: for the logo shown on a picture of its own (the classic loading screen). */
+  step(): void {
+    this.fire.step(this.sources, 0.9);
+    this.draw();
+  }
+
   private draw(): void {
     this.frame.data.fill(0);
     this.fire.paint(this.frame);

@@ -9,7 +9,7 @@
 // or ?lighting=day the modern view's lighting, and ?thermal=1 starts the thermal camera on.
 
 import { checkMap, clampDifficulty } from '@rfw/sim';
-import type { MatchStart, Replay } from '@rfw/net';
+import { lobbyLighting, lobbyVisuals, type MatchStart, type Replay } from '@rfw/net';
 import { loadAssets, loadAssetsWith, loadCommon, loadMap, loadMapIndex, type GameAssets, type MapEntry } from './assets.js';
 import {
   about, dialog, dialogOpen, el, hallOfFame, helpTopics, matchSetup, modernUi, notice, systemInfo, teamsFor,
@@ -40,7 +40,8 @@ import { SCREEN_H, SCREEN_W } from './raster.js';
 import { Stage } from './stage.js';
 import { winScene, winTier } from './winscene.js';
 import { modernWinScene } from './modern/finale.js';
-import { loadModern } from './modern/load.js';
+import { loadModern, modernFailed, modernLoaded } from './modern/load.js';
+import { FEED_STEP, LoadingScreen, MATCH_STEPS, type LoadingState } from './loading.js';
 import { addTouchControls } from './touch.js';
 import { PRESET_NAMES, activePreset, qualityChoice, setQualityChoice, type QualityChoice } from './quality.js';
 import './ui.css';
@@ -61,6 +62,8 @@ if (handheld) settings.players = 1;
 
 const display = new Display(settings.scale);
 const stage = new Stage(display);
+/** The loading screens between the menus and a match, in the look the match will have. */
+const loading = new LoadingScreen(display);
 const sound = new Sound();
 const music = new Music(settings.music);
 /** The modern view has its own soundtrack; a browser that cannot show the modern view keeps the band. */
@@ -118,6 +121,8 @@ let run = 0;
 
 function setScreen(s: Screen): void {
   screen = s;
+  // The loading screen draws until something else takes the screen (a match draws its own link-up from here on).
+  if (s !== 'loading') loading.stop();
   document.body.dataset.screen = s;
   if (handheld && s === 'title') homeScreenTip();
   if (s !== 'title' && s !== 'game') closeMenu();
@@ -238,6 +243,35 @@ async function showTitleArt(): Promise<void> {
 // ---- Starting and ending a match ---------------------------------------------------------------------------------
 
 /**
+ * Puts up the loading screen for a match about to load, in the look it will be seen in: the modern view's drone
+ * feed linking up (its last step the modern renderer, which the match's link-up carries on) or the classic screen.
+ */
+function startLoading(kind: LoadingState['kind'], visuals: Settings['visuals'], info: Pick<LoadingState, 'map' | 'mode' | 'night'>): void {
+  const modern = visuals === 'modern' && modernAvailable() && !modernFailed();
+  loading.start(modern ? 'modern' : 'retro', { kind, ...info }, modern ? [...MATCH_STEPS, FEED_STEP] : MATCH_STEPS);
+  if (modern) {
+    void loadModern();
+    void stage.titleArt('modern').then((img) => loading.update({ backdrop: img }));
+  }
+}
+
+/** The assets are here and the match is about to be made: the loading screen hands the screen over to it. */
+function finishLoading(): void {
+  // A modern match whose renderer is still on its way shows the same screen as its link-up until it is here.
+  loading.handOver(modernLoaded() ? [] : [FEED_STEP[0]]);
+  loading.stop();
+}
+
+/** The loading screen's few words on a match: Training or Split Screen, the bases and teams, and the skill. */
+function matchMode(players: number, bases: number | null, layout: string | null, difficulty: number): string {
+  const parts = [players === 2 ? 'SPLIT SCREEN' : 'TRAINING'];
+  if (bases) parts.push(`${bases} BASES`);
+  if (layout) parts.push(layout.split(',').join('V'));
+  parts.push(`SKILL ${difficulty}`);
+  return parts.join('  /  ');
+}
+
+/**
  * New Game (N): Match Setup (map, players, difficulty, time of day, teams and view on one screen), then the match.
  * Local Play > Training and Local Play > Split Screen fix the number of players; New Game offers both and starts on
  * Training, so one player always gets the single view.
@@ -267,9 +301,14 @@ async function startGame(opts: { bots?: boolean; seed?: number } = {}): Promise<
   setScreen('loading');
   stage.blank();
   const status = document.getElementById('status')!;
-  status.textContent = 'Loading…';
   // A map that is not in this asset pack (the default with the placeholder pack, say) gives way to the first that is.
   if (!settings.mapId.startsWith(DRAFT) && maps.length && ![...maps, ...addOns()].some((m) => m.id === settings.mapId)) settings = { ...settings, mapId: maps[0]!.id };
+  startLoading('match', settings.visuals, {
+    map: [...maps, ...addOns()].find((m) => m.id === settings.mapId)?.name ?? '',
+    mode: matchMode(settings.players, null, null, settings.difficulty),
+    night: settings.lighting === 'night',
+  });
+  void loadCommon().then(() => loading.done(MATCH_STEPS[0]![0]), () => {});
   try {
     const assets = settings.mapId.startsWith(DRAFT) ? await draftAssets(settings.mapId.slice(DRAFT.length)) : await loadAssets(settings.mapId);
     status.textContent = '';
@@ -278,6 +317,8 @@ async function startGame(opts: { bots?: boolean; seed?: number } = {}): Promise<
     // A map with three or four bases plays the teams picked on Match Setup; a restart keeps them.
     const bases = assets.map.bases.length;
     const teams = bases > 2 ? teamsFor(settings.teams, bases, settings.players) : undefined;
+    loading.update({ map: entry?.name ?? assets.map.name, mode: matchMode(settings.players, bases, teams ? settings.teams.layout : null, settings.difficulty) });
+    finishLoading();
     thermal = params.get('thermal') === '1';
     let replay: Replay | null = null;
     game = new Game({
@@ -338,11 +379,15 @@ async function watchReplay(r: Replay): Promise<void> {
   setScreen('loading');
   stage.blank();
   const status = document.getElementById('status')!;
-  status.textContent = 'Loading…';
+  startLoading('replay', r.look?.visuals ?? settings.visuals, {
+    map: r.map.name, mode: `REPLAY  /  ${r.map.bases.length} BASES  /  SKILL ${r.difficulty}`, night: (r.look?.lighting ?? settings.lighting) === 'night',
+  });
+  void loadCommon().then(() => loading.done(MATCH_STEPS[0]![0]), () => {});
   try {
     const assets = await loadAssetsWith(r.map);
     status.textContent = '';
     if (mine !== run) return;
+    finishLoading();
     thermal = params.get('thermal') === '1';
     const g = new Game({
       assets, display, sound, music, seed: r.seed, players: 1, difficulty: r.difficulty, names: [], swapSides: false, bots: false, handheld,
@@ -580,11 +625,15 @@ async function startOnline(s: MatchStart): Promise<void> {
   setScreen('loading');
   stage.blank();
   const status = document.getElementById('status')!;
-  status.textContent = 'Loading…';
+  startLoading('online', lobbyVisuals(s.visuals), {
+    map: s.map.name, mode: `ONLINE  /  ${s.seats.length} PLAYERS  /  ${s.map.bases.length} BASES`, night: lobbyLighting(s.lighting) === 'night',
+  });
+  void loadCommon().then(() => loading.done(MATCH_STEPS[0]![0]), () => {});
   try {
     const assets = await loadAssetsWith(s.map);
     status.textContent = '';
     if (mine !== run) return;
+    finishLoading();
     onlineStart = s;
     thermal = params.get('thermal') === '1';
     game = new Game({
