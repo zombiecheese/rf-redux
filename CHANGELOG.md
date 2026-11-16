@@ -4,6 +4,10 @@ Each release's section below becomes its GitHub release notes (`.github/workflow
 
 ## [Unreleased]
 
+### Changed
+
+- The touch stick on phones and tablets now steers by direction: point it the way you want to go on screen and the vehicle turns the short way round to face that way and drives there, turning on the spot first when the stick points well away from it. Let go and it coasts to a stop. This works for the jeep, tank, ASV and helicopter (which lets go of its turn early so it does not swing past). The stick still presses the same keys a keyboard player would, so online play and replays are unchanged. Keyboard controls are unchanged.
+
 ## [0.8.0] - 2026-11-16
 
 Matches start together and never stop to load: everything is ready behind the loading screen, online waits for every player, and the match begins when the last player picks a vehicle. Also a free camera for replays, a Tilt-Shift switch, and a smoother lift and gates in the modern view.

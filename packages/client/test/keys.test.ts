@@ -82,7 +82,8 @@ describe('key bindings', () => {
     expect(touch.length).toBeGreaterThan(8);
     const extras = ['pause', 'chat', 'scores', 'follow1', 'follow2', 'follow3', 'follow4'];
     for (const a of touch) expect((ACTIONS as readonly string[]).includes(a) || extras.includes(a), a).toBe(true);
-    for (const a of ['up', 'down', 'left', 'right']) expect(source('touch.ts')).toContain(`codeFor('${a}')`);
+    // The stick steers by direction, so it only ever drives forward and turns (it never reverses).
+    for (const a of ['up', 'left', 'right']) expect(source('touch.ts')).toContain(`codeFor('${a}')`);
   });
 
   it('lists the replay keys in Help Topics', () => {

@@ -25,7 +25,7 @@ import type { GameAssets } from './assets.js';
 import { BAYS, drawBunker } from './bunker.js';
 import { Camera, FOCAL, ROAM_CLASSIC, ROAM_MODERN, layout } from './camera.js';
 import { heldBack, type Display } from './display.js';
-import { setTouchMode, touchModeFor } from './touch.js';
+import { setTouchMode, setTouchVehicle, touchModeFor } from './touch.js';
 import { Effects } from './effects.js';
 import { LINE, drawText, textWidth } from './font.js';
 import { drawHud } from './hud.js';
@@ -1130,6 +1130,8 @@ export class Game {
       if (touch) {
         const pl = me === null ? null : match.players[me]!;
         setTouchMode(touchModeFor(pl?.state ?? null, pl?.vehicle?.kind ?? null));
+        const car = pl?.state === 'driving' ? pl.vehicle : null;
+        setTouchVehicle(car ? { heading: car.heading, yaw: car.heli?.yaw ?? 0 } : null);
       }
       const outcome = ended();
       const lines = liveLog(log);
@@ -1267,7 +1269,7 @@ export class Game {
     };
     this.raf = requestAnimationFrame(loop);
     void prepare();
-    if (this.o.handheld) signal.addEventListener('abort', () => setTouchMode(null));
+    if (this.o.handheld) signal.addEventListener('abort', () => { setTouchMode(null); setTouchVehicle(null); });
     signal.addEventListener('abort', () => display.hideModern());
     if (replay) {
       const k = REPLAY_KEYS;
@@ -1277,7 +1279,8 @@ export class Game {
       say('1-4 follow a player');
     } else if (this.o.handheld) {
       // The touch controls carry their own labels.
-      say(me === null ? 'Watching: P1-P4 pick a player' : 'Stick picks a bay, Launch sends it up');
+      say(me === null ? 'Watching: P1-P4 pick a player' : 'Tap a bay to pick it, tap it again to launch');
+      if (me !== null) say('Point the stick the way to go');
       if (me !== null) say('Dock takes a vehicle back in on your base');
     } else if (online) {
       if (me === null) say(`Watching: ${keyName(sides.solo.left[0]!)} / ${keyName(sides.solo.right[0]!)} or 1-4 pick a player, Tab the scores`);

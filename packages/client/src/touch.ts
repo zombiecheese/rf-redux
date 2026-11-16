@@ -1,10 +1,11 @@
 // On-screen controls for phones and tablets, drawn as see-through pixel buttons over the camo either side of the
-// panel: a stick that comes to wherever the left thumb lands, and on the right the buttons the vehicle in play
+// panel: a stick that comes to wherever the left thumb lands and points the vehicle the way to go, and on the right the buttons the vehicle in play
 // actually has (the tank's turret, the jeep's tyres and flag, the ASV's mines, the helicopter's strafe and weapon
 // swap), the four launch buttons on the lift screen, and pause, chat and the scores along the top. Each control
 // presses the same key a keyboard player would (the left half's, as rebound in Options > Controls > Vehicle Keys), so the game
 // and menus handle touch exactly like the keyboard.
 
+import { ANGLE_MASK, FIXED_SHIFT, YAW_DOWN } from '@rfw/sim';
 import { ONLINE_KEYS, SHORTCUTS, touchKey, type Action } from './keys.js';
 
 /** What the controls are showing for: the lift screen, a vehicle, watching a match online, or nothing to steer. */
@@ -116,10 +117,65 @@ function button(def: TouchButton): HTMLButtonElement {
   return b;
 }
 
+/** What the stick steers: the heading of the player's vehicle and, for the helicopter, the turn it is still carrying. */
+export interface Steered {
+  heading: number;
+  yaw: number;
+}
+
+/** The keys the stick holds: the turn (-1 left, 1 right) and whether to drive forward. */
+export interface Steer {
+  turn: -1 | 0 | 1;
+  forward: boolean;
+}
+
+const STEPS = ANGLE_MASK + 1;
+const STEP = 1 << FIXED_SHIFT;
+/** It drives on while the vehicle faces within this many of the 64 headings of the stick (45 degrees); further round, it turns on the spot first. */
+const DRIVE_WITHIN = 8;
+/** A turn starts once the heading is this far (in headings) from the middle of the one the stick points along, and stops inside it. */
+const START_TURN = 1;
+
 /**
- * The stick: a thumb landing anywhere in the left-hand zone brings the stick to it, and dragging from there presses
- * the arrow keys for that direction (up/down drive, left/right turn; on the lift screen they pick a bay), with a
- * dead zone in the middle. Let go and it goes back to its resting place.
+ * Directional steering: the stick points the way to go on screen (up is north, as the camera always looks), and
+ * this works out the keys a keyboard player would hold to get there, so the sim, replays and online play see
+ * nothing new. The vehicle turns the short way round until it faces along the stick, driving forward once it is
+ * near enough, and turns on the spot when the stick points well away from it. Movement goes by the 64 headings of
+ * the sine table, so it aims for the middle of the heading the stick is nearest. The helicopter's turn carries on
+ * after the key is let go, so it lets go early by as much as it will still turn.
+ */
+export function steer(dx: number, dy: number, v: Steered, turning: -1 | 0 | 1 = 0): Steer {
+  const angle = (Math.atan2(dx, -dy) / (Math.PI * 2)) * 64;
+  const target = (((Math.round(angle) % 64) + 64) % 64) + 0.5;
+  const heading = (v.heading & ANGLE_MASK) / STEP;
+  let diff = target - heading;
+  if (diff > 32) diff -= 64;
+  if (diff < -32) diff += 64;
+  const coast = v.yaw ? (v.yaw * Math.abs(v.yaw)) / (2 * YAW_DOWN) / STEP : 0;
+  const left = diff - coast;
+  // A turn under way runs on until the heading (where it will come to rest) is the stick's; a new one waits until
+  // the heading is a step off, so a nudge of the vehicle does not set it hunting.
+  const rest = Math.floor((((heading + coast) % 64) + 64) % 64);
+  const going = turning !== 0 && Math.sign(left) === turning ? rest !== target - 0.5 : Math.abs(left) > START_TURN;
+  const turn = going ? (left > 0 ? 1 : -1) : 0;
+  return { turn, forward: Math.abs(diff) <= DRIVE_WITHIN };
+}
+
+let steered: Steered | null = null;
+let restick: (() => void) | null = null;
+
+/** The vehicle the stick steers, or null when there is none (game.ts calls it every frame). */
+export function setTouchVehicle(v: Steered | null): void {
+  const same = v === null ? steered === null : steered !== null && steered.heading === v.heading && steered.yaw === v.yaw;
+  if (same) return;
+  steered = v ? { heading: v.heading, yaw: v.yaw } : null;
+  restick?.();
+}
+
+/**
+ * The stick: a thumb landing anywhere in the left-hand zone brings the stick to it, and the way it is pushed is the
+ * way the vehicle goes (see steer()), with a dead zone in the middle. Let go and it goes back to its resting place
+ * and the vehicle coasts to a stop.
  */
 function stick(): HTMLElement {
   const zone = document.createElement('div');
@@ -138,6 +194,23 @@ function stick(): HTMLElement {
     codes.forEach((c) => held.add(c));
   };
   let origin: { x: number; y: number; id: number } | null = null;
+  let aim: { dx: number; dy: number } | null = null;
+  let turning: -1 | 0 | 1 = 0;
+  const update = () => {
+    if (!aim || !steered) {
+      turning = 0;
+      set([]);
+      return;
+    }
+    const s = steer(aim.dx, aim.dy, steered, turning);
+    turning = s.turn;
+    const codes: string[] = [];
+    if (s.forward) codes.push(codeFor('up'));
+    if (s.turn < 0) codes.push(codeFor('left'));
+    if (s.turn > 0) codes.push(codeFor('right'));
+    set(codes);
+  };
+  restick = update;
   zone.addEventListener('pointerdown', (e) => {
     if (origin) return;
     e.preventDefault();
@@ -165,21 +238,17 @@ function stick(): HTMLElement {
       dy *= reach / len;
     }
     knob.style.transform = `translate(${Math.round(dx)}px, ${Math.round(dy)}px)`;
-    const dead = reach * 0.3;
-    const codes: string[] = [];
-    if (dy < -dead) codes.push(codeFor('up'));
-    if (dy > dead) codes.push(codeFor('down'));
-    if (dx < -dead) codes.push(codeFor('left'));
-    if (dx > dead) codes.push(codeFor('right'));
-    set(codes);
+    aim = len > reach * 0.3 ? { dx, dy } : null;
+    update();
   };
   const end = (e: PointerEvent) => {
     if (!origin || e.pointerId !== origin.id) return;
     origin = null;
+    aim = null;
     knob.style.transform = '';
     pad.style.left = pad.style.top = pad.style.bottom = '';
     pad.classList.remove('active');
-    set([]);
+    update();
   };
   zone.addEventListener('pointermove', move);
   zone.addEventListener('pointerup', end);

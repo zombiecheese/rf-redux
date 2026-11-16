@@ -55,7 +55,8 @@ const LIFT_DRIFT = 0x4000;
 const LIFT_SWING = 0x4000;
 /** Turn rate easing (DAT_00445498 spinning up, DAT_0044549c slowing or reversing), velocity easing, strafing. */
 const YAW_UP = 0x7ae;
-const YAW_DOWN = 0x1eb8;
+/** How fast the helicopter's turn rate eases back to nothing once the turn is let go (also used by the touch stick). */
+export const YAW_DOWN = 0x1eb8;
 const EASE = 0x7ae;
 const STRAFE = 0xcccc;
 const QUARTER = 0x100000;

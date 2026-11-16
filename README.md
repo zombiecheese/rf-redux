@@ -138,7 +138,7 @@ during a match, drawn as faded pixel buttons; computers never get them, touch-sc
 
 | Control | What it does |
 | --- | --- |
-| Stick (left thumb, anywhere in the lower left) | Drive and turn; on the lift screen, pick a bay |
+| Stick (left thumb, anywhere in the lower left) | Point the way to go: the vehicle turns to face that way and drives there; let go to stop |
 | Fire (right corner) | Fire; Launch on the lift screen |
 | Tyres / Flag | Jeep: float the tyres; put down or pick up a flag |
 | AA | Tank and ASV: fire raised at aircraft |

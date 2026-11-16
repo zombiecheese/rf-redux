@@ -110,7 +110,7 @@ If you turn the device upright or leave full screen later, the same notice comes
 
 | Control | Does |
 | --- | --- |
-| Stick (left thumb, lower left) | Drive and turn |
+| Stick (left thumb, lower left) | Point the way to go: the vehicle turns to face that way and drives there; let go to stop |
 | Tap a bay (lift screen) | Pick that vehicle; tap it again to launch |
 | Fire (right corner) | Fire. Launch on the lift screen |
 | Tyres / Flag | Jeep: float the tyres; put down or pick up a flag |
