@@ -104,6 +104,8 @@ export function createBot(difficulty: number | null = null, waitFor: readonly nu
  * out), even if they dock again; once nobody is left to wait for, or the grace is up, it stops waiting for good.
  */
 export function botWaiting(m: Match, bot: BotState): boolean {
+  // Once a start gate has opened, every human has had their chance to go up: the bots set off.
+  if (m.startTick > 0) bot.waitFor = [];
   if (!bot.waitFor.length) return false;
   const left = bot.waitFor.filter((h) => {
     const p = m.players[h];
@@ -512,7 +514,11 @@ function canHit(v: Vehicle, e: Vehicle): boolean {
 /** The bot's controls for this tick. Call once per tick before stepMatch. */
 export function botThink(m: Match, playerId: number, bot: BotState): BotMove {
   const p = m.players[playerId];
-  if (!p || m.winner !== null || m.eliminated[p.base] || botWaiting(m, bot)) return {};
+  if (!p || m.winner !== null || m.eliminated[p.base]) return {};
+  // Behind a start gate only a bot playing for one of the humans it waits for (one who left) picks, and at once.
+  if (m.gate) {
+    if (!m.gate.waiting.includes(playerId)) return {};
+  } else if (botWaiting(m, bot)) return {};
   const skill = botSkill(bot.difficulty ?? m.difficulty);
   if (!bot.luck) bot.luck = (m.rng.peek() ^ Math.imul(playerId + 1, 0x9e3779b9)) | 0 || 1;
   // m.events still holds the last tick's: a vehicle lost anywhere means the fight is getting somewhere.

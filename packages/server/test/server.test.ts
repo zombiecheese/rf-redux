@@ -4,7 +4,7 @@ import {
   HASH_EVERY, buildWorld, createMatch, hashMatch, restoreMatch, type Match,
 } from '@rfw/sim';
 import {
-  PROTOCOL_VERSION, applyFrame, decodeFrames, encodeCommand, encodeHash, encodeInput,
+  PROTOCOL_VERSION, applyFrame, humanGate, decodeFrames, encodeCommand, encodeHash, encodeInput,
   type ClientMessage, type Frame, type MatchStart, type ServerMessage,
 } from '@rfw/net';
 import { Limiter } from '../src/limits.js';
@@ -73,7 +73,7 @@ class Client {
     this.frames = [];
     this.match = s.snapshot
       ? restoreMatch(s.snapshot, { defs: ARENA_DEFS, shore: null })
-      : createMatch(buildWorld(s.map, ARENA_DEFS, null), s.map, s.seats.map((x) => ({ base: x.base, team: x.team })), s.seed, { difficulty: s.difficulty, handicap: s.handicap === true });
+      : createMatch(buildWorld(s.map, ARENA_DEFS, null), s.map, s.seats.map((x) => ({ base: x.base, team: x.team })), s.seed, { difficulty: s.difficulty, handicap: s.handicap === true, gate: humanGate(s.seats) });
   }
 
   send(m: ClientMessage): void {

@@ -39,6 +39,8 @@ export interface Replay {
   difficulty: number;
   /** Extra vehicles for the smaller side (sim startingLives). */
   handicap?: boolean;
+  /** The human players its start gate waited for (sim StartGate); older replays had none. */
+  gate?: number[];
   /** How the match was seen when it started (the recording player's view, or the host's pick), to play it back so. */
   look?: { visuals: 'retro' | 'modern'; lighting: 'day' | 'night' };
   /** One per player id. */
@@ -168,7 +170,7 @@ export class ReplayPlayer {
     const r = this.replay;
     if (r.snapshot) return restoreMatch(r.snapshot, this.statics);
     const world = buildWorld(r.map, this.statics.defs, this.statics.shore);
-    return createMatch(world, r.map, r.seats.map((s) => ({ base: s.base, team: s.team })), r.seed, { difficulty: r.difficulty, handicap: r.handicap === true });
+    return createMatch(world, r.map, r.seats.map((s) => ({ base: s.base, team: s.team })), r.seed, { difficulty: r.difficulty, handicap: r.handicap === true, gate: r.gate });
   }
 
   get frames(): number {

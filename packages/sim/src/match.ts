@@ -9,7 +9,7 @@
 // Web rules: the last team standing wins. A base is eliminated when its players have
 // no jeeps left in the bunker and none in play, or when an enemy jeep brings its flag home.
 
-import { ANGLE_MASK, FIXED_SHIFT, ONE, TILE_SHIFT, TILE_SIZE, cos, distance, fineAtan2, headingTo, mul, sin, turnToward } from './fixed.js';
+import { ANGLE_MASK, FIXED_SHIFT, ONE, TICK_MS, TILE_SHIFT, TILE_SIZE, cos, distance, fineAtan2, headingTo, mul, sin, turnToward } from './fixed.js';
 import { BUILDING } from './buildings.js';
 import { BOX, sweep, touch, type Body, type Shape } from './collide.js';
 import { buildingHits, damageBuilding, destroyBuilding, destroyExplosion } from './damage.js';
@@ -163,6 +163,8 @@ export type MatchEvent =
   | { type: 'skull'; player: number }
   | { type: 'laugh'; player: number }
   | { type: 'won'; team: number }
+  /** The start gate opened: every human player has picked a vehicle (or the wait ran out), and the match is on. */
+  | { type: 'go' }
   /** The last bases went out together: the match ends with no winner. */
   | { type: 'draw' };
 
@@ -202,9 +204,51 @@ export interface Match {
   /** Captures each base's flag can still take; the one that brings it to none puts the base out (capturesNeeded). */
   captures: number[];
   winner: number | null;
+  /** While the match waits for its human players to pick their first vehicles (see StartGate), else null. */
+  gate: StartGate | null;
+  /** The tick the start gate opened, or 0 for a match that never had one. */
+  startTick: number;
   /** Every base is out and nobody won: the last ones fell on the same tick. The match is over. */
   draw: boolean;
   events: MatchEvent[];
+}
+
+/**
+ * The start gate, for a match with two or more human players: they each pick their first vehicle on the bunker
+ * screen, and nothing goes up until the last of them has (or GATE_GRACE after the first did, so one player who has
+ * gone quiet cannot hold everyone else for ever). Then every pick is launched on the same tick and the bots set off
+ * too. A pick can be changed until then. The world runs meanwhile, but with nothing on it nothing happens.
+ */
+export interface StartGate {
+  /** The players it waits for, by id. */
+  players: number[];
+  /** Those still to pick. */
+  waiting: number[];
+  /** Each player's pick so far, by id (null: none yet). */
+  picks: (VehicleKind | null)[];
+  /** The tick of the first pick, or -1. */
+  first: number;
+}
+
+/** How long after the first pick the start gate waits for the rest: 30 s. */
+export const GATE_GRACE = Math.round(30_000 / TICK_MS);
+
+/** Ticks left before the start gate opens anyway, or null while nobody has picked (or there is no gate). */
+export function gateLeft(m: Match): number | null {
+  const g = m.gate;
+  return g && g.first >= 0 ? Math.max(0, g.first + GATE_GRACE - m.tick) : null;
+}
+
+/** Opens the start gate if everyone has picked or the grace is up: every pick goes up the lift at once. */
+function stepStartGate(m: Match): void {
+  const g = m.gate;
+  if (!g || (g.waiting.length && (g.first < 0 || m.tick - g.first < GATE_GRACE))) return;
+  m.gate = null;
+  m.startTick = m.tick;
+  g.picks.forEach((kind, id) => {
+    if (kind) launch(m, id, kind);
+  });
+  m.events.push({ type: 'go' });
 }
 
 export interface SlotSetup {
@@ -265,6 +309,8 @@ export interface MatchOptions {
   difficulty?: number;
   /** Help for the smaller side: extra vehicles (startingLives) and a flag that takes more captures (capturesNeeded). */
   handicap?: boolean;
+  /** The human players, by id: with two or more, the match waits for each to pick a vehicle (StartGate). */
+  gate?: readonly number[];
 }
 
 export function clampDifficulty(n: number | undefined): number {
@@ -290,6 +336,10 @@ export function createMatch(world: World, map: RfwMap, slots: readonly SlotSetup
     world, rng, tick: 0, players, projectiles: [], grenades: [], mines: [], blasts: [], difficulty, flags, turrets: [], gates: [], explosions: [], rubble: [], soldiers: [], wrecks: [], nextWreck: 0,
     drones: [], dronePool: dronePool(difficulty, map.settings.aiPool), nextDrone: 0, sub: null, lifts: [],
     eliminated: world.bases.map((b) => !slots.some((s) => s.base === b.id)), winner: null, draw: false, events: [],
+    gate: options.gate && new Set(options.gate).size >= 2
+      ? { players: [...new Set(options.gate)], waiting: [...new Set(options.gate)], picks: players.map(() => null), first: -1 }
+      : null,
+    startTick: 0,
     captures: world.bases.map((b) => {
       const slot = slots.findIndex((s) => s.base === b.id);
       return slot < 0 ? 1 : capturesNeeded(slots, slot, options.handicap);
@@ -347,6 +397,16 @@ export function launch(m: Match, playerId: number, kind: VehicleKind): boolean {
   const p = m.players[playerId];
   if (!p || p.state !== 'bunker' || p.fade < ONE || m.eliminated[p.base]) return false;
   if (p.lives[kind] === 0) return false;
+  // While the start gate is shut a player's pick waits for the others (and a seat it does not wait for, a bot's,
+  // waits for it to open).
+  const g = m.gate;
+  if (g) {
+    if (!g.players.includes(playerId)) return false;
+    g.picks[playerId] = kind;
+    g.waiting = g.waiting.filter((id) => id !== playerId);
+    if (g.first < 0) g.first = m.tick;
+    return true;
+  }
   if (p.lives[kind] !== UNLIMITED) p.lives[kind]--;
   const v = startLaunch(m, p, kind);
   // With unlimited ASVs the mine pool never runs down either.
@@ -1418,6 +1478,7 @@ export function stepMatch(m: Match, inputs: readonly (VehicleInput | undefined)[
   m.events = [];
   if (m.winner !== null || m.draw) return;
   m.tick++;
+  stepStartGate(m);
   stepLifts(m);
   for (const p of m.players) {
     const v = p.vehicle;

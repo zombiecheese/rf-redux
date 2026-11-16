@@ -97,7 +97,46 @@ export class Music implements MusicOut {
     this.timer = setInterval(() => {
       if (!this.held && !this.inFanfare) this.director.update();
     }, TICK_MS);
-    void this.loadOverrides();
+    this.overrides = this.loadOverrides();
+  }
+
+  /** The replacement MIDI files being looked for, from the first unlock. */
+  private overrides: Promise<void> | null = null;
+
+  /**
+   * Gets every piece of the soundtrack in use ready to play, as a match loads: the replacement files looked for,
+   * the SoundFont fetched (when Options > Instruments is Sampled), each piece compiled, and the SoundFont samples
+   * its notes use made. Played for the first time mid-match, each of those is a pause.
+   */
+  async prepare(): Promise<void> {
+    await this.overrides?.catch(() => {});
+    if (this.wantSampled && this.style === 'retro') await this.setSampled(true).catch(() => false);
+    const book = this.style === 'modern' ? { ...BOOK, ...MODERN_BOOK } : BOOK;
+    const font = this.synth?.sampled ? this.synth.soundfont : null;
+    const ctx = this.ctx;
+    for (const name of Object.keys(book)) {
+      let tl: Timeline;
+      try {
+        tl = this.timeline(name);
+      } catch {
+        continue;
+      }
+      if (!font || !ctx) continue;
+      const programs = new Array<number>(16).fill(0);
+      const seen = new Set<number>();
+      for (const { event: e } of tl.events) {
+        if (e.kind === 'program') programs[e.ch] = e.program;
+        else if (e.kind === 'noteOn' && e.vel > 0) {
+          const drum = e.ch === 9;
+          const key = ((drum ? 128 : programs[e.ch]!) << 16) | (e.note << 8) | (e.vel >> 4);
+          if (seen.has(key)) continue;
+          seen.add(key);
+          font.prime(ctx, drum ? 128 : 0, drum ? 0 : programs[e.ch]!, e.note, e.vel);
+        }
+      }
+      // A breath between pieces, so the loading screen keeps moving.
+      await new Promise((r) => setTimeout(r, 0));
+    }
   }
 
   private async loadOverrides(): Promise<void> {

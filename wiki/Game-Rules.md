@@ -84,7 +84,7 @@ Even with the handicap the smaller side is still the underdog.
 
 - Skill runs from 1 to 9, and 5 is the default.
 - Bots shell flag buildings, clear the gun towers round a flag before sending a jeep, float jeeps across water, hunt a jeep that is carrying their flag, and go home to repair.
-- Bots wait in their bunkers until every human player has launched a vehicle, or 45 seconds after the first did, so nobody is overrun while still choosing.
+- With two or more people playing (split screen, or online), the match starts when the last of them picks a vehicle: every pick goes up the lifts on the same tick and the bots set off with them. Once someone has picked, the rest have 30 seconds before it starts anyway. With one player, the bots wait in their bunkers until that player has launched.
 - With three or four sides, each team of bots picks its target afresh every minute, so no base is always attacked first.
 
 ## Fastest wins

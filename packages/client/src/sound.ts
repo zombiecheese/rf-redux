@@ -248,10 +248,28 @@ export class Sound {
     await this.load();
   }
 
+  /**
+   * Every sound effect loaded and decoded, as a match loads, so none is missing (or decoded) when it first plays.
+   * Before the first key press or tap there is no audio yet: unlock loads them then.
+   */
+  async preload(): Promise<void> {
+    if (!this.ctx) return;
+    await this.loads;
+    if (this.buffers.size < NAMES.length && performance.now() >= this.retryAt) await this.load();
+  }
+
+  /** The load under way. */
+  private loads: Promise<void> | null = null;
+
   /** Loads every sound not loaded yet. */
-  private async load(): Promise<void> {
-    const ctx = this.ctx;
-    if (!ctx || this.loading) return;
+  private load(): Promise<void> {
+    if (!this.ctx || this.loading) return this.loads ?? Promise.resolve();
+    this.loads = this.loadNow().finally(() => (this.loads = null));
+    return this.loads;
+  }
+
+  private async loadNow(): Promise<void> {
+    const ctx = this.ctx!;
     this.loading = true;
     await Promise.all(NAMES.filter((name) => !this.buffers.has(name)).map(async (name) => {
       try {

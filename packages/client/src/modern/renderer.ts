@@ -1661,6 +1661,38 @@ export class ModernRenderer {
   private warm: (() => void)[] | null = null;
 
   private warmUp(m: Match): void {
+    this.warmList(m).shift()?.();
+  }
+
+  /**
+   * Gets the whole of a match ready while its loading screen is up (the canvas is off the page): each of frames is
+   * drawn once, for the 3D world, the bunker and skull screens, every model and the shaders for each look, then the
+   * last of the pieces warmUp makes. step is awaited between pieces, so the loading screen keeps moving; the look is
+   * left as it was.
+   */
+  async prepare(frames: readonly { m: Match; views: readonly ModernView[]; thermal?: boolean }[], step: () => Promise<void>): Promise<void> {
+    const none = { wrecks: [], splats: [] };
+    const drone = this.feed;
+    const thermal = this.thermal;
+    try {
+      for (const f of frames) {
+        this.setLook(drone, f.thermal ?? thermal);
+        this.draw(f.m, f.views, none);
+        // Whatever the cameras did not take in is made too.
+        this.gl.compile(this.scene, this.camera);
+        await step();
+      }
+      const list = frames[0] ? this.warmList(frames[0].m) : [];
+      while (list.length) {
+        list.shift()!();
+        await step();
+      }
+    } finally {
+      this.setLook(drone, thermal);
+    }
+  }
+
+  private warmList(m: Match): (() => void)[] {
     if (!this.warm) {
       const kinds: VehicleKind[] = ['jeep', 'tank', 'asv', 'heli'];
       const bases = [...new Set(m.players.map((p) => p.base))];
@@ -1688,7 +1720,7 @@ export class ModernRenderer {
         })),
       ];
     }
-    this.warm.shift()?.();
+    return this.warm;
   }
 
   private drone(x: number, y: number, z: number, heading: number, side: number, pod: number, frame: number): void {

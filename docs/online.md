@@ -36,9 +36,12 @@ with fewer players than the biggest in two ways, and is off by default. It start
 to match, rounded up (one base against two gets double, one against three triple; unlimited stays unlimited), and its
 flag must be captured more than once: three times for one base against two, five against three. After a capture that
 is not the last, the flag goes back to its base, hidden again if a flag building still stands. In bot-only tests one base against two won 6 matches
-in 30 with the handicap and none without, so the single base is still the underdog. Bots stay in their bunkers until every human
-player has launched a vehicle, so nobody is overrun while still picking one on the lift screen; once the first has
-launched, the others get 45 seconds before the bots set off anyway. The owner also
+in 30 with the handicap and none without, so the single base is still the underdog. The match does not start until every human
+player has loaded it (the loading screen's last step, Squad Sync, names who is still loading; after 90 seconds it starts
+without them). Then, with two or more humans, it starts when the last of them picks a vehicle on the lift screen:
+picks wait, and every one goes up on the same tick, the bots setting off with them. Once the first has picked, the
+others get 30 seconds before the match starts anyway, so one idle player cannot hold it up. With one human the bots
+wait in their bunkers until that player has launched. The owner also
 picks the time of day, day (the default) or night, and how everyone sees the match, in the lobby's Multiplayer view
 section: modern (the default) or classic. Players' own Visuals option does not apply online. A browser without WebGL stays classic. When every player is ready the owner starts the match.
 Others can watch as spectators. When the match ends, the results show and the lobby is ready for a rematch.

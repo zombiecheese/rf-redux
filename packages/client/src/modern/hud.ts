@@ -918,7 +918,8 @@ export function drawNote(g: CanvasRenderingContext2D, rect: ModernRect, text: st
   const h = 30 * scale;
   const x = rect.x + 20 * scale;
   // On a touch screen, under the messages (which start below the on-screen buttons).
-  const y = rect.y + (touchHud.on ? TOUCH_TOP + 2 * 38 * touchHud.text : 64 * scale);
+  // Clear of the menu button in the corner, however small the view.
+  const y = rect.y + (touchHud.on ? TOUCH_TOP + 2 * 38 * touchHud.text : Math.max(64 * scale, 60));
   readout(g, x, y, w, h, 'STATUS', AMBER);
   g.fillStyle = AMBER;
   g.textBaseline = 'middle';
@@ -1361,7 +1362,7 @@ export function drawLoadingFeed(g: CanvasRenderingContext2D, width: number, heig
     g.fillText(`> ${step.label}`, right + 14, y);
     g.textAlign = 'right';
     g.fillStyle = step.done ? '#7cf08a' : now ? AMBER : 'rgba(236, 242, 232, 0.4)';
-    g.fillText(step.done ? 'OK' : now ? `SYNC ${'|/-\\'[Math.floor(ms / 120) % 4]}` : 'STANDBY', right + cardW - 14, y);
+    g.fillText(step.done ? 'OK' : now ? (step.detail ? `AWAIT ${step.detail}` : `SYNC ${'|/-\\'[Math.floor(ms / 120) % 4]}`) : 'STANDBY', right + cardW - 14, y, cardW - 170);
   });
 
   // The intel line.
