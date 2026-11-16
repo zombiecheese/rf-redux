@@ -193,7 +193,25 @@ export function setTouchMode(mode: TouchMode | null): void {
   if (document.body.dataset.touch !== value) document.body.dataset.touch = value;
 }
 
-/** Adds the controls to the page; they show only while a match is being played (body.playing). */
+let touched = false;
+
+/** Whether a finger has been on the screen: the controls then show even where the device was not taken for a handheld. */
+export function touchInUse(): boolean {
+  return touched;
+}
+
+/** From the first touch on, body.touch-used shows the controls (with body.handheld they show from the start). */
+export function watchForTouch(): void {
+  const seen = (e: PointerEvent) => {
+    if (e.pointerType !== 'touch') return;
+    touched = true;
+    document.body.classList.add('touch-used');
+    removeEventListener('pointerdown', seen, true);
+  };
+  addEventListener('pointerdown', seen, true);
+}
+
+/** Adds the controls to the page; they show only while a match is being played (body.playing) on a touch screen. */
 export function addTouchControls(): void {
   const root = document.createElement('div');
   root.className = 'touch';

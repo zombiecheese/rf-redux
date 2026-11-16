@@ -4,6 +4,15 @@ Each release's section below becomes its GitHub release notes (`.github/workflow
 
 ## [Unreleased]
 
+### Fixed
+
+- Phones go full screen again: the game now asks when a tap ends (a phone's browser refuses full screen when asked as the finger lands), asks again on the next tap if it was refused, and asks once more when a match starts if you have left full screen since. A landscape lock follows where the browser allows one.
+- The on-screen touch controls show on every touch screen: phones with a stylus, or a browser set to show the desktop site, were not taken for phones and got no controls. Anything else shows them from its first touch.
+
+### Added
+
+- Return Fire: Redux can be added to a phone's home screen and opens from there full screen in landscape. iPhone Safari cannot put a page full screen, so on an iPhone the title screen says how once.
+
 ## [0.7.0] - 2026-11-15
 
 The modern view's battlefield becomes a real back garden, from photo scans, with moulded plastic buildings and plants, and buildings and wrecks that melt into puddles, and it runs faster: Auto quality presets, dynamic resolution that holds the frame rate, a HUD that stays sharp on any screen, and no stutter the first time a vehicle is destroyed.

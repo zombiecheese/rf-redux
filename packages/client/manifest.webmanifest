@@ -1,0 +1,10 @@
+{
+  "name": "Return Fire: Redux",
+  "short_name": "Return Fire",
+  "start_url": "/",
+  "scope": "/",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#000000",
+  "theme_color": "#000000"
+}

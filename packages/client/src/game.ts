@@ -25,7 +25,7 @@ import type { GameAssets } from './assets.js';
 import { BAYS, drawBunker } from './bunker.js';
 import { Camera, FOCAL, layout } from './camera.js';
 import { isPortrait, type Display } from './display.js';
-import { setTouchMode, touchModeFor } from './touch.js';
+import { setTouchMode, touchInUse, touchModeFor } from './touch.js';
 import { Effects } from './effects.js';
 import { LINE, drawText, textWidth } from './font.js';
 import { drawHud } from './hud.js';
@@ -877,7 +877,8 @@ export class Game {
         if (shown && !useModern) drawNames(frame, cam, match, shown, v[i]!);
       });
       if (!useModern) drawHud(frame, match, assets, v, selected);
-      if (this.o.handheld) {
+      const touch = !!this.o.handheld || touchInUse();
+      if (touch) {
         const pl = me === null ? null : match.players[me]!;
         setTouchMode(touchModeFor(pl?.state ?? null, pl?.vehicle?.kind ?? null));
       }
@@ -898,7 +899,7 @@ export class Game {
       if (useModern && modern) {
         const rects = modernLayout(cameras.length);
         // On a phone or tablet the HUD's text grows to stay readable at the size the picture is shown.
-        setTouchHud(!!this.o.handheld, display.rect.w ? display.rect.w / MODERN_W : 1);
+        setTouchHud(touch, display.rect.w ? display.rect.w / MODERN_W : 1);
         const night = nightNow();
         // The modern view is always the drone's feed; thermal is the player's to switch in the match.
         // The thermal camera is for the dark: by day there is none.
@@ -928,7 +929,7 @@ export class Game {
           const sc = screens[i];
           if (sc?.kind === 'bunker') {
             drawBunkerPanel(g, r, (rect, x, y, z) => modern!.bunkerPoint(rect, x, y, z), {
-              lives: sc.lives, selected: sc.selected, elevator: sc.elevator, base: sc.base, touch: !!this.o.handheld, night, now: new Date(),
+              lives: sc.lives, selected: sc.selected, elevator: sc.elevator, base: sc.base, touch, night, now: new Date(),
             });
             dimView(g, r, pl.fade);
           } else if (sc?.kind === 'skull') {
@@ -1008,7 +1009,7 @@ export class Game {
       this.raf = requestAnimationFrame(loop);
     };
     this.raf = requestAnimationFrame(loop);
-    if (this.o.handheld) signal.addEventListener('abort', () => setTouchMode(null));
+    signal.addEventListener('abort', () => setTouchMode(null));
     signal.addEventListener('abort', () => display.hideModern());
     if (replay) {
       const k = REPLAY_KEYS;
