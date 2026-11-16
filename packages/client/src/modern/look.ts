@@ -5,7 +5,9 @@
 // when something is destroyed nearby, worst when the player's own vehicle is hit. Thermal is drawn by the models
 // themselves: every material shows its heat instead of its lit colour (vehicles, soldiers and drones hot, wrecks
 // warm, buildings and ground cool, the sea cold, lit windows warm at night), so darkness hides nothing; the pass then
-// shows it white-hot, grainy and a touch soft, as an infrared camera does.
+// shows it white-hot, grainy and a touch soft, as an infrared camera does, and the hottest things leave a faint
+// afterimage as they move, as a real sensor's slow response does: the white-hot is burnt into the screen for a
+// moment and fades, leaving a trail.
 
 import * as THREE from 'three';
 import { ART } from './art.js';
@@ -164,10 +166,19 @@ const FRAGMENT = /* glsl */ `
   uniform float tilt;
   /** The bunker's security camera: 0 not it, 1 its washed-out colour by day, 2 its black and white infrared by night. */
   uniform float cctv;
+  /** The thermal camera's last picture, its afterimage. */
+  uniform sampler2D history;
+  /** Per view: how far the ground has moved across it since the last picture (modern pixels), and 1 when that picture can be used. */
+  uniform vec2 shifts[2];
+  uniform float ghosts[2];
+  /** How much of the afterimage is left after the time since the last picture. */
+  uniform float fade;
   varying vec2 vUv;
 
   float hash(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
   float lum(vec3 c) { return dot(c, vec3(0.299, 0.587, 0.114)); }
+  /** The lens rim's darkening at a point of a view, local 0-1 across it. */
+  float rim(vec2 local, vec4 r) { return mix(0.55, 1.0, smoothstep(0.85, 0.2, length((local - 0.5) * vec2(1.0, r.w / r.z * 1.25)))); }
 
   void main() {
     // In the modern screen's own pixels whatever size the picture is drawn at, so the grain, scanlines and errors
@@ -175,12 +186,16 @@ const FRAGMENT = /* glsl */ `
     vec2 px = gl_FragCoord.xy / scale;
     vec4 r = vec4(0.0, 0.0, res);
     float glitch = 0.0;
+    vec2 shift = vec2(0.0);
+    float ghost = 0.0;
     for (int i = 0; i < 2; i++) {
       if (i >= count) break;
       vec4 q = rects[i];
       if (px.x >= q.x && px.x < q.x + q.z && px.y >= q.y && px.y < q.y + q.w) {
         r = q;
         glitch = glitches[i];
+        shift = shifts[i];
+        ghost = ghosts[i];
       }
     }
     vec2 local = (px - r.xy) / r.zw;
@@ -220,6 +235,24 @@ const FRAGMENT = /* glsl */ `
       t += lum(texture2D(frame, uv + vec2(0.0, texel.y)).rgb) * 0.15;
       t += lum(texture2D(frame, uv - vec2(0.0, texel.y)).rgb) * 0.15;
       t = smoothstep(0.04, 0.92, t);
+      // The afterimage: anything warmer than the ground is burnt into the sensor for a moment, so the last picture
+      // stays where it was on the screen and fades: as the camera moves the warm scenery smears behind it, and
+      // anything hot crossing the screen leaves a trail. Its rim and scanline are taken back out so they do not build
+      // up, and the cool ground leaves none. It is soft and blurred, not a sharp copy.
+      vec2 hp = px - shift;
+      vec2 hl = (hp - r.xy) / r.zw;
+      if (ghost > 0.5 && hl.x > 0.0 && hl.x < 1.0 && hl.y > 0.0 && hl.y < 1.0) {
+        // Read a little blurred, so each frame it is held it spreads and softens as it fades.
+        vec2 hu = hp / res;
+        vec2 bt = 1.6 * texel;
+        float h = lum(texture2D(history, hu).rgb) * 0.36;
+        h += lum(texture2D(history, hu + vec2(bt.x, bt.y)).rgb) * 0.16;
+        h += lum(texture2D(history, hu + vec2(-bt.x, bt.y)).rgb) * 0.16;
+        h += lum(texture2D(history, hu + vec2(bt.x, -bt.y)).rgb) * 0.16;
+        h += lum(texture2D(history, hu + vec2(-bt.x, -bt.y)).rgb) * 0.16;
+        h *= fade / (rim(hl, r) * 0.9825);
+        t = max(t, mix(t, h, smoothstep(0.3, 0.4, h)));
+      }
       t += grain * 0.07 + 0.012 * sin(px.y * 0.9 + time * 40.0);
       col = vec3(t) * vec3(0.98, 1.0, 1.02);
     } else {
@@ -273,8 +306,7 @@ const FRAGMENT = /* glsl */ `
     col *= 1.0 + 0.04 * smoothstep(0.03, 0.0, abs(local.y - (1.0 - roll)));
     col *= 0.965 + 0.035 * step(0.5, fract(px.y * 0.5));
     // The rim of the lens.
-    float v = smoothstep(0.85, 0.2, length(d * vec2(1.0, r.w / r.z * 1.25)));
-    col *= mix(0.55, 1.0, v);
+    col *= rim(local, r);
     gl_FragColor = vec4(clamp(col, 0.0, 1.0), 1.0);
   }`;
 
@@ -288,6 +320,9 @@ export interface LookRect {
 /** The pass that turns the rendered picture into the drone's feed or its thermal picture. */
 export class LookPass {
   private frame: THREE.FramebufferTexture;
+  /** The thermal picture as last drawn, for its afterimage, and when (seconds); null until thermal is first drawn. */
+  private history: THREE.FramebufferTexture | null = null;
+  private historyAt = -1;
   private readonly material: THREE.ShaderMaterial;
   private readonly scene = new THREE.Scene();
   private readonly camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
@@ -308,6 +343,10 @@ export class LookPass {
         count: { value: 0 },
         tilt: { value: 0 },
         cctv: { value: 0 },
+        history: { value: this.frame },
+        shifts: { value: [new THREE.Vector2(), new THREE.Vector2()] },
+        ghosts: { value: [0, 0] },
+        fade: { value: 0 },
       },
       vertexShader: VERTEX,
       fragmentShader: FRAGMENT,
@@ -321,11 +360,13 @@ export class LookPass {
 
   /**
    * Copies what gl has drawn so far and draws it back through the look. rects are the map views, top-left origin,
-   * so each gets its own lens. cctv makes it the bunker's security camera instead, by day or by night.
+   * so each gets its own lens. cctv makes it the bunker's security camera instead, by day or by night. On the
+   * thermal camera, shifts gives each view how far its ground has moved across it since the last picture (modern
+   * pixels, y up), or null where that picture is not of the same place (a cut, a new camera), for the afterimage.
    */
   apply(
     gl: THREE.WebGLRenderer, rects: readonly LookRect[], glitch: readonly number[], drone: boolean, thermal: boolean, seconds: number, tilt = false,
-    cctv: 'day' | 'night' | null = null,
+    cctv: 'day' | 'night' | null = null, shifts: readonly ({ x: number; y: number } | null)[] = [],
   ): void {
     gl.setViewport(0, 0, this.w, this.h);
     gl.setScissor(0, 0, this.w, this.h);
@@ -346,6 +387,28 @@ export class LookPass {
     u.drone!.value = drone ? 1 : 0;
     u.tilt!.value = tilt && ART.tiltShift && tiltShiftOn() ? 1 : 0;
     u.cctv!.value = cctv === 'night' ? 2 : cctv === 'day' ? 1 : 0;
+    // The afterimage: half of it gone every 750 ms, and kept only while it is still warmer than the ground, so a
+    // burn that fades over about a second whatever the frame rate.
+    // Not after a pause or a hitch, nor from a picture of another size.
+    let ghosting = false;
+    if (thermal) {
+      if (!this.history || this.history.image.width !== fw || this.history.image.height !== fh) {
+        this.history?.dispose();
+        this.history = new THREE.FramebufferTexture(fw, fh);
+        this.historyAt = -1;
+      }
+      const dt = seconds - this.historyAt;
+      ghosting = this.historyAt >= 0 && dt > 0 && dt < 0.25;
+      u.fade!.value = ghosting ? Math.pow(0.5, dt / 0.75) : 0;
+      u.history!.value = this.history;
+    }
+    const sh = u.shifts!.value as THREE.Vector2[];
+    const gh = u.ghosts!.value as number[];
+    for (let i = 0; i < 2; i++) {
+      const s = ghosting ? shifts[i] : null;
+      gh[i] = s ? 1 : 0;
+      sh[i]!.set(s?.x ?? 0, s?.y ?? 0);
+    }
     const list = u.rects!.value as THREE.Vector4[];
     const n = Math.min(2, rects.length);
     for (let i = 0; i < n; i++) {
@@ -356,6 +419,10 @@ export class LookPass {
     const g = u.glitches!.value as number[];
     for (let i = 0; i < 2; i++) g[i] = glitch[i] ?? 0;
     gl.render(this.scene, this.camera);
+    if (thermal && this.history) {
+      gl.copyFramebufferToTexture(this.history, this.origin);
+      this.historyAt = seconds;
+    } else if (!cctv) this.historyAt = -1;
   }
 
   /** Hands its scene to compile, so its shader can be made ahead of its first use. */
@@ -365,6 +432,7 @@ export class LookPass {
 
   dispose(): void {
     this.frame.dispose();
+    this.history?.dispose();
     this.material.dispose();
   }
 }
