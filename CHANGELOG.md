@@ -4,6 +4,10 @@ Each release's section below becomes its GitHub release notes (`.github/workflow
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-11-16
+
+Every vehicle has its own night lights, the thermal camera burns in like a real sensor, and the modern view loads and runs smoother.
+
 ### Added
 
 - Each vehicle has its own lights in the modern view. The jeep has twin headlamps (two pools of light side by side) and red tail lights that brighten as it brakes or backs up. The tank has dim hooded blackout lamps that light only the ground just ahead, and small convoy tail lamps. The ASV carries navigation lights (red to port, green to starboard, white masthead and stern) and a narrow searchlight that sweeps slowly across the water ahead. The helicopter has a searchlight under its nose whose hard-edged pool wanders over the ground below, red and green navigation lights on its stub wings, a white tail strobe and a red anti-collision beacon on its tail fin that flashes day and night. The small lights are glows drawn in a single batch, so they cost next to nothing; each vehicle still has just one real light for its beam.
@@ -267,7 +271,8 @@ The first release: a browser remake of Return Fire (1995) that plays like the or
 
 - A Docker Compose stack with one image, `ghcr.io/zombiecheese/rf-redux`, published for every version tag together with a compose file, an `.env` template and a Caddyfile for HTTPS ([docs/deploy.md](docs/deploy.md)).
 
-[Unreleased]: https://github.com/zombiecheese/rf-redux/compare/v0.8.1...HEAD
+[Unreleased]: https://github.com/zombiecheese/rf-redux/compare/v0.9.0...HEAD
+[0.9.0]: https://github.com/zombiecheese/rf-redux/releases/tag/v0.9.0
 [0.8.1]: https://github.com/zombiecheese/rf-redux/releases/tag/v0.8.1
 [0.8.0]: https://github.com/zombiecheese/rf-redux/releases/tag/v0.8.0
 [0.7.2]: https://github.com/zombiecheese/rf-redux/releases/tag/v0.7.2
