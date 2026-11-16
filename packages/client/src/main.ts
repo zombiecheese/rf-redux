@@ -41,7 +41,7 @@ import { Stage } from './stage.js';
 import { winScene, winTier } from './winscene.js';
 import { modernWinScene } from './modern/finale.js';
 import { loadModern } from './modern/load.js';
-import { addTouchControls, watchForTouch } from './touch.js';
+import { addTouchControls } from './touch.js';
 import { PRESET_NAMES, activePreset, qualityChoice, setQualityChoice, type QualityChoice } from './quality.js';
 import './ui.css';
 import './themes.css';
@@ -1050,11 +1050,8 @@ async function boot(): Promise<void> {
     // In this order: the full screen request must see a tap before the block on an upright screen swallows it.
     askForFullScreen();
     blockWhileUpright();
+    addTouchControls();
   }
-  // The touch controls are on the page for any touch screen: they show for a handheld, and for anything else from
-  // its first touch (a touch laptop, or a phone that did not say it was one).
-  addTouchControls();
-  watchForTouch();
   stage.blank();
   maps = await loadMapIndex();
   void setUpOnline();

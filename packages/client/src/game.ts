@@ -25,7 +25,7 @@ import type { GameAssets } from './assets.js';
 import { BAYS, drawBunker } from './bunker.js';
 import { Camera, FOCAL, layout } from './camera.js';
 import { isPortrait, type Display } from './display.js';
-import { setTouchMode, touchInUse, touchModeFor } from './touch.js';
+import { setTouchMode, touchModeFor } from './touch.js';
 import { Effects } from './effects.js';
 import { LINE, drawText, textWidth } from './font.js';
 import { drawHud } from './hud.js';
@@ -877,7 +877,7 @@ export class Game {
         if (shown && !useModern) drawNames(frame, cam, match, shown, v[i]!);
       });
       if (!useModern) drawHud(frame, match, assets, v, selected);
-      const touch = !!this.o.handheld || touchInUse();
+      const touch = !!this.o.handheld;
       if (touch) {
         const pl = me === null ? null : match.players[me]!;
         setTouchMode(touchModeFor(pl?.state ?? null, pl?.vehicle?.kind ?? null));
@@ -1009,7 +1009,7 @@ export class Game {
       this.raf = requestAnimationFrame(loop);
     };
     this.raf = requestAnimationFrame(loop);
-    signal.addEventListener('abort', () => setTouchMode(null));
+    if (this.o.handheld) signal.addEventListener('abort', () => setTouchMode(null));
     signal.addEventListener('abort', () => display.hideModern());
     if (replay) {
       const k = REPLAY_KEYS;

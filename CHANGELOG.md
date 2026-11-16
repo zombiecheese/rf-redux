@@ -7,7 +7,7 @@ Each release's section below becomes its GitHub release notes (`.github/workflow
 ### Fixed
 
 - Phones go full screen again: the game now asks when a tap ends (a phone's browser refuses full screen when asked as the finger lands), asks again on the next tap if it was refused, and asks once more when a match starts if you have left full screen since. A landscape lock follows where the browser allows one.
-- The on-screen touch controls show on every touch screen: phones with a stylus, or a browser set to show the desktop site, were not taken for phones and got no controls. Anything else shows them from its first touch.
+- Phones with a stylus, or a browser set to show the desktop site, are now taken for phones, so they get the on-screen touch controls (and full screen, landscape only, no split screen). Computers, touch-screen laptops included, still never show the controls.
 
 ### Added
 
