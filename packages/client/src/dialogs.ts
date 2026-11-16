@@ -546,7 +546,7 @@ function keysPage(): HTMLElement {
   return el('div', { class: 'stack' }, grid,
     el('p', {}, 'In Training, online and in the editor\'s test play either side\'s keys work. Options > Controls > Vehicle Keys rebinds any vehicle key for either hand, and Options > Controls > Swap Sides gives Brown the right-hand keys. No game key opens the chat, and while a menu or the chat line is open your vehicle takes no keys. Offline the match waits while a menu is open; online it carries on.'),
     h('Phones and tablets'),
-    el('p', {}, 'Hold the device sideways: upright, the game waits. The stick comes to wherever your left thumb lands, Fire is in the right corner with the vehicle\'s own buttons round it (Tyres and Flag, AA, Mine, Ahead and Swap, the turret or strafe), and the top row docks while driving, pauses offline and opens the chat and scores online. On the lift screen tap a bay to choose it and tap it again to launch. When you are out, P1 to P4 pick who to watch. Phones and tablets play solo: no split screen and no level editor.'));
+    el('p', {}, 'Hold the device sideways: upright, the game waits. The stick comes to wherever your left thumb lands: point it the way you want to go and the vehicle turns to face that way and drives there (let go to stop). Fire is in the right corner with the vehicle\'s own buttons round it (Tyres and Flag, AA, Mine, Ahead and Swap, the turret or strafe), and the top row docks while driving, pauses offline and opens the chat and scores online. On the lift screen tap a bay to choose it and tap it again to launch. When you are out, P1 to P4 pick who to watch. Phones and tablets play solo: no split screen and no level editor.'));
 }
 
 function viewsPage(): HTMLElement {
