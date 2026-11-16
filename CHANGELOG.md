@@ -7,6 +7,7 @@ Each release's section below becomes its GitHub release notes (`.github/workflow
 ### Added
 
 - Replays have a free camera. Drag the picture (or use W A S D or the arrows) to look anywhere on the map, and zoom with the mouse wheel, Q / E, Page Up / Page Down or a two-finger pinch; C or the bar's Free camera button turns it on and off, and picking a player goes back to following them. It works while the replay is paused, so a moment can be looked round. The modern view zooms from about twice as close as the follow camera to the whole island; the classic view zooms out to a third of its size and in no closer than its own 1:1 pixels, which the original never went beyond.
+- Options > View > Tilt-Shift turns the modern view's miniature focus blur on or off. It is on by default, each device's own setting (kept in this browser, never synced to the account, and not set by the host online), and applies at once, even mid-match. Low quality leaves the blur off whatever the switch says, to save the frame.
 
 ## [0.7.2] - 2026-11-16
 
