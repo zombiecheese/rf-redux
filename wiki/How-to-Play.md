@@ -81,7 +81,7 @@ With one player (Training, online and the editor's test play) either half of the
 | M | Open the menu |
 | L | Hall of Fame |
 | V | Sound off or on |
-| Alt+Enter | Full screen |
+| Alt+Enter | Full screen (computers; phones and tablets are always full screen) |
 | Alt+3 | Swap Sides (player 1 takes the right-hand keys) |
 | Esc | Pause menu: Resume, Options, Help, Leave Match. Offline the match waits; online it carries on |
 
@@ -97,7 +97,16 @@ In the menus, the arrow keys move, Enter or Space picks, and Esc goes back. A mo
 
 ## Phones and tablets
 
-Phones and tablets play solo, in landscape, with faded on-screen buttons. Held upright, the game asks you to turn the device and the match waits. Split Screen and the level editor are desktop only.
+Phones and tablets play solo, in landscape and full screen, with faded on-screen buttons. Computers never show the buttons, even with a touch screen. Split Screen and the level editor are desktop only.
+
+Before the title screen the game asks you to:
+
+1. **Turn your device sideways.** Held upright, a notice covers the screen until you do.
+2. **Tap to play full screen.** One tap puts the game full screen, and locks it in landscape where the phone allows it.
+
+If you turn the device upright or leave full screen later, the same notice comes back and an offline match waits until you put it right (one tap goes back to full screen). The Full Screen option is not in the menu on phones and tablets, since the game is always full screen there.
+
+**iPhone:** Safari on an iPhone cannot put a web page full screen, so there the game only asks for landscape, and the title screen says once how to get full screen instead: tap **Share**, then **Add to Home Screen**, and start the game from its home screen icon. It then opens full screen in landscape.
 
 | Control | Does |
 | --- | --- |
@@ -158,7 +167,8 @@ Replays save as `.rfwreplay.json` files or, signed in, to your account.
 
 *The same spot with the thermal camera on: the tank runs white-hot against the cool ground.*
 
-- **Picture:** how the picture is scaled.
+- **Quality** (Options > View, modern view only): Auto (the default), Low, Medium, High or Ultra. It is each device's own setting, even online, and the game remembers it in this browser. The presets change how much a frame costs, never what you see in the match: the 3D picture's resolution, shadows, which headlights cast shadows, the focus blur and how much of the garden's scatter is drawn. Auto starts on High (Medium on phones and tablets) and steps down if the device cannot keep up. Dynamic resolution then holds 60 frames a second (30 on phones and tablets) by drawing the 3D picture a little smaller while the device falls behind; the HUD stays sharp.
+- **Picture:** how the classic picture is scaled.
 - **Swap Sides:** gives player 1 the right-hand keys.
 
 Names, settings and the Hall of Fame are kept in your browser. Signed in, your settings follow your account.

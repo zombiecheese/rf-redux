@@ -14,7 +14,7 @@ import { loadAssets, loadAssetsWith, loadCommon, loadMap, loadMapIndex, type Gam
 import {
   about, dialog, dialogOpen, el, hallOfFame, helpTopics, matchSetup, modernUi, notice, systemInfo, teamsFor,
 } from './dialogs.js';
-import { Display, askForFullScreen, goFullScreen, blockWhileUpright, canFullScreen, isFullScreen, isHandheld, untilLandscape } from './display.js';
+import { Display, goFullScreen, blockWhileUpright, canFullScreen, isFullScreen, isHandheld, requireFullScreen, untilReady } from './display.js';
 import { listDrafts, loadDraft } from './editor/storage.js';
 import { Game, type Outcome } from './game.js';
 import { ReplayBar, replaysDialog, saveReplay } from './replays.js';
@@ -119,7 +119,6 @@ let run = 0;
 function setScreen(s: Screen): void {
   screen = s;
   document.body.dataset.screen = s;
-  if (handheld && s === 'game') askForFullScreen();
   if (handheld && s === 'title') homeScreenTip();
   if (s !== 'title' && s !== 'game') closeMenu();
   syncPlaying();
@@ -204,8 +203,9 @@ async function loadProfile(): Promise<void> {
  */
 async function splash(): Promise<void> {
   const art = new SplashArt();
-  // Held upright, the start prompt and the splash wait behind the rotate notice until the device is turned.
-  if (handheld) await untilLandscape();
+  // On a handheld the start prompt and the splash wait behind the rotate and full screen notices until the device
+  // is turned and full screen: the title is never shown any other way.
+  if (handheld) await untilReady();
   if (settings.music && !(await music.canPlay())) {
     setScreen('gate');
     skip = new AbortController();
@@ -258,8 +258,6 @@ async function newGame(players?: 1 | 2): Promise<void> {
 }
 
 async function startGame(opts: { bots?: boolean; seed?: number } = {}): Promise<void> {
-  // Started by a tap (Start, or a lobby's): the moment a phone allows full screen. If it is refused, the next tap asks.
-  if (handheld) void goFullScreen();
   skip.abort();
   game?.stop();
   game = null;
@@ -849,7 +847,7 @@ function onlineItems(): MenuEntry[] {
 /** Options, in groups that each fit the screen. */
 function optionItems(): MenuEntry[] {
   return [
-    { label: 'Full Screen', key: shortcutName('fullScreen'), value: () => onOff(!!document.fullscreenElement), action: fullScreen },
+    ...(handheld && canFullScreen() ? [] : [{ label: 'Full Screen', key: shortcutName('fullScreen'), value: () => onOff(!!document.fullscreenElement), action: fullScreen }]),
     { label: 'View', hint: 'Classic or Modern, picture scaling', items: viewItems },
     { label: 'Sound and Music', hint: 'Volume, music, instruments', items: soundItems },
     ...(handheld ? [] : [{ label: 'Controls', hint: 'Vehicle keys, swap sides', items: controlItems }]),
@@ -1047,9 +1045,8 @@ addEventListener('pointerdown', (e) => {
 
 async function boot(): Promise<void> {
   if (handheld) {
-    // In this order: the full screen request must see a tap before the block on an upright screen swallows it.
-    askForFullScreen();
     blockWhileUpright();
+    requireFullScreen();
     addTouchControls();
   }
   stage.blank();

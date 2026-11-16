@@ -17,7 +17,7 @@
       html, body { margin: 0; height: 100%; background: #000; color: #ddd; font: 14px system-ui, sans-serif; overflow: hidden; }
       canvas { display: block; touch-action: none; }
       /* Phones and tablets: the rotate notice and the touch controls are styled in src/ui.css. */
-      #rotate, .touch { display: none; }
+      #rotate, #fullscreen, .touch { display: none; }
       #error { position: fixed; inset: 0; display: none; place-items: center; padding: 24px; text-align: center; }
       #status { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); color: #aaa; pointer-events: none; }
 
@@ -32,6 +32,7 @@
   <body>
     <div id="status"></div>
     <div id="rotate" role="alert"><div class="rotate-phone" aria-hidden="true"></div><b>Turn your device sideways</b><span>Return Fire: Redux plays in landscape only. The game waits until you turn it.</span></div>
+    <div id="fullscreen" role="alert"><div class="fullscreen-icon" aria-hidden="true"></div><b>Tap to play full screen</b><span>Return Fire: Redux plays full screen on phones and tablets.</span></div>
     <div id="error"></div>
     <script type="module" src="/src/main.ts"></script>
   </body>

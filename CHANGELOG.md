@@ -4,14 +4,19 @@ Each release's section below becomes its GitHub release notes (`.github/workflow
 
 ## [Unreleased]
 
-### Fixed
+## [0.7.1] - 2026-11-16
 
-- Phones go full screen again: the game now asks when a tap ends (a phone's browser refuses full screen when asked as the finger lands), asks again on the next tap if it was refused, and asks once more when a match starts if you have left full screen since. A landscape lock follows where the browser allows one.
-- Phones with a stylus, or a browser set to show the desktop site, are now taken for phones, so they get the on-screen touch controls (and full screen, landscape only, no split screen). Computers, touch-screen laptops included, still never show the controls.
+Phones and tablets now always play full screen and in landscape, and get their on-screen controls reliably.
 
 ### Added
 
-- Return Fire: Redux can be added to a phone's home screen and opens from there full screen in landscape. iPhone Safari cannot put a page full screen, so on an iPhone the title screen says how once.
+- Phones and tablets play full screen. Before the title screen, after the "turn your device sideways" notice, a "tap to play full screen" notice asks for one tap; full screen then locks the game in landscape where the browser allows it. If the player leaves full screen later, the notice comes back and an offline match waits until they tap it. The Full Screen menu item is gone on phones and tablets, since they are always full screen.
+- Return Fire: Redux can be added to a phone's home screen and opens from there full screen in landscape. iPhone Safari cannot put a page full screen, so on an iPhone the game asks for landscape only and the title screen says once how to add it to the home screen.
+
+### Fixed
+
+- Phones never went full screen: the game asked as the finger landed, which a phone's browser refuses. It now asks when the tap ends.
+- Phones with a stylus, or a browser set to show the desktop site, are now taken for phones, so they get the on-screen touch controls (and landscape, full screen and no split screen). Computers, touch-screen laptops included, never show the controls.
 
 ## [0.7.0] - 2026-11-15
 
@@ -209,7 +214,8 @@ The first release: a browser remake of Return Fire (1995) that plays like the or
 
 - A Docker Compose stack with one image, `ghcr.io/zombiecheese/rf-redux`, published for every version tag together with a compose file, an `.env` template and a Caddyfile for HTTPS ([docs/deploy.md](docs/deploy.md)).
 
-[Unreleased]: https://github.com/zombiecheese/rf-redux/compare/v0.7.0...HEAD
+[Unreleased]: https://github.com/zombiecheese/rf-redux/compare/v0.7.1...HEAD
+[0.7.1]: https://github.com/zombiecheese/rf-redux/releases/tag/v0.7.1
 [0.7.0]: https://github.com/zombiecheese/rf-redux/releases/tag/v0.7.0
 [0.6.0]: https://github.com/zombiecheese/rf-redux/releases/tag/v0.6.0
 [0.5.3]: https://github.com/zombiecheese/rf-redux/releases/tag/v0.5.3
