@@ -147,8 +147,13 @@ Every match is recorded in your browser: the last 20, plus any you star. A repla
 | , / . | Ten seconds back / on |
 | P | Pause |
 | 1 to 4 | Follow that player |
+| C | Free camera on / off |
+| W A S D or the arrows | Move the free camera |
+| Q / E (or Page Down / Page Up) | Zoom the free camera out / in |
 | Alt+R | Start again |
 | Esc | Leave |
+
+The **free camera** looks anywhere on the map: drag the picture with the mouse or a finger, and zoom with the mouse wheel or a two-finger pinch. Moving or zooming turns it on, and picking a player on the bar goes back to following them. It works while the replay is paused too. In the modern view it zooms from close in to the whole island; the classic view zooms out but no closer than its own pixels.
 
 Replays save as `.rfwreplay.json` files or, signed in, to your account.
 

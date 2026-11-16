@@ -529,6 +529,9 @@ function keysPage(): HTMLElement {
     row('Slower / faster', `${names(r.slower)} / ${names(r.faster)}`),
     row('Ten seconds back / on', `${names(r.back)} / ${names(r.forward)}`),
     row('Follow player 1-4', r.follow.map(keyName).join(' ')),
+    row('Free camera on / off (back to following)', names(r.freeCamera)),
+    row('Free camera: move', `${[r.panUp, r.panLeft, r.panDown, r.panRight].map((x) => keyName(x[0])).join(' ')} or the arrows, or drag`),
+    row('Free camera: zoom in / out', `${names(r.zoomIn)} / ${names(r.zoomOut)}, the mouse wheel, or pinch`),
     row('Pause / play', shortcutName('pause')),
     heading('Game'),
     ...SHORTCUTS.map((s) => row(s.label, shortcutName(s.id))),
@@ -579,7 +582,7 @@ function onlinePage(): HTMLElement {
 function morePage(): HTMLElement {
   return el('div', { class: 'stack' },
     h('Replays'),
-    el('p', {}, 'Every match is recorded in your browser: the last 20, plus any you star. Title > Replays plays one back from ¼× to 8× with pause, ten-second jumps, a timeline and a choice of player to follow. Save a replay as a file, or to your account when signed in.'),
+    el('p', {}, 'Every match is recorded in your browser: the last 20, plus any you star. Title > Replays plays one back from ¼× to 8× with pause, ten-second jumps, a timeline, a choice of player to follow, and a free camera: drag the picture or use W A S D to look anywhere, and the mouse wheel, Q / E or a pinch to zoom (C turns it on and off). Save a replay as a file, or to your account when signed in.'),
     h('Level Editor'),
     el('p', {}, 'Title > Level Editor (on a computer with a mouse and keyboard; greyed out on phones and tablets) paints land and water with automatic coastlines, lays bridges, places buildings and up to four bases, mirrors or turns your edits for a fair map, checks it for problems, previews it as Classic, Modern or Modern at night, and test plays it against the computer in the previewed view. Maps save in your browser, export as files and play from Match Setup\'s Add-Ons. Signed in, save them to your library as private, unlisted or public; public maps can be searched, liked and played in lobbies.'),
     h('Sound and music'),

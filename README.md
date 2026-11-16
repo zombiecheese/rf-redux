@@ -56,7 +56,7 @@ Still to come: two-player maps of the project's own.
 
 **Replays, options and music**
 
-- Every match is recorded in the browser (the last 20, plus any you star) and plays back at ¼× to 8× with pause, ten-second jumps, a timeline and a choice of player to follow. Replays save as `.rfwreplay.json` files or, signed in, to your account.
+- Every match is recorded in the browser (the last 20, plus any you star) and plays back at ¼× to 8× with pause, ten-second jumps, a timeline, a choice of player to follow, and a free camera to drag and zoom anywhere on the map. Replays save as `.rfwreplay.json` files or, signed in, to your account.
 - Options: rebind every vehicle key for either half of the keyboard, master, effects and music volume, built-in or sampled instruments for the band, the view (modern or classic), the modern view's quality (Auto, Low, Medium, High or Ultra, per device, with dynamic resolution holding the frame rate) and its tilt-shift focus blur (on or off, per device), how the picture is scaled, and Swap Sides. Day or night is picked per match, not in Options. Names, settings and the Hall of Fame are kept in the browser, and settings follow a signed-in account.
 - Music chosen the way the original's music director chose it, for each vehicle, the bunker, deaths, the flag, the win and the menus ([docs/music.md](docs/music.md)). The retro view plays MIDI band arrangements of public-domain music on an MT-32-style synthesiser, or, with Options > Sound and Music > Instruments > Sampled, from the GeneralUser GS SoundFont (a 32 MB download the first time, then kept by the browser). The modern view has its own soundtrack: original hardcore, beatdown and metalcore instrumentals, with a breakdown in every piece, played on the synthesiser's guitar amp, bass and metal kit. Switching the view switches the music at once.
 
@@ -122,6 +122,7 @@ for the menus, or touch on phones and tablets; there is no gamepad support.
 | ← / → (or a half's turn keys), 1–4 | Out of the match, or spectating online: watch the next / previous player still in, or that player. Replays: 1–4 follow that player |
 | - / = | Replay: slower / faster (¼× to 8×) |
 | , / . | Replay: ten seconds back / on (P pauses, Alt+R starts it again, Esc leaves) |
+| C, W A S D / arrows, Q / E (or Page Up / Down) | Replay: free camera on / off, move it, zoom out / in. Dragging the picture moves it too, and the mouse wheel or a pinch zooms |
 
 In the menu: ↑ / ↓ (or Tab / Shift+Tab) move, Enter or Space picks, → opens a sub-menu, ← or Esc goes back, and Esc
 on the first page closes it. A mouse or a finger works as well.
