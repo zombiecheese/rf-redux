@@ -209,7 +209,9 @@ export function swimmer(stroke: number): Kit {
 export function liftPlatform(): Kit {
   const k = new Kit(true);
   k.box(0, 0, -1.5, 30, 30, 1.5, METAL);
-  k.box(0, 0, 0, 26, 26, 0.3, 'teamDark');
+  k.box(0, 0, 0, 26, 26, 0.6, 'teamDark');
+  // Tread plates across the deck.
+  for (let i = -2; i <= 2; i++) k.box(i * 5, 0, 0.6, 1.2, 24, 0.12, 0x3a3d42);
   for (const s of [-1, 1]) k.box(s * 14, 0, 0, 1.4, 30, 0.6, 0xe0b81c).box(0, s * 14, 0, 30, 1.4, 0.6, 0xe0b81c);
   return k;
 }
@@ -225,9 +227,23 @@ export function liftShaft(): Kit {
   return k;
 }
 
+/**
+ * One of the hatch's two doors, from the middle of the shaft at x = 0 out to x = 16: a steel plate with hazard
+ * stripes, a lip along the edge where it meets the other, and runners underneath.
+ */
 export function liftDoor(): Kit {
   const k = new Kit(true);
-  k.box(0, 0.5, -0.4, 16, 31, 0.8, 0x4b5057);
-  for (let i = -3; i <= 3; i++) k.box(0, i * 4.5, 0.4, 15, 1.4, 0.3, i & 1 ? 0xe0b81c : 0x202020);
+  k.box(8, 0, 0, 16, 32, 0.8, 0x4b5057);
+  for (let i = -3; i <= 3; i++) k.box(8.6, i * 4.5, 0.8, 14, 1.6, 0.12, i & 1 ? 0xe0b81c : 0x202020);
+  k.box(0.6, 0, 0.8, 1.2, 32, 0.2, 0xe0b81c);
+  for (const y of [-12, 12]) k.box(8, y, -0.6, 15, 1.2, 0.6, 0x2a2c30);
+  return k;
+}
+
+/** A beacon at a corner of the lift's shaft, turned on while the lift moves: a dark housing under an amber lens. */
+export function liftBeacon(): Kit {
+  const k = new Kit(true);
+  k.cyl(0, 0, 0, 1.1, 1.3, 0.9, 0x2a2c30, 10);
+  k.cyl(0, 0, 0.9, 0.9, 1, 1.2, 0xc88a20, 10);
   return k;
 }

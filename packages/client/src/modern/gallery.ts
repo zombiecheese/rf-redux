@@ -3,7 +3,8 @@
 // in the four sides' colours; ?part=bunker and ?part=skull the two screens (skull takes &face=1-7 and &angle=0-63);
 // ?part=finale the modern win scene (&base=0-3 wins, &tier=0-3, &night=1, &thermal=1, &t=ms to hold at);
 // ?part=water vehicles in the sea by a shore (&map=, &night=1, &follow=tank|jeep|asv|heli|float, &split=1), for
-// the sea's depth, wakes, downwash and reflections.
+// the sea's depth, wakes, downwash and reflections; ?part=lift the bunker lift on the map beside the classic view
+// (&kind=, &dock=1, &night=1; &gate=1&map=rfmap167 a base gate instead), stepped with window.liftAt(tick, part).
 // It is not part of the build.
 
 import * as THREE from 'three';
@@ -53,6 +54,10 @@ if (part === 'finale') {
 if (part === 'water') {
   const { waterScene } = await import('./watergallery.js');
   await waterScene(new URLSearchParams(location.search));
+}
+if (part === 'lift') {
+  const { liftScene } = await import('./liftgallery.js');
+  await liftScene(new URLSearchParams(location.search));
 }
 const data = await loadCommon();
 const renderer = new THREE.WebGLRenderer({ antialias: true });

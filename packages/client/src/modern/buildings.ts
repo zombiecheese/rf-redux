@@ -351,12 +351,16 @@ export function building(def: BuildingDef & { name?: string }, name: string, box
       });
       break;
     case 'gate':
-      // The posts; the leaves are the renderer's, as they swing open.
+      // The posts, standing just outside the tile's edges on the line of the wall as the original's gate models
+      // have them (each half's post 8 px wide beyond the edge, its leaf 16 px across the tile to the middle), so the
+      // road between them is clear. The leaves are the renderer's, as they slide.
       for (const s of [-1, 1]) {
         const vertical = /_V$/i.test(name);
-        const px = vertical ? cx : cx + s * 12;
-        const py = vertical ? cy + s * 12 : cy;
-        k.box(px, py, 0, 8, 8, 19, CONCRETE).box(px, py, 19, 9, 9, 1.5, 'team');
+        const px = vertical ? 0 : s * GATE_POST;
+        const py = vertical ? s * GATE_POST : 0;
+        k.box(px, py, 0, vertical ? 10 : 8, vertical ? 8 : 10, 19, CONCRETE).box(px, py, 19, vertical ? 11 : 9, vertical ? 9 : 11, 1.5, 'team');
+        // A slot in the post's inner face the leaf slides into.
+        k.box(vertical ? 0 : s * (GATE_POST - 4.2), vertical ? s * (GATE_POST - 4.2) : 0, 0.6, vertical ? 3.2 : 0.6, vertical ? 0.6 : 3.2, 15, 0x3a3a36);
       }
       break;
     case 'wall':
@@ -471,12 +475,19 @@ export function towerGun(large: boolean): { head: Kit; barrels: Kit } {
   return { head, barrels };
 }
 
-/** A gate's leaf: a barred panel, length len along x, hinged at x = 0 and reaching to +len. */
+/** Where a gate's posts stand, out from the middle of its tile (px). */
+export const GATE_POST = 20;
+
+/** A gate's leaf: a barred panel, length len along x, from its post's side at x = 0 to its free end at +len. */
 export function gateLeaf(len: number): Kit {
   const k = new Kit(true);
+  const n = Math.max(3, Math.round(len / 3));
   k.box(len / 2, 0, 1, len, 1.6, 1.4, 'team');
   k.box(len / 2, 0, 13, len, 1.6, 1.4, 'team');
-  for (let i = 0; i <= 3; i++) k.box(0.6 + (i * (len - 1.2)) / 3, 0, 1, 1, 1.2, 13, HAZARD);
+  // A diagonal brace, and the bars; the free end's stile is stouter, where the two leaves meet.
+  k.box(len / 2, 0, 7, len * 1.08, 1, 1, 'team', { roll: Math.atan2(11, len) });
+  for (let i = 0; i < n; i++) k.box(0.6 + (i * (len - 1.2)) / n, 0, 1, 0.9, 1.2, 13, HAZARD);
+  k.box(len - 0.8, 0, 0.6, 1.6, 2, 14.4, 'team');
   return k;
 }
 
