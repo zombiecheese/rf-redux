@@ -4,6 +4,10 @@ Each release's section below becomes its GitHub release notes (`.github/workflow
 
 ## [Unreleased]
 
+### Added
+
+- Options > View > Tilt-Shift turns the modern view's miniature focus blur on or off. It is on by default, each device's own setting (kept in this browser, never synced to the account, and not set by the host online), and applies at once, even mid-match. Low quality leaves the blur off whatever the switch says, to save the frame.
+
 ## [0.7.2] - 2026-11-16
 
 Themed loading screens, a fixed modern vehicle select, and no more pauses when blasts bring things down.

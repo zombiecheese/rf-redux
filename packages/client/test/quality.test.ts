@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { Pacer, PRESETS, activePreset, setQualityChoice } from '../src/quality.js';
+import { describe, expect, it, vi } from 'vitest';
+import { Pacer, PRESETS, activePreset, setQualityChoice, setTiltShift, tiltShiftOn } from '../src/quality.js';
 
 /** Feeds the pacer frames dt ms apart for ms in all, from start; returns the time reached. */
 function run(p: Pacer, start: number, dt: number, ms: number): number {
@@ -9,6 +9,23 @@ function run(p: Pacer, start: number, dt: number, ms: number): number {
 }
 
 describe('quality', () => {
+  it('keeps the tilt-shift on by default, and remembers when it is switched off', () => {
+    const kept = new Map<string, string>();
+    vi.stubGlobal('localStorage', {
+      getItem: (k: string) => kept.get(k) ?? null,
+      setItem: (k: string, v: string) => void kept.set(k, v),
+      removeItem: (k: string) => void kept.delete(k),
+    });
+    expect(tiltShiftOn()).toBe(true);
+    setTiltShift(false);
+    expect(tiltShiftOn()).toBe(false);
+    expect(kept.get('rf.tiltShift')).toBe('off');
+    setTiltShift(true);
+    expect(tiltShiftOn()).toBe(true);
+    expect(kept.get('rf.tiltShift')).toBeUndefined();
+    vi.unstubAllGlobals();
+  });
+
   it('draws the 3D picture smaller while frames run slow, and back up when they catch up', () => {
     setQualityChoice('high');
     const p = new Pacer(false);
