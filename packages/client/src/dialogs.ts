@@ -561,7 +561,7 @@ function viewsPage(): HTMLElement {
       'Tilt-shift focus: a band across the middle of the feed is sharp and the top and bottom go soft, so the battlefield reads as a miniature. Options > View > Tilt-Shift switches it off on this device (Low quality always leaves it off).',
       'Computer-vision HUD: tracking boxes with integrity on your vehicle (with its fuel and ammunition), friends, enemy vehicles, gun towers, flag buildings and drones, a tactical plot for the radar, and messages as read-outs.',
       'Flag arrows: at the edges of the picture, in each rival\'s colour, arrows point to its flag buildings (any of them may hide the flag), to a flag lying in the open, and home while your jeep carries one.',
-      'Day or night: a match option, chosen with the difficulty (on Match Setup, or by the host online). Night is dark, lit by headlights, fires and the buildings\' windows and lamps.',
+      'Day or night: a match option, chosen with the difficulty (on Match Setup, or by the host online). Night is dark, lit by the vehicles\' own lights (headlamps, searchlights, tail and navigation lights, and the helicopter\'s flashing beacon), fires and the buildings\' windows and lamps.',
       'Thermal camera: in a night match, switch the drone to a white-hot thermal picture that sees in the dark, with the THERMAL button beside the menu button or the thermal key (see Keys). Every match starts with it off, and by day there is none.',
     ),
     el('p', {}, 'Online the lobby\'s host picks the view and the time of day for every player. Replays play back the way their match was seen.'));

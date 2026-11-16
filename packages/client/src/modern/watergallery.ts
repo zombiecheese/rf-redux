@@ -32,6 +32,8 @@ export async function waterScene(q: URLSearchParams): Promise<never> {
   if (q.get('ao') === '0') (await import('./art.js')).ART.ao = false;
   // &flip=0 draws fire and smoke as soft round spots instead of the flipbooks.
   if (q.get('flip') === '0') (await import('./art.js')).ART.flipbookFx = false;
+  // &flash=1 catches the vehicles' beacons and strobes at the top of their flash.
+  if (q.get('flash') === '1') (await import('./vehiclelights.js')).LIGHTS_SHOW.flash = true;
   const modern = new ModernRenderer(assets);
   const night = q.get('night') === '1';
   modern.setNight(night);
@@ -158,6 +160,9 @@ export async function waterScene(q: URLSearchParams): Promise<never> {
   };
   // Each player shows one of them (the renderer draws players' vehicles); the rest ride on spare player slots.
   const shown = actors.map((a) => a.v);
+  // The one followed rides as the first player, so it has one of the four headlights at night.
+  const first = named[q.get('follow') ?? 'tank'];
+  if (first) shown.unshift(...shown.splice(shown.indexOf(first), 1));
   while (match.players.length < shown.length) match.players.push({ ...match.players[0]!, id: match.players.length });
   shown.forEach((v, i) => (match.players[i]!.vehicle = v));
   const follow = named[q.get('follow') ?? 'tank'] ?? named.tank!;
