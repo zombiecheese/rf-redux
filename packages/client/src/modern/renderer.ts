@@ -525,9 +525,11 @@ export class ModernRenderer {
         this.gl.autoClear = true;
       }
     }
-    // The bunker is watched by a security camera: the same lens, grain and grade as the drone's, never thermal.
+    // The bunker is watched by a security camera: the same lens, grain and grade as the drone's, never thermal, its
+    // colour washed out by day and black and white infrared by night. (This is drawn here, on the picture: the HUD is
+    // a see-through canvas of its own over it, where blending modes have no picture to work on.)
     const cams = views.filter((v) => v.screen?.kind === 'bunker').map((v) => v.rect);
-    if (cams.length) (this.pass ??= new LookPass(MODERN_W, MODERN_H)).apply(this.gl, cams, cams.map(() => 0), true, false, now / 1000);
+    if (cams.length) (this.pass ??= new LookPass(MODERN_W, MODERN_H)).apply(this.gl, cams, cams.map(() => 0), true, false, now / 1000, false, this.night ? 'night' : 'day');
     stats?.end();
     stats?.add('draw', performance.now() - now);
     if (this.direct) return;
