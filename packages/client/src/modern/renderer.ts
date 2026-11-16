@@ -18,10 +18,11 @@ import { TEAMS } from '../paint.js';
 import { GATE_POST, building, gateLeaf, lightOf, lookOf, playset, towerGun, type Box } from './buildings.js';
 import { Fx } from './fx.js';
 import { LAMP_REACH, LampMap, lampLight, type Lamp } from './lampmap.js';
-import { LIGHT_TIME, LookPass, THERMAL, grainLights, heatFragment } from './look.js';
+import { BEAM_HOODED, BEAM_SEARCH, BEAM_TWIN, LIGHT_TIME, LookPass, THERMAL, beamDistance, grainLights, heatFragment, type BeamShape } from './look.js';
 import { BunkerScene, SkullScene } from './screens.js';
 import { Ground, TILE, type SeaInputs } from './ground.js';
 import { WaterMarks } from './water.js';
+import { VehicleLights } from './vehiclelights.js';
 import { Kit, NEUTRAL, teamPaint, type TeamPaint } from './kit.js';
 import * as V from './vehicles.js';
 import { PHOTO_SKY_TURN, PLASTIC_SKY, charredPlastic, gardenSky, melted, photoSky, toyPlastic, type PhotoSkies } from './toy.js';
@@ -54,14 +55,18 @@ const SUN_UP = SUN.clone().cross(SUN_SIDE).normalize();
  */
 const HEADLIGHTS = 4;
 /**
- * Each vehicle's lights at night: the jeep's warm headlamps, the tank's wide dim work lights, the ASV's narrow
- * blue-white beam reaching far, and the helicopter's searchlight on the ground just ahead.
+ * The beam each vehicle throws at night, shaped to the vehicle (look.ts beamGrain): the jeep's twin warm headlamps,
+ * the tank's dim hooded blackout lamps cut off above so they light only the road just ahead, the ASV's narrow
+ * blue-white searchlight sweeping slowly from side to side across the water ahead, and the helicopter's searchlight
+ * from under its nose, a hard-edged pool wandering over the ground ahead and below. Their small lights (tail lights,
+ * navigation lights, the helicopter's flashing beacon) are glows, not lights (vehiclelights.ts).
+ * from: how far ahead of the vehicle's middle the lamp is; sweep: how far the beam swings (radians).
  */
-const BEAMS: Record<VehicleKind, { power: number; colour: number; angle: number; soft: number; reach: number; height: number }> = {
-  jeep: { power: 480, colour: 0xffd9a0, angle: 0.4, soft: 0.55, reach: 60, height: 6 },
-  tank: { power: 560, colour: 0xf2ecd8, angle: 0.62, soft: 0.75, reach: 45, height: 9 },
-  asv: { power: 700, colour: 0xd6e4ff, angle: 0.28, soft: 0.4, reach: 110, height: 8 },
-  heli: { power: 800, colour: 0xffffff, angle: 0.2, soft: 0.3, reach: 35, height: 40 },
+const BEAMS: Record<VehicleKind, { power: number; colour: number; angle: number; soft: number; reach: number; height: number; shape: BeamShape; from: number; sweep: number }> = {
+  jeep: { power: 520, colour: 0xffd9a0, angle: 0.46, soft: 0.5, reach: 60, height: 5, shape: BEAM_TWIN, from: 11, sweep: 0 },
+  tank: { power: 380, colour: 0xffe2b0, angle: 0.62, soft: 0.6, reach: 36, height: 5, shape: BEAM_HOODED, from: 12, sweep: 0 },
+  asv: { power: 760, colour: 0xd6e4ff, angle: 0.2, soft: 0.25, reach: 110, height: 10, shape: BEAM_SEARCH, from: 9, sweep: 0.35 },
+  heli: { power: 900, colour: 0xf4f8ff, angle: 0.24, soft: 0.2, reach: 22, height: 2, shape: BEAM_SEARCH, from: 10, sweep: 0.3 },
 };
 
 /** A full-view screen drawn in a view instead of (or, for the skull, over) the playfield. */
@@ -267,6 +272,8 @@ export class ModernRenderer {
   private readonly marks = new WaterMarks();
   /** The headlights for the sea shader, which lights itself. */
   private readonly sea: SeaInputs;
+  /** The vehicles' small lights: lamp glass, tail and navigation lights, beacons. */
+  private readonly lights = new VehicleLights();
 
   constructor(private readonly assets: GameAssets) {
     // The picture is copied (copyTo, or into this.canvas) only in the frame it is drawn, so the browser need not keep it.
@@ -327,7 +334,7 @@ export class ModernRenderer {
     sc.bottom = -SHADOW_SPAN;
     sc.near = 10;
     sc.far = 1600;
-    this.scene.add(this.sun, this.sun.target, this.statics, this.dynamic, this.fx.group);
+    this.scene.add(this.sun, this.sun.target, this.statics, this.dynamic, this.fx.group, this.lights.points);
     this.boxes = assets.parts.map((parts) => bodyBox(parts));
     this.sea = {
       marks: this.marks.texture,
@@ -339,7 +346,7 @@ export class ModernRenderer {
         pos: Array.from({ length: HEADLIGHTS }, () => new THREE.Vector3()),
         dir: Array.from({ length: HEADLIGHTS }, () => new THREE.Vector3(0, -1, 0)),
         col: Array.from({ length: HEADLIGHTS }, () => new THREE.Vector3()),
-        cone: Array.from({ length: HEADLIGHTS }, () => new THREE.Vector2(0.9, 0.95)),
+        cone: Array.from({ length: HEADLIGHTS }, () => new THREE.Vector3(0.9, 0.95, 0)),
       },
       moon: MOON.clone(),
       flashes: { pos: Array.from({ length: 4 }, () => new THREE.Vector3()), power: [0, 0, 0, 0] },
@@ -518,7 +525,9 @@ export class ModernRenderer {
     ground.tick(now / 1000);
     this.syncChunks(m.world);
     this.syncDynamic(m, extras, views.filter((v) => !v.skip).map((v) => v.cam), dt);
-    this.aimHeadlights(m, views);
+    this.aimHeadlights(m, views, now / 1000);
+    // (Not on the thermal camera, which sees heat, not light.)
+    this.lights.update(this.thermal ? [] : this.rigs, this.night, now / 1000, dt);
     // One piece of getting ready a frame, once the match has its first pictures up.
     if (this.direct && this.world) this.warmUp(m);
     this.lightBuildings();
@@ -726,6 +735,7 @@ export class ModernRenderer {
     c3.updateMatrixWorld();
     // Points are sized in game pixels: on screen a point's size is size * f / depth.
     this.fx.setScale(f);
+    this.lights.setScale(f);
     // The shadow box follows what this view looks at, in whole steps of its shadow map's texels across the sun's
     // view, so shadows stay put on the ground as the camera moves instead of crawling and shimmering at the edges.
     // A free camera pulled back (a replay's) has its shadow box grown to what it sees.
@@ -848,7 +858,7 @@ export class ModernRenderer {
   }
 
   /** Points each vehicle's headlights (at night) ahead of it. */
-  private aimHeadlights(m: Match, views: readonly ModernView[]): void {
+  private aimHeadlights(m: Match, views: readonly ModernView[], t: number): void {
     const lit = new Array<boolean>(HEADLIGHTS).fill(false);
     // Which headlights throw shadows, by the quality preset: all, the ones of the players at this screen, or none.
     // A change rebuilds the lit shaders, so it is only ever made as the preset changes or a match starts.
@@ -870,21 +880,24 @@ export class ModernRenderer {
         const i = p.id;
         if (!v || i >= HEADLIGHTS || v.z < -8 * 65536) continue;
         lit[i] = true;
+        const b = BEAMS[v.kind];
         const a = radians(v.heading);
         const fx = Math.sin(a);
         const fz = -Math.cos(a);
+        // A searchlight swings slowly to and fro across the way ahead (each player's at its own pace).
+        const s = a + b.sweep * Math.sin(t * (0.45 + i * 0.07) + i * 1.7);
         const x = v.x / 65536;
         const y = v.y / 65536;
         const z = Math.max(0, v.z / 65536);
         const l = this.heads[i]!;
-        const b = BEAMS[v.kind];
         l.intensity = b.power;
         l.color.setHex(b.colour);
         l.angle = b.angle;
         l.penumbra = b.soft;
-        l.distance = b.reach + 120;
-        l.position.set(x + fx * 10, z + b.height, y + fz * 10);
-        l.target.position.set(x + fx * b.reach, 0, y + fz * b.reach);
+        // The beam's shape rides on its reach (look.ts beamDistance), which the lit shaders read per light.
+        l.distance = beamDistance(b.reach + 120 + z, b.shape);
+        l.position.set(x + fx * b.from, z + b.height, y + fz * b.from);
+        l.target.position.set(x + Math.sin(s) * b.reach, 0, y - Math.cos(s) * b.reach);
         l.target.updateMatrixWorld();
         l.updateMatrixWorld();
         // On the thermal camera shadows are not drawn, but a light must have drawn its shadow map once to be used.
@@ -894,7 +907,7 @@ export class ModernRenderer {
         h.dir[i]!.copy(l.target.position).sub(l.position).normalize();
         const c = l.color;
         h.col[i]!.set(c.r, c.g, c.b).multiplyScalar(b.power / 260);
-        h.cone[i]!.set(Math.cos(b.angle), Math.cos(b.angle * (1 - b.soft)));
+        h.cone[i]!.set(Math.cos(b.angle), Math.cos(b.angle * (1 - b.soft)), b.shape);
       }
     }
     for (let i = 0; i < HEADLIGHTS; i++) {
@@ -1884,6 +1897,7 @@ export class ModernRenderer {
   }
 
   dispose(): void {
+    this.lights.dispose();
     this.ground?.dispose();
     this.pass?.dispose();
     this.marks.dispose();

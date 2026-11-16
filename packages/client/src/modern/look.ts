@@ -19,7 +19,41 @@ export const THERMAL = { value: 0 };
 /** Seconds, for the lights' flicker: shared by every material whose lights are made less clean. */
 export const LIGHT_TIME = { value: 0 };
 
-const GRAIN_GLSL = `
+/**
+ * A vehicle's beam's shape across its cone (GLSL): q is where a point lies across the beam (beamAcross), cone the
+ * cone's cosine, shape the vehicle's lamp (beamDistance): 0 one plain beam, 1 twin headlamps (two pools side by side),
+ * 2 hooded blackout lamps (twin, dim, cut off above so only the ground just ahead is lit), 3 a searchlight (a
+ * hard-edged disc with a hot middle). Shared by the lit materials and the sea, which lights itself.
+ */
+export const BEAM_SHAPE_GLSL = `
+vec2 beamAcross(vec3 toLight, vec3 axis) {
+  float c = max(dot(toLight, axis), 0.2);
+  vec3 side = normalize(cross(axis, abs(axis.y) < 0.9 ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0)));
+  vec3 up = cross(axis, side);
+  return vec2(dot(toLight, side), dot(toLight, up)) / c;
+}
+float beamShape(vec2 q, float cone, float shape) {
+  // Across the cone, 0 in the middle to 1 at its edge; for a beam pointed down at the ground, n.y grows toward the
+  // far side of its pool.
+  vec2 n = q / max(sqrt(1.0 - cone * cone) / cone, 0.01);
+  if (shape > 2.5) {
+    float r = length(n);
+    return 0.15 + smoothstep(0.9, 0.75, r) * (0.9 + 0.6 * smoothstep(0.45, 0.0, r));
+  }
+  if (shape > 0.5) {
+    float spread = shape > 1.5 ? 0.13 : 0.07;
+    vec2 l1 = n - vec2(0.42, 0.0);
+    vec2 l2 = n + vec2(0.42, 0.0);
+    float s = 0.15 + 1.35 * max(exp(-dot(l1, l1) / spread), exp(-dot(l2, l2) / spread));
+    // Hooded: the hood cuts the top of the beam off, so the far side goes dark.
+    if (shape > 1.5) s *= smoothstep(0.45, -0.1, n.y);
+    return s;
+  }
+  return 1.0;
+}
+`;
+
+const GRAIN_GLSL = `${BEAM_SHAPE_GLSL}
 uniform float lightTime;
 float grainHash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 float grainNoise(vec2 p) {
@@ -31,7 +65,10 @@ float grainNoise(vec2 p) {
 // A headlight or searchlight through scratched, dirty glass: blotches across the beam, faint rings from the
 // reflector, and a slight flutter from the engine. Worked out across the cone in the world's directions, so the
 // pattern travels with the beam and nothing in it turns when the camera tilts or follows.
-float beamGrain(vec3 toLight, vec3 axis, float k) {
+// shape is the vehicle's lamp (beamDistance): 0 one plain beam, 1 twin headlamps (two pools side by side), 2 hooded
+// blackout lamps (twin, dim, cut off above so only the ground just ahead is lit), 3 a searchlight (a hard-edged,
+// cleaner disc with a hot middle). cone is the light's cone's cosine, to measure across the cone from 0 to 1.
+float beamGrain(vec3 toLight, vec3 axis, float k, float cone, float shape) {
   vec3 l = (vec4(toLight, 0.0) * viewMatrix).xyz;
   vec3 a = (vec4(axis, 0.0) * viewMatrix).xyz;
   float c = max(dot(l, a), 0.2);
@@ -43,7 +80,10 @@ float beamGrain(vec3 toLight, vec3 axis, float k) {
   float grime = 1.0 - 0.6 * smoothstep(0.62, 0.8, grainNoise(q * 13.0 + vec2(k * 5.1, 2.0)));
   float scratch = 1.0 - 0.35 * smoothstep(0.86, 0.97, grainNoise(vec2(q.x * 3.0 + q.y * 1.4, q.y * 60.0 - q.x * 12.0) + k));
   float flutter = 0.95 + 0.05 * sin(lightTime * (19.0 + k * 3.0) + k * 5.0) * sin(lightTime * 4.3 + k);
-  return (0.3 + 1.05 * blotch * blotch) * (0.8 + 0.2 * rings) * grime * scratch * flutter;
+  float grain = (0.3 + 1.05 * blotch * blotch) * (0.8 + 0.2 * rings) * grime * scratch;
+  // A searchlight's glass is cleaner than a headlamp's.
+  if (shape > 2.5) grain = mix(1.0, grain, 0.35);
+  return grain * beamShape(q, cone, shape) * flutter;
 }
 // A lamp through its cage and grimy glass: soft bars of shadow round it, smudges, and an old bulb's or a flame's
 // flicker. Worked out in the world's directions, so the bars stand upright whatever the camera does, and seeded by
@@ -62,6 +102,21 @@ float lampGrain(vec3 toLight, float k) {
 }
 `;
 
+/** A vehicle's beam's shape (beamGrain). */
+export type BeamShape = 0 | 1 | 2 | 3;
+export const BEAM_PLAIN: BeamShape = 0;
+export const BEAM_TWIN: BeamShape = 1;
+export const BEAM_HOODED: BeamShape = 2;
+export const BEAM_SEARCH: BeamShape = 3;
+
+/**
+ * A spotlight's reach carrying its beam's shape, for the lit shaders to read per light (whatever order three.js puts
+ * the lights in): the reach in whole pixels and the shape in eighths, which a float holds exactly.
+ */
+export function beamDistance(reach: number, shape: BeamShape): number {
+  return Math.round(reach) + shape / 8;
+}
+
 /**
  * Makes a lit material's point and spot lights less clean (Paul's night: lamps, fires and headlights with texture
  * in them, not perfect discs): a gobo-like pattern, grime and flicker on each light's contribution.
@@ -70,7 +125,7 @@ export function grainLights(shader: { uniforms: Record<string, THREE.IUniform>; 
   shader.uniforms.lightTime = LIGHT_TIME;
   const chunk = THREE.ShaderChunk.lights_fragment_begin
     .replace('getPointLightInfo( pointLight, geometryPosition, directLight );', '$&\n\t\tdirectLight.color *= lampGrain( directLight.direction, lampSeed( pointLight.position ) );')
-    .replace('getSpotLightInfo( spotLight, geometryPosition, directLight );', '$&\n\t\tdirectLight.color *= beamGrain( directLight.direction, spotLight.direction, float( UNROLLED_LOOP_INDEX ) );');
+    .replace('getSpotLightInfo( spotLight, geometryPosition, directLight );', '$&\n\t\tdirectLight.color *= beamGrain( directLight.direction, spotLight.direction, float( UNROLLED_LOOP_INDEX ), spotLight.coneCos, floor( fract( spotLight.distance ) * 8.0 + 0.5 ) );');
   shader.fragmentShader = shader.fragmentShader
     .replace('void main() {', `${GRAIN_GLSL}\nvoid main() {`)
     .replace('#include <lights_fragment_begin>', chunk);

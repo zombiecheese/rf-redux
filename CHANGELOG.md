@@ -6,6 +6,7 @@ Each release's section below becomes its GitHub release notes (`.github/workflow
 
 ### Added
 
+- Each vehicle has its own lights in the modern view. The jeep has twin headlamps (two pools of light side by side) and red tail lights that brighten as it brakes or backs up. The tank has dim hooded blackout lamps that light only the ground just ahead, and small convoy tail lamps. The ASV carries navigation lights (red to port, green to starboard, white masthead and stern) and a narrow searchlight that sweeps slowly across the water ahead. The helicopter has a searchlight under its nose whose hard-edged pool wanders over the ground below, red and green navigation lights on its stub wings, a white tail strobe and a red anti-collision beacon on its tail fin that flashes day and night. The small lights are glows drawn in a single batch, so they cost next to nothing; each vehicle still has just one real light for its beam.
 - On the modern view's thermal camera (night matches), the picture is momentarily burnt into the screen and fades over about a second, like a real infrared sensor: as the camera moves, warm scenery smears behind it, and white-hot vehicles, soldiers and fires leave bright trails, soft and blurred as they fade. It starts fresh when the camera cuts or the thermal camera is switched on. The cool ground leaves none.
 
 ### Fixed
