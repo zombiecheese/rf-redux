@@ -4,6 +4,10 @@ Each release's section below becomes its GitHub release notes (`.github/workflow
 
 ## [Unreleased]
 
+## [0.8.1] - 2026-11-16
+
+The touch stick on phones and tablets now steers by direction.
+
 ### Changed
 
 - The touch stick on phones and tablets now steers by direction: point it the way you want to go on screen and the vehicle turns the short way round to face that way and drives there, turning on the spot first when the stick points well away from it. Let go and it coasts to a stop. This works for the jeep, tank, ASV and helicopter (which lets go of its turn early so it does not swing past). The stick still presses the same keys a keyboard player would, so online play and replays are unchanged. Keyboard controls are unchanged.
@@ -249,7 +253,8 @@ The first release: a browser remake of Return Fire (1995) that plays like the or
 
 - A Docker Compose stack with one image, `ghcr.io/zombiecheese/rf-redux`, published for every version tag together with a compose file, an `.env` template and a Caddyfile for HTTPS ([docs/deploy.md](docs/deploy.md)).
 
-[Unreleased]: https://github.com/zombiecheese/rf-redux/compare/v0.8.0...HEAD
+[Unreleased]: https://github.com/zombiecheese/rf-redux/compare/v0.8.1...HEAD
+[0.8.1]: https://github.com/zombiecheese/rf-redux/releases/tag/v0.8.1
 [0.8.0]: https://github.com/zombiecheese/rf-redux/releases/tag/v0.8.0
 [0.7.2]: https://github.com/zombiecheese/rf-redux/releases/tag/v0.7.2
 [0.7.1]: https://github.com/zombiecheese/rf-redux/releases/tag/v0.7.1
