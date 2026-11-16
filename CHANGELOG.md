@@ -4,6 +4,10 @@ Each release's section below becomes its GitHub release notes (`.github/workflow
 
 ## [Unreleased]
 
+### Added
+
+- On the modern view's thermal camera (night matches), white-hot things such as vehicles, soldiers and fires now leave a faint, short afterimage as they move, like a real infrared sensor's slow response. It stays on the ground it was left on as the camera follows, fades in about a fifth of a second, and starts fresh when the camera cuts or the thermal camera is switched on. Cooler things leave none.
+
 ### Fixed
 
 - The loading screens no longer freeze while a match gets ready. Building the modern view's 3D world (painting the ground and putting up every block of buildings) is now done a little at a time between the loading screen's frames instead of in one go, the big textures go up to the graphics card one at a time, and the shaders are compiled in the background where the browser can (most desktop Chrome and Edge). The sprites are also unpacked without a round trip to the graphics card. Add `?stats=1` to the address to have the console report how long loading took and the longest the screen stood still.

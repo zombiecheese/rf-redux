@@ -78,6 +78,8 @@ export interface ModernView {
   screen?: ModernScreen;
 }
 
+/** A point projected for the thermal afterimage. */
+const GHOST_P = new THREE.Vector3();
 const radians = (heading: number) => (heading / 65536 / 64) * Math.PI * 2;
 const rand = (a: number, b: number) => a + Math.random() * (b - a);
 /** A gate's leaf, post to middle (px). */
@@ -254,6 +256,8 @@ export class ModernRenderer {
   private feed = false;
   private thermal = false;
   private pass: LookPass | null = null;
+  /** Where each player's camera looked last picture on the thermal camera, for its afterimage (look.ts). */
+  private readonly ghostAt = new Map<number, { x: number; y: number; z: number; pitch: number; w: number; h: number }>();
   /** Recent blasts (seconds on the performance clock), and when each player's vehicle was last hit or destroyed. */
   private readonly blasts: { x: number; y: number; at: number; power: number }[] = [];
   private readonly struck = new Map<number, { at: number; long: boolean }>();
@@ -563,15 +567,19 @@ export class ModernRenderer {
     // The map from each camera, then the drone's lens or the thermal camera over it, then the bunker and skull
     // screens, which are the player's own screens (the bunker then gets its security camera's look).
     const field = views.filter((v) => !v.skip);
+    const shifts: ({ x: number; y: number } | null)[] = [];
     for (const v of field) {
       at(v.rect);
       const team = m.players[v.viewer]?.team;
       for (const mine of this.mines) mine.visible = mine.userData.team === team || !mine.userData.armed;
       this.place(v.cam, v.rect);
+      if (this.thermal) shifts.push(this.ghostShift(v));
       this.gl.render(this.scene, this.camera);
     }
+    if (!this.thermal) this.ghostAt.clear();
+    else for (const key of [...this.ghostAt.keys()]) if (!field.some((v) => v.viewer === key)) this.ghostAt.delete(key);
     stats?.begin('feed');
-    if (field.length && (this.feed || this.thermal)) (this.pass ??= new LookPass(MODERN_W, MODERN_H)).apply(this.gl, field.map((v) => v.rect), field.map((v) => this.glitchFor(v)), this.feed, this.thermal, now / 1000, this.feed && !this.thermal);
+    if (field.length && (this.feed || this.thermal)) (this.pass ??= new LookPass(MODERN_W, MODERN_H)).apply(this.gl, field.map((v) => v.rect), field.map((v) => this.glitchFor(v)), this.feed, this.thermal, now / 1000, this.feed && !this.thermal, null, shifts);
     stats?.begin('screens');
     for (const v of views) {
       const r = v.rect;
@@ -671,6 +679,27 @@ export class ModernRenderer {
     // A hit on the player's own vehicle breaks the feed up at most to 70%, so who is shooting stays in sight.
     if (s) g = Math.max(g, STRUCK_MAX * fade(now - s.at, s.long ? 1.2 : 0.6));
     return Math.max(g, this.jamming);
+  }
+
+  /**
+   * How far the ground has moved across a view since its last thermal picture (modern pixels, y up), so the
+   * afterimage stays on the ground it was left on as the camera follows; null when there is no last picture of the
+   * same place: the first, a zoom or tilt, a resized view, or a cut. The camera must already be placed for v.
+   */
+  private ghostShift(v: ModernView): { x: number; y: number } | null {
+    const pose = v.cam.pose();
+    const r = v.rect;
+    const was = this.ghostAt.get(v.viewer);
+    this.ghostAt.set(v.viewer, { x: pose.x, y: pose.y, z: pose.z, pitch: pose.pitch, w: r.w, h: r.h });
+    if (!was || was.z !== pose.z || was.pitch !== pose.pitch || was.w !== r.w || was.h !== r.h) return null;
+    // Where the last centre of the view is now, against where the centre is.
+    const then = GHOST_P.set(was.x, 0, was.y).project(this.camera);
+    const tx = then.x;
+    const ty = then.y;
+    const now = GHOST_P.set(pose.x, 0, pose.y).project(this.camera);
+    const x = ((tx - now.x) / 2) * r.w;
+    const y = ((ty - now.y) / 2) * r.h;
+    return Math.abs(x) > 48 || Math.abs(y) > 48 ? null : { x, y };
   }
 
   /** Stands the camera where the retro camera projects from, framing the rectangle as the retro view frames its own. */
