@@ -101,7 +101,11 @@ export class LoadingScreen {
     this.style = style;
     current = { ...info, steps: steps.map(([label, plain]) => ({ label, plain, done: false })), since: performance.now(), tip: pickTip() };
     cancelAnimationFrame(this.raf);
+    this.worst = 0;
+    let last = 0;
     const tick = (now: number) => {
+      if (last) this.worst = Math.max(this.worst, now - last);
+      last = now;
       this.draw(now);
       this.raf = requestAnimationFrame(tick);
     };
@@ -141,6 +145,14 @@ export class LoadingScreen {
   clear(): void {
     this.stop();
     current = null;
+  }
+
+  /** The longest wait between two of this loading screen's pictures (ms): how long it stood still at worst. */
+  worst = 0;
+
+  /** How long this loading screen has been up (ms). */
+  get age(): number {
+    return current ? performance.now() - current.since : 0;
   }
 
   get running(): boolean {

@@ -303,6 +303,11 @@ export class LookPass {
     gl.render(this.scene, this.camera);
   }
 
+  /** Hands its scene to compile, so its shader can be made ahead of its first use. */
+  compile(compile: (scene: THREE.Scene, camera: THREE.Camera) => void): void {
+    compile(this.scene, this.camera);
+  }
+
   dispose(): void {
     this.frame.dispose();
     this.material.dispose();

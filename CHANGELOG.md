@@ -4,6 +4,10 @@ Each release's section below becomes its GitHub release notes (`.github/workflow
 
 ## [Unreleased]
 
+### Fixed
+
+- The loading screens no longer freeze while a match gets ready. Building the modern view's 3D world (painting the ground and putting up every block of buildings) is now done a little at a time between the loading screen's frames instead of in one go, the big textures go up to the graphics card one at a time, and the shaders are compiled in the background where the browser can (most desktop Chrome and Edge). The sprites are also unpacked without a round trip to the graphics card. Add `?stats=1` to the address to have the console report how long loading took and the longest the screen stood still.
+
 ## [0.8.1] - 2026-11-16
 
 The touch stick on phones and tablets now steers by direction.

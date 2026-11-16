@@ -155,7 +155,8 @@ async function pixels(path: string, base = BASE): Promise<{ w: number; h: number
   img.src = `${base}/${path}`;
   await img.decode();
   const canvas = new OffscreenCanvas(img.width, img.height);
-  const ctx = canvas.getContext('2d')!;
+  // Kept off the graphics card: reading a picture back from it holds up the page (and the loading screen) for long.
+  const ctx = canvas.getContext('2d', { willReadFrequently: true })!;
   ctx.drawImage(img, 0, 0);
   const data = ctx.getImageData(0, 0, img.width, img.height).data;
   return { w: img.width, h: img.height, data: new Uint32Array(data.buffer.slice(0)) };

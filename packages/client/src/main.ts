@@ -272,6 +272,8 @@ function mapLoaded(): void {
 async function untilLive(g: Game, mine: number): Promise<boolean> {
   const live = await Promise.race([g.live.then(() => true), g.done.then(() => false)]);
   if (!live || mine !== run) return false;
+  // With ?stats=1, how smoothly it loaded.
+  if (params.get('stats') === '1') console.info(`Loaded in ${Math.round(loading.age)} ms; the loading screen stood still for ${Math.round(loading.worst)} ms at worst.`);
   loading.handOver();
   loading.stop();
   return true;

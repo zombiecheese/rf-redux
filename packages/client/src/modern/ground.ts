@@ -110,18 +110,27 @@ export class Ground {
   private readonly TEX: number;
   private readonly SIZE: number;
 
-  /** lit, when given, teaches the ground's material more lighting (the buildings' lamps at night). */
-  constructor(private readonly assets: GameAssets, world: World, sun: THREE.Vector3, fine: boolean, sea: SeaInputs, lit?: (shader: THREE.WebGLProgramParametersWithUniforms) => void) {
+  /**
+   * lit, when given, teaches the ground's material more lighting (the buildings' lamps at night). later leaves the
+   * ground unpainted for paintIn to paint a slice at a time, behind the loading screen.
+   */
+  constructor(
+    private readonly assets: GameAssets, world: World, sun: THREE.Vector3, fine: boolean, sea: SeaInputs,
+    lit?: (shader: THREE.WebGLProgramParametersWithUniforms) => void, later = false,
+  ) {
     this.TEX = fine ? 32 : 16;
     this.SIZE = GRID * this.TEX;
     const SIZE = this.SIZE;
     this.image = new ImageData(this.SIZE, this.SIZE);
     this.texels = new Uint8Array(this.SIZE * this.SIZE * 4);
     this.terrain.set(world.terrain);
-    this.paint(0, 0, GRID, GRID);
+    this.pending = later;
+    if (!later) this.paint(0, 0, GRID, GRID);
     this.texture = new THREE.DataTexture(this.texels, this.SIZE, this.SIZE, THREE.RGBAFormat, THREE.UnsignedByteType);
-    this.copyTexels(0, 0, this.SIZE, this.SIZE);
-    this.texture.needsUpdate = true;
+    if (!later) {
+      this.copyTexels(0, 0, this.SIZE, this.SIZE);
+      this.texture.needsUpdate = true;
+    }
     this.texture.onUpdate = () => (this.live = true);
     this.texture.magFilter = THREE.LinearFilter;
     this.texture.colorSpace = THREE.SRGBColorSpace;
@@ -137,7 +146,7 @@ export class Ground {
     this.splatTex.onUpdate = () => (this.splatLive = true);
     // The alpha is the ground's light left after occlusion (paintAo): all of it until then.
     for (let i = 3; i < this.splat.length; i += 4) this.splat[i] = 255;
-    this.paintSplat(0, 0, GRID, GRID);
+    if (!later) this.paintSplat(0, 0, GRID, GRID);
     // The garden from photo scans where the device takes it (art.ts), else the painted ground on its own.
     const photo = ART.photoGround;
     const mat = photo
@@ -184,6 +193,69 @@ export class Ground {
     ocean.rotateX(-Math.PI / 2);
     ocean.position.set((GRID * TILE) / 2, -1.2, (GRID * TILE) / 2);
     this.group.add(ocean);
+  }
+
+  /**
+   * Paints the ground a constructor told to leave it for later, the same as the constructor would have, a slice at a
+   * time: pause is awaited after each, and goes on at once until its slice of time is used up.
+   */
+  async paintIn(pause: () => Promise<void>): Promise<void> {
+    const S = this.SIZE;
+    for (let ty = 0; ty < GRID; ty++) {
+      this.paint(0, ty, GRID, ty + 1, false);
+      await pause();
+    }
+    // Softened from the whole picture as painted, as one paint of the whole map does, a few rows at a time.
+    const whole = new Uint8ClampedArray(this.image.data);
+    const R = this.TEX >= 32 ? 2 : 1;
+    for (let y = 0; y < S; y += 32) {
+      this.blur(whole, S, 0, 0, Math.max(R, y), Math.min(S - R, y + 32), R, S - R);
+      await pause();
+    }
+    for (let y = 0; y < S; y += 256) {
+      this.copyTexels(0, y, S, Math.min(S, y + 256));
+      await pause();
+    }
+    this.texture.needsUpdate = true;
+    for (let ty = 0; ty < GRID; ty += 8) {
+      this.paintSplat(0, ty, GRID, Math.min(GRID, ty + 8));
+      await pause();
+    }
+    this.pending = false;
+  }
+
+  /** Whether the ground waits on paintIn still (it was left for later and not finished). */
+  private pending: boolean;
+
+  /** Paints a ground left for later that paintIn never finished, all at once. */
+  paintNow(): void {
+    if (!this.pending) return;
+    this.pending = false;
+    this.paint(0, 0, GRID, GRID);
+    this.copyTexels(0, 0, this.SIZE, this.SIZE);
+    this.texture.needsUpdate = true;
+    this.paintSplat(0, 0, GRID, GRID);
+  }
+
+  /**
+   * Puts the ground's pictures on the graphics card now, one at a time with step awaited after each, rather than all
+   * at its first picture: the painted ground (64 MB, its mipmaps made there) and its splat, and the photo scans once
+   * they have loaded.
+   */
+  async upload(gl: THREE.WebGLRenderer, step: () => Promise<void>): Promise<void> {
+    gl.initTexture(this.texture);
+    await step();
+    gl.initTexture(this.splatTex);
+    if (!ART.photoGround) return;
+    const maps = await photoMaps().catch(() => null);
+    if (!maps) return;
+    this.photo.value = maps;
+    this.photoOn.value = 1;
+    await step();
+    gl.initTexture(maps.colour);
+    await step();
+    gl.initTexture(maps.surface);
+    await step();
   }
 
   /** Repaints tiles whose terrain changed (a building become rubble, a lift's pad), and the lifts' open shafts. */
@@ -319,7 +391,7 @@ export class Ground {
   }
 
   /** Paints tiles [x0, x1) x [y0, y1) into the image, with a soft blur across tile edges. */
-  private paint(x0: number, y0: number, x1: number, y1: number): void {
+  private paint(x0: number, y0: number, x1: number, y1: number, soft = true): void {
     const px = this.image.data;
     const [big, fine] = this.noise as [Float32Array, Float32Array];
     for (let ty = y0; ty < y1; ty++) {
@@ -367,7 +439,7 @@ export class Ground {
         }
       }
     }
-    this.soften(x0 * this.TEX, y0 * this.TEX, x1 * this.TEX, y1 * this.TEX);
+    if (soft) this.soften(x0 * this.TEX, y0 * this.TEX, x1 * this.TEX, y1 * this.TEX);
   }
 
   /**
@@ -423,8 +495,18 @@ export class Ground {
     const src = new Uint8ClampedArray(w * h * 4);
     for (let y = 0; y < h; y++) src.set(px.subarray(((y0 + y) * this.SIZE + x0) * 4, ((y0 + y) * this.SIZE + x1) * 4), y * w * 4);
     const R = this.TEX >= 32 ? 2 : 1;
-    for (let y = R; y < h - R; y++) {
-      for (let x = R; x < w - R; x++) {
+    this.blur(src, w, x0, y0, R, h - R, R, w - R);
+  }
+
+  /**
+   * soften's blur: src is a copy of the picture w wide whose (0, 0) is the picture's (x0, y0); its rows [ya, yb) and
+   * columns [xa, xb) are blurred into the picture.
+   */
+  private blur(src: Uint8ClampedArray, w: number, x0: number, y0: number, ya: number, yb: number, xa: number, xb: number): void {
+    const px = this.image.data;
+    const R = this.TEX >= 32 ? 2 : 1;
+    for (let y = ya; y < yb; y++) {
+      for (let x = xa; x < xb; x++) {
         const o = (y * w + x) * 4;
         let a = 0;
         const sum = [0, 0, 0];
