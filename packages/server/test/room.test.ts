@@ -95,3 +95,19 @@ describe('the time limit', () => {
     expect(timeLimitWinner(m)).toBe(0);
   });
 });
+
+describe('achievements in an online match', () => {
+  it('are tallied by the server for each signed-in player, from its own run of the match', () => {
+    const { r, a, m } = room();
+    r.command(a, commandCode({ launch: 'tank' }));
+    for (let t = 0; t < 120; t++) r.tick();
+    // A made-up kill on the next tick: the bot's vehicle, by A.
+    m.events = [{ type: 'destroyed', player: 2, kind: 'jeep', x: 0, y: 0, z: 0, heading: 0, by: 0 }];
+    (r as unknown as { tracker: { tick(x: typeof m): void } }).tracker.tick(m);
+    r.end(undefined, true);
+    expect([...r.tallies.keys()].sort()).toEqual(['a', 'b']);
+    expect(r.tallies.get('a')!.earned).toEqual(expect.arrayContaining(['first-blood', 'online-first', 'first-match']));
+    expect(r.tallies.get('a')!.counters).toMatchObject({ kills: 1, 'online.games': 1 });
+    expect(r.tallies.get('b')!.counters.kills).toBeUndefined();
+  });
+});

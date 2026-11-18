@@ -424,7 +424,7 @@ export class Lobbies {
     }));
     const room = new Room({
       id: id(), mapId: l.mapId, map: l.map, defs: this.maps.defs, shore: this.maps.shore, seats, seed: randomBytes(4).readInt32LE(0) || 1,
-      difficulty: l.difficulty, handicap: l.handicap, visuals: l.visuals, lighting: l.lighting, pauseOnDrop: l.visibility === 'private', desyncDir: this.hooks.desyncDir,
+      difficulty: l.difficulty, handicap: l.handicap, visuals: l.visuals, lighting: l.lighting, customMap: !this.maps.builtIn(l.mapId), pauseOnDrop: l.visibility === 'private', desyncDir: this.hooks.desyncDir,
       onEnd: (result) => this.ended(l, room, result), onDesync: this.hooks.onDesync,
     });
     l.room = room;

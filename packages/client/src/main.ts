@@ -17,6 +17,7 @@ import {
 import { Display, goFullScreen, blockWhileUpright, canFullScreen, isFullScreen, isHandheld, requireFullScreen, untilReady } from './display.js';
 import { listDrafts, loadDraft } from './editor/storage.js';
 import { AUDIO_STEP, Game, SHADER_STEP, SYNC_STEP, type Outcome } from './game.js';
+import { achievements, achievementsDialog } from './achievements.js';
 import { ReplayBar, replaysDialog, saveReplay } from './replays.js';
 import { resultsScreen, winnerTitle } from './results.js';
 import { openAdmin } from './admin/panel.js';
@@ -343,7 +344,7 @@ async function startGame(opts: { bots?: boolean; seed?: number } = {}): Promise<
       difficulty: settings.difficulty, names: settings.names, swapSides: settings.swapSides, bots: opts.bots ?? (settings.players === 1 || settings.teams.bots), handheld,
       teams, handicap: teams !== undefined && settings.teams.handicap,
       mapId: settings.mapId, mapName: entry?.name ?? assets.map.name, onReplay: (r) => { replay = r; void saveReplay(r); }, visuals, lighting, thermal: thermalOn,
-      onStep: (label) => loading.done(label),
+      onStep: (label) => loading.done(label), onTally: (t) => achievements.record(t),
     });
     if (!(await untilLive(game, mine))) return;
     setScreen('game');
@@ -416,6 +417,7 @@ async function watchReplay(r: Replay): Promise<void> {
     if (!(await untilLive(g, mine))) return;
     replayBar = new ReplayBar(g.replayControl!, r, () => g.paused, () => void togglePause(), () => void leave());
     setScreen('game');
+    achievements.unlock('replay');
     await g.done;
   } catch (err) {
     if (mine !== run) return;
@@ -741,6 +743,7 @@ async function setUpOnline(): Promise<void> {
   net.on('welcome', (you) => {
     menu.refresh();
     if (!you.guest) void loadProfile();
+    void achievements.account(you.guest ? null : you.id);
     if (adminAt !== null && you.guest && !joinCode) void needAccount();
     else if (adminAt !== null && !you.guest) {
       void openAdmin(adminAt || undefined);
@@ -765,6 +768,7 @@ async function setUpOnline(): Promise<void> {
   net.on('notice', (text) => {
     if (!game) toast(text);
   });
+  net.on('achievements', (ids) => achievements.fromServer(ids));
   net.on('error', (text) => toast(text));
   net.on('kicked', () => toast('You were removed from the lobby'));
   net.on('friends', (text) => {
@@ -864,6 +868,7 @@ function titleItems(): MenuEntry[] {
       },
     },
     { label: 'Hall of Fame', key: shortcutName('hallOfFame'), action: () => void showHallOfFame() },
+    { label: 'Achievements', hint: `${achievements.count} of 50 earned`, action: () => void overGame(achievementsDialog) },
     { label: 'Replays', hint: 'Watch your last matches again', action: () => void showReplays() },
     // Shown on phones and tablets too, greyed out, so players learn it is there and that it needs a desktop browser.
     handheld
@@ -891,6 +896,7 @@ function matchItems(): MenuEntry[] {
     { label: 'New Game', key: shortcutName('newGame'), action: thenClose(() => newGame()) },
     { label: 'Options', items: optionItems },
     { label: 'Hall of Fame', key: shortcutName('hallOfFame'), action: () => void showHallOfFame() },
+    { label: 'Achievements', hint: `${achievements.count} of 50 earned`, action: () => void overGame(achievementsDialog) },
     { label: 'Help', items: helpItems },
     { label: 'Leave Match', hint: online ? 'The computer plays your seat' : 'Back to the title', action: thenClose(exit) },
   ];
@@ -1041,6 +1047,7 @@ function toggleThermal(): void {
   thermal = !thermal;
   syncLook();
   toast(thermal ? 'Thermal camera on' : 'Thermal camera off');
+  if (thermal && !game.replayControl) achievements.unlock('thermal');
 }
 
 /** The thermal camera's keys as the button and menus show them: each hand's, as either works for a solo player. */

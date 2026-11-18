@@ -251,3 +251,41 @@ body[data-visuals=modern] .mi { padding: .38em .9em; }
   body[data-visuals=retro] .menu-logo { max-height: 12vh; }
   body[data-visuals=retro] .mi:disabled .mi-hint { display: none; }
 }
+
+/* ================================================================================================================
+   Achievements (achievements.ts)
+   ================================================================================================================ */
+
+/* Classic: a bevelled pixel panel in the game's letters, with the CRT's scan lines over it. */
+body[data-visuals=retro] .ui .ach-row { border: var(--px) solid #0b0c07; box-shadow: inset var(--px) var(--px) 0 var(--hi), inset calc(var(--px) * -1) calc(var(--px) * -1) 0 var(--lo); }
+body[data-visuals=retro] .ui .ach-row.got { border-left-width: calc(var(--px) * 3); border-left-color: var(--ui-accent); }
+body[data-visuals=retro] .ui .ach-bar { border: var(--px) solid #0b0c07; height: calc(var(--px) * 4); background: #14160d; }
+body[data-visuals=retro] .ui .ach-group { letter-spacing: 0; }
+body[data-visuals=retro] .achievement-toast {
+  font: var(--ui-size)/1.15 'RF Pixel', ui-monospace, monospace; -webkit-font-smoothing: none; letter-spacing: 0; color: var(--ui-text);
+  border: var(--px) solid #0b0c07; border-left: calc(var(--px) * 3) solid var(--ui-accent);
+  background: repeating-linear-gradient(0deg, rgba(0, 0, 0, .22) 0 var(--px), transparent var(--px) calc(var(--px) * 2)), var(--ui-panel);
+  box-shadow: inset var(--px) var(--px) 0 #59613f, inset calc(var(--px) * -1) calc(var(--px) * -1) 0 #14160d, calc(var(--px) * 3) calc(var(--px) * 3) 0 rgba(0, 0, 0, .65);
+  text-shadow: 0 0 .35em rgba(232, 176, 64, .35); animation-timing-function: steps(4), steps(3); }
+body[data-visuals=retro] .achievement-toast .ach-tag { font-size: 1em; letter-spacing: 0; color: var(--ui-accent); }
+body[data-visuals=retro] .achievement-toast .ach-name { font-weight: normal; color: var(--ui-text); }
+body[data-visuals=retro] .achievement-toast .ach-text { font-size: 1em; color: var(--ui-muted); opacity: 1; }
+body[data-visuals=retro] .achievement-toast .ach-icon { font-family: system-ui, sans-serif; color: var(--ui-accent); }
+
+/* Modern: the computer vision locking on to a find: a box with corner brackets, a cyan tag and a confidence read-out. */
+body[data-visuals=modern] .ui .ach-row { font-family: var(--mono); background: rgba(236, 242, 232, .03); }
+body[data-visuals=modern] .ui .ach-row.got { background: var(--brackets), rgba(236, 242, 232, .05); border-left-color: var(--cv); }
+body[data-visuals=modern] .ui .ach-row.got .ach-icon, body[data-visuals=modern] .ui .ach-row.got .ach-state { color: var(--cv); }
+body[data-visuals=modern] .ui .ach-row .ach-name { text-transform: uppercase; letter-spacing: .05em; }
+body[data-visuals=modern] .ui .ach-group, body[data-visuals=modern] .ui .ach-total { font-family: var(--mono); }
+body[data-visuals=modern] .ui .ach-fill { background: repeating-linear-gradient(90deg, var(--cv) 0 .5em, transparent .5em .65em); }
+body[data-visuals=modern] .achievement-toast {
+  position: relative; font: 600 calc(var(--ui-size) * .82)/1.3 var(--mono); text-transform: uppercase; letter-spacing: .05em; color: var(--ink);
+  background: var(--brackets), repeating-linear-gradient(0deg, rgba(236, 242, 232, .04) 0 1px, transparent 1px 3px), rgba(6, 10, 12, .82);
+  border: 1px solid rgba(98, 224, 255, .55); border-left: 2px solid var(--cv); border-radius: 0; padding: .8em 1.1em; box-shadow: 0 0 1.2em rgba(98, 224, 255, .18); }
+body[data-visuals=modern] .achievement-toast .ach-tag { justify-self: start; margin-bottom: .35em; padding: .05em .45em; background: var(--cv); color: #0b0f10;
+  font-weight: 800; font-size: .72em; letter-spacing: .08em; }
+body[data-visuals=modern] .achievement-toast:not(.note) .ach-tag::after { content: '  //  CONF 0.99'; }
+body[data-visuals=modern] .achievement-toast .ach-icon { color: var(--cv); }
+body[data-visuals=modern] .achievement-toast .ach-name { font-weight: 800; letter-spacing: .08em; }
+body[data-visuals=modern] .achievement-toast .ach-text { text-transform: none; letter-spacing: 0; color: #c6d0c9; opacity: 1; }

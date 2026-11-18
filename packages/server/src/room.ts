@@ -16,7 +16,7 @@ import {
   HASH_EVERY, TICK_MS, VEHICLE_KINDS, botThink, buildWorld, createBot, createMatch, hashMatch, snapshotMatch,
   type BotState, type BuildingDef, type Match, type RfwMap, type ShoreTable, type Snapshot,
 } from '@rfw/sim';
-import { type LobbyLighting, type LobbyVisuals, 
+import { type LobbyLighting, type LobbyVisuals, MatchTracker, type Tally,
   applyFrame, commandCode, encodeFrames, humanGate, packInput,
   type Frame, type MatchResult, type MatchSeat, type MatchStart, type SeatStatus, type ServerMessage,
 } from '@rfw/net';
@@ -72,6 +72,8 @@ export interface RoomOptions {
   lighting?: LobbyLighting;
   /** Friends' games pause while a player is reconnecting. */
   pauseOnDrop: boolean;
+  /** A map from the library or the editor rather than a built-in one (for the achievements). */
+  customMap?: boolean;
   /** Where desync reports are written (DATA_DIR/desyncs), or null to skip writing them. */
   desyncDir: string | null;
   onEnd(result: MatchResult): void;
@@ -97,6 +99,10 @@ export class Room {
   private firstLaunch = -1;
   /** Per seat: vehicles lost and flags captured, for the results. */
   private readonly stats: { lost: number; captures: number; launches: number[] }[];
+  /** Watches the signed-in players for achievements; the server alone awards them for online matches. */
+  private readonly tracker: MatchTracker;
+  /** Each signed-in player's achievement tally, by user id, once the match has ended. */
+  readonly tallies = new Map<string, Tally>();
   /** Ticks behind schedule and desyncs, for the admin dashboard. */
   lag = 0;
   desyncs = 0;
@@ -115,6 +121,10 @@ export class Room {
       else this.humans.set(s.player, { seat: s, peer: null, input: 0, commands: [], loaded: false, goneAt: Date.now(), quit: false, bot: null });
     }
     this.stats = o.seats.map(() => ({ lost: 0, captures: 0, launches: VEHICLE_KINDS.map(() => 0) }));
+    const bots = o.seats.filter((s) => s.bot).map((s) => s.player);
+    this.tracker = new MatchTracker(this.match, o.seats.filter((s) => !s.bot && s.userId).map((s) => s.player), {
+      mode: 'online', mapId: o.mapId, custom: o.customMap === true, night: o.lighting === 'night', difficulty: o.difficulty, humans, bots,
+    });
   }
 
   get id(): string {
@@ -374,6 +384,7 @@ export class Room {
       if (kind && before[p.id] === 'bunker' && p.state === 'launching') this.stats[p.id]!.launches[VEHICLE_KINDS.indexOf(kind)]!++;
     }
     if (this.firstLaunch < 0 && [...this.humans.keys()].some((p) => this.launched(p))) this.firstLaunch = m.tick;
+    this.tracker.tick(m);
     for (const e of m.events) {
       if (e.type === 'destroyed') this.stats[e.player]!.lost++;
       if (e.type === 'captured') this.stats[e.player]!.captures++;
@@ -410,6 +421,11 @@ export class Room {
         quit: this.humans.get(s.player)?.quit ?? false,
       })),
     };
+    const quit = result.seats.filter((s) => s.quit).map((s) => s.player);
+    for (const [player, tally] of this.tracker.finish(m, result.winner, { aborted: !!aborted, quit })) {
+      const userId = this.o.seats[player]?.userId;
+      if (userId) this.tallies.set(userId, tally);
+    }
     this.broadcast({ t: 'end', result });
     this.o.onEnd(result);
   }

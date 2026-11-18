@@ -18,8 +18,8 @@ import {
   VEHICLE_KINDS, type Match, type MatchEvent, type Snapshot, type VehicleInput, type VehicleKind,
 } from '@rfw/sim';
 import {
-  DOCK, ReplayPlayer, ReplayRecorder, SoloRecorder, applyFrame, commandCode, humanGate, lobbyLighting, lobbyVisuals, packInput,
-  type MatchResult, type MatchStart, type Replay, type SoloLog,
+  DOCK, MatchTracker, ReplayPlayer, ReplayRecorder, SoloRecorder, applyFrame, commandCode, humanGate, lobbyLighting, lobbyVisuals, packInput,
+  type MatchResult, type Tally, type MatchStart, type Replay, type SoloLog,
 } from '@rfw/net';
 import type { GameAssets } from './assets.js';
 import { BAYS, drawBunker } from './bunker.js';
@@ -110,6 +110,8 @@ export interface GameOptions {
   thermal?: () => boolean;
   /** Each part of getting the match ready, as it is done, for the loading screen (PREP_STEPS' labels). */
   onStep?: (label: string) => void;
+  /** Offline: what the (first) player earned towards the achievements, once the match has ended. */
+  onTally?: (t: Tally) => void;
 }
 
 /**
@@ -491,6 +493,12 @@ export class Game {
     const recordable = !online && !replay && players === 1 && this.o.bots && !!this.o.mapId && !this.o.mapId.includes(':') && match.players.length >= 2
       && home === 0 && !handicap && match.players.every((p) => p.team === p.base && p.id === p.base);
     const recorder = recordable ? new SoloRecorder(this.o.mapId!, this.o.seed, this.o.difficulty) : null;
+    // Offline the achievements follow the first player (online the server keeps them). Wins count against the
+    // computer or the other player, not against empty bases.
+    const tracker = !online && !replay ? new MatchTracker(match, [0], {
+      mode: players === 2 ? 'split' : 'training', mapId: this.o.mapId ?? 'editor', custom: !this.o.mapId || this.o.mapId.includes(':'),
+      night: nightNow(), difficulty: this.o.difficulty, humans: Array.from({ length: players }, (_, p) => p), bots: [...bots.keys()],
+    }) : null;
 
     let effects = new Effects(assets);
     /** Replays above 2x, and seeking, leave the sound effects out. */
@@ -649,6 +657,7 @@ export class Game {
         inputs[p] = move.input;
       }
       stepMatch(match, inputs);
+      tracker?.tick(match);
       recording?.frame(match, inputs.map((i) => packInput(i)), commands);
       afterTick();
     };
@@ -1247,6 +1256,8 @@ export class Game {
       if (outcome && endedAt === null) {
         music.win();
         recording?.close();
+        const tally = tracker?.finish(match, outcome.team ?? null).get(0);
+        if (tally) this.o.onTally?.(tally);
       }
       if (outcome && replayer) endedAt ??= now;
       else if (outcome) {

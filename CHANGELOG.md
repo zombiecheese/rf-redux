@@ -4,6 +4,11 @@ Each release's section below becomes its GitHub release notes (`.github/workflow
 
 ## [Unreleased]
 
+### Added
+
+- Fifty achievements to earn: Missions (from your first finished match to 100 wins, beating skill-9 bots, a flawless win, a win in under five minutes, wins at night, on three- and four-base maps, on 10 different maps and on custom maps), Combat (kills by vehicle type, a kill from each vehicle, a tank taken out by a jeep, three and five kills in one sortie, stopping the jeep carrying your flag, attack drones and soldiers), Demolition (gun towers, buildings, a prison, a bridge, a fuel depot and flattened scenery), Flags, Vehicles (all four launched in one match, the jeep afloat, mines laid, lost to the submarine, sunk), Online (finishing, beating another player, winning alongside one, a ladder rating of 1100) and Extras (watching a replay, saving a map in the level editor, the thermal camera at night). Title > Achievements and the pause menu list them with your progress, and each pops up as it is earned, styled for the modern and classic views.
+- Achievements are kept in the browser for players who are not signed in and on the account for those who are; signing in moves a guest's progress to the account. Online matches are tallied by the server from its own run of the match, and only the server can award the online achievements.
+
 ## [0.9.0] - 2026-11-16
 
 Every vehicle has its own night lights, the thermal camera burns in like a real sensor, and the modern view loads and runs smoother.
