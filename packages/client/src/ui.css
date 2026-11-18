@@ -619,10 +619,10 @@ body[data-visuals=retro] .feed-paused-hint { color: var(--ui-text); text-shadow:
 .ui .ach-group { display: flex; justify-content: space-between; margin: .7em 0 .1em; font-size: .95em; color: var(--ui-accent); text-transform: uppercase; letter-spacing: .06em; }
 .ui .ach-group:first-child { margin-top: 0; }
 .ui .ach-count { color: var(--ui-muted); }
-.ui .ach-row { display: grid; grid-template-columns: 1.8em 1fr auto; grid-template-areas: "icon name state" "icon text text" "icon bar bar"; gap: .05em .6em;
+.ui .ach-row { display: grid; grid-template-columns: 2.6em 1fr auto; grid-template-areas: "icon name state" "icon text text" "icon bar bar"; gap: .05em .6em;
   padding: .45em .6em; background: var(--ui-raise); border: 1px solid var(--ui-line); opacity: .62; }
 .ui .ach-row.got { opacity: 1; border-left: .25em solid var(--ui-accent); }
-.ui .ach-row .ach-icon { grid-area: icon; align-self: center; text-align: center; font-size: 1.2em; color: var(--ui-muted); }
+.ui .ach-row .ach-icon { grid-area: icon; align-self: center; justify-self: center; color: var(--ui-muted); }
 .ui .ach-row.got .ach-icon { color: var(--ui-accent); }
 .ui .ach-row .ach-name { grid-area: name; font-weight: 700; }
 .ui .ach-row .ach-text { grid-area: text; color: var(--ui-muted); font-size: .85em; }
@@ -638,7 +638,10 @@ body[data-visuals=retro] .feed-paused-hint { color: var(--ui-text); text-shadow:
   animation: ach-in .35s ease-out both, ach-out .5s ease-in 6s forwards; font-family: system-ui, sans-serif; }
 .achievement-toast.note { grid-template-areas: "name"; grid-template-columns: 1fr; }
 .achievement-toast .ach-tag { grid-area: tag; font-size: .7em; text-transform: uppercase; letter-spacing: .12em; color: #e8b040; }
-.achievement-toast .ach-icon { grid-area: icon; align-self: center; font-size: 1.8em; line-height: 1; color: #e8b040; }
+.achievement-toast .ach-icon { grid-area: icon; align-self: center; color: #e8b040; }
+.ach-icon svg, .ach-icon canvas { display: block; width: 2.2em; height: 2.2em; }
+.ach-icon canvas { image-rendering: pixelated; }
+.achievement-toast .ach-icon svg, .achievement-toast .ach-icon canvas { width: 3em; height: 3em; }
 .achievement-toast .ach-name { grid-area: name; font-weight: 700; font-size: 1.05em; }
 .achievement-toast .ach-text { grid-area: text; font-size: .82em; opacity: .8; }
 @keyframes ach-in { from { opacity: 0; transform: translateY(-.8em); } }

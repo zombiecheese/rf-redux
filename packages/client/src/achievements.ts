@@ -9,8 +9,9 @@
 
 import {
   ACHIEVEMENTS, ACHIEVEMENT_BY_ID, GROUPS, award, cleanProgress, emptyTally, progressAsTally, progressOf,
-  type Achievement, type Progress, type Tally,
+  type Progress, type Tally,
 } from '@rfw/net';
+import { achievementIcon } from './achievement-icons.js';
 import { dialog, el } from './dialogs.js';
 import { api } from './online/api.js';
 
@@ -197,7 +198,7 @@ export function unlockedToast(id: string): void {
   if (!x) return;
   const t = el('div', { class: `achievement-toast group-${x.group}`, role: 'status' } as Partial<HTMLElement>,
     el('span', { class: 'ach-tag' }, 'Achievement unlocked'),
-    el('span', { class: 'ach-icon', ariaHidden: 'true' } as Partial<HTMLElement>, groupMark(x)),
+    achievementIcon(x.id, LIT),
     el('span', { class: 'ach-name' }, x.name),
     el('span', { class: 'ach-text' }, x.text));
   toastBox().append(t);
@@ -208,10 +209,9 @@ export function unlockedToast(id: string): void {
   setTimeout(() => t.remove(), 6500 + delay);
 }
 
-/** A letter-mark for each group, drawn in the panel's ink in both looks. */
-function groupMark(x: Achievement): string {
-  return { missions: '★', combat: '✛', demolition: '▲', flags: '⚑', vehicles: '◆', online: '◎', extras: '●' }[x.group];
-}
+/** The classic icons' colours (themes.css's accent and muted ink); the modern ones follow the text's colour. */
+const LIT = '#e8b040';
+const DIM = '#8a866c';
 
 // ---- The screen -------------------------------------------------------------------------------------------------
 
@@ -234,7 +234,7 @@ export async function achievementsDialog(): Promise<void> {
       const at = p.unlocked[x.id];
       if (x.hidden && !at) {
         list.append(el('div', { class: 'ach-row hidden' },
-          el('span', { class: 'ach-icon', ariaHidden: 'true' } as Partial<HTMLElement>, '?'),
+          achievementIcon('hidden', DIM),
           el('span', { class: 'ach-name' }, 'Hidden achievement'),
           el('span', { class: 'ach-text' }, 'One of the hardest. Keep playing to find out what it is.'),
           el('span', { class: 'ach-state' }, 'Classified')));
@@ -242,7 +242,7 @@ export async function achievementsDialog(): Promise<void> {
       }
       const prog = progressOf(p, x);
       list.append(el('div', { class: `ach-row${at ? ' got' : ''}` },
-        el('span', { class: 'ach-icon', ariaHidden: 'true' } as Partial<HTMLElement>, at ? groupMark(x) : '?'),
+        achievementIcon(x.id, at ? LIT : DIM),
         el('span', { class: 'ach-name' }, x.name),
         el('span', { class: 'ach-text' }, x.text + (x.online ? ' (online)' : '')),
         el('span', { class: 'ach-state' }, at ? new Date(at).toLocaleDateString() : prog ? `${prog[0]} / ${prog[1]}` : 'Locked'),
