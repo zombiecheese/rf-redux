@@ -185,16 +185,13 @@ There are fifty achievements to earn. Title > Achievements (or the pause menu) l
 
 Without an account they are kept in this browser. Signed in, they are kept on your account, and whatever you earned before signing in moves to the account. Offline, the achievements follow the first player; wins count against the computer or another player, not against empty bases. The online ones are awarded by the server from its own copy of the match, so they cannot be claimed from a browser.
 
+10 of them, the hardest, are hidden: the Achievements screen shows only that they are there until you unlock one. The other 40:
+
 | Group | Achievement | How to earn it |
 |---|---|---|
 | Missions | Reporting for Duty | Finish a match. |
 | Missions | First Victory | Win a match. |
 | Missions | Veteran | Win 25 matches. |
-| Missions | War Hero | Win 100 matches. |
-| Missions | Top Brass | Win against the computer at skill 9. |
-| Missions | Not a Scratch | Win a match without losing a vehicle. |
-| Missions | Blitzkrieg | Win a match in under five minutes. |
-| Missions | By a Thread | Win with no jeeps left in the bunker. |
 | Missions | Night Owl | Win a match at night. |
 | Missions | Three's a Crowd | Win on a map with three bases. |
 | Missions | Last One Standing | Win a four-base free-for-all. |
@@ -203,20 +200,16 @@ Without an account they are kept in this browser. Signed in, they are kept on yo
 | Missions | Couch Commanders | Finish a two-player split-screen match. |
 | Combat | First Blood | Destroy an enemy vehicle. |
 | Combat | Scrap Dealer | Destroy 50 enemy vehicles. |
-| Combat | Wrecking Crew | Destroy 250 enemy vehicles. |
 | Combat | Tank Hunter | Destroy 25 enemy tanks. |
 | Combat | Clipped Wings | Shoot down 10 enemy helicopters. |
 | Combat | Combined Arms | Destroy an enemy vehicle with each of your four vehicles. |
 | Combat | David and Goliath | Destroy a tank while driving a jeep. |
 | Combat | Hat Trick | Destroy three enemy vehicles in one sortie. |
-| Combat | Rampage | Destroy five enemy vehicles in one sortie. |
 | Combat | Interception | Destroy the jeep carrying your flag. |
 | Combat | Swatter | Shoot down an attack drone. |
 | Combat | Pest Control | Shoot down 25 attack drones. |
 | Combat | Body Count | Take out 100 enemy soldiers. |
 | Demolition | Tower Down | Destroy a gun tower. |
-| Demolition | Tower Toppler | Destroy 50 gun towers. |
-| Demolition | Urban Renewal | Destroy 500 buildings. |
 | Demolition | Jailbreak | Destroy an enemy prison. |
 | Demolition | A Bridge Too Far | Destroy a bridge. |
 | Demolition | Fireworks | Blow up an enemy fuel depot. |
@@ -233,7 +226,6 @@ Without an account they are kept in this browser. Signed in, they are kept on yo
 | Online | Going Live | Finish an online match. |
 | Online | Online Victory | Win an online match against another player. |
 | Online | Brothers in Arms | Win an online match alongside another player. |
-| Online | Climbing the Ladder | Reach a ladder rating of 1100. |
 | Extras | Instant Replay | Watch a replay. |
 | Extras | Architect | Save a map in the level editor. |
 | Extras | Heat Signature | Switch on the thermal camera at night. |

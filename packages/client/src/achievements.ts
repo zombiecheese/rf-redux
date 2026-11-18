@@ -232,6 +232,14 @@ export async function achievementsDialog(): Promise<void> {
     list.append(el('h3', { class: 'ach-group' }, el('span', {}, g.name), el('span', { class: 'ach-count' }, `${done} / ${items.length}`)));
     for (const x of items) {
       const at = p.unlocked[x.id];
+      if (x.hidden && !at) {
+        list.append(el('div', { class: 'ach-row hidden' },
+          el('span', { class: 'ach-icon', ariaHidden: 'true' } as Partial<HTMLElement>, '?'),
+          el('span', { class: 'ach-name' }, 'Hidden achievement'),
+          el('span', { class: 'ach-text' }, 'One of the hardest. Keep playing to find out what it is.'),
+          el('span', { class: 'ach-state' }, 'Classified')));
+        continue;
+      }
       const prog = progressOf(p, x);
       list.append(el('div', { class: `ach-row${at ? ' got' : ''}` },
         el('span', { class: 'ach-icon', ariaHidden: 'true' } as Partial<HTMLElement>, at ? groupMark(x) : '?'),

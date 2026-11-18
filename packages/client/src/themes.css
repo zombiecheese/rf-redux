@@ -289,3 +289,5 @@ body[data-visuals=modern] .achievement-toast:not(.note) .ach-tag::after { conten
 body[data-visuals=modern] .achievement-toast .ach-icon { color: var(--cv); }
 body[data-visuals=modern] .achievement-toast .ach-name { font-weight: 800; letter-spacing: .08em; }
 body[data-visuals=modern] .achievement-toast .ach-text { text-transform: none; letter-spacing: 0; color: #c6d0c9; opacity: 1; }
+body[data-visuals=modern] .ui .ach-row.hidden .ach-name { letter-spacing: .2em; }
+body[data-visuals=modern] .ui .ach-row.hidden .ach-state { color: var(--ui-bad); }

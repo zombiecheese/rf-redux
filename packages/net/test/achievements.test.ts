@@ -27,6 +27,8 @@ describe('the achievement list', () => {
   it('has fifty, each with a unique id, a known group and a goal where it counts', () => {
     expect(ACHIEVEMENTS).toHaveLength(50);
     expect(new Set(ACHIEVEMENTS.map((x) => x.id)).size).toBe(50);
+    // At least a fifth are kept secret until unlocked.
+    expect(ACHIEVEMENTS.filter((x) => x.hidden).length).toBeGreaterThanOrEqual(10);
     const groups = new Set(GROUPS.map((g) => g.id));
     for (const x of ACHIEVEMENTS) {
       expect(groups.has(x.group)).toBe(true);

@@ -582,7 +582,7 @@ function onlinePage(): HTMLElement {
 function morePage(): HTMLElement {
   return el('div', { class: 'stack' },
     h('Achievements'),
-    el('p', {}, 'Fifty achievements to earn in matches and around the game: wins, kills, demolition, flags, vehicles, online play and a few extras. Title > Achievements lists them all with your progress, and each pops up as you earn it. Without an account they are kept in this browser; signed in they are kept on your account, and what you earned before signing in comes with you. The online ones are awarded by the server.'),
+    el('p', {}, 'Fifty achievements to earn in matches and around the game: wins, kills, demolition, flags, vehicles, online play and a few extras. Title > Achievements lists them with your progress (the ten hardest stay hidden until you unlock them), and each pops up as you earn it. Without an account they are kept in this browser; signed in they are kept on your account, and what you earned before signing in comes with you. The online ones are awarded by the server.'),
     h('Replays'),
     el('p', {}, 'Every match is recorded in your browser: the last 20, plus any you star. Title > Replays plays one back from ¼× to 8× with pause, ten-second jumps, a timeline, a choice of player to follow, and a free camera: drag the picture or use W A S D to look anywhere, and the mouse wheel, Q / E or a pinch to zoom (C turns it on and off). Save a replay as a file, or to your account when signed in.'),
     h('Level Editor'),
