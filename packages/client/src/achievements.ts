@@ -236,7 +236,7 @@ export async function achievementsDialog(): Promise<void> {
         list.append(el('div', { class: 'ach-row hidden' },
           achievementIcon('hidden', DIM),
           el('span', { class: 'ach-name' }, 'Hidden achievement'),
-          el('span', { class: 'ach-text' }, 'One of the hardest. Keep playing to find out what it is.'),
+          el('span', { class: 'ach-text' }, `Clue: ${x.clue ?? 'keep playing to find out.'}`),
           el('span', { class: 'ach-state' }, 'Classified')));
         continue;
       }

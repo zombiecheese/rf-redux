@@ -27,6 +27,8 @@ export interface Achievement {
   online?: true;
   /** Kept secret (name, what earns it and progress) until unlocked: the hardest ones. */
   hidden?: true;
+  /** What a hidden one shows instead of its description: a hint at how to earn it. */
+  clue?: string;
 }
 
 export const GROUPS: { id: AchievementGroup; name: string }[] = [
@@ -40,11 +42,11 @@ export const ACHIEVEMENTS: readonly Achievement[] = [
   a('missions', 'first-match', 'Reporting for Duty', 'Finish a match.'),
   a('missions', 'first-win', 'First Victory', 'Win a match.'),
   a('missions', 'wins-25', 'Veteran', 'Win 25 matches.', { counter: 'wins', goal: 25 }),
-  a('missions', 'wins-100', 'War Hero', 'Win 100 matches.', { counter: 'wins', goal: 100, hidden: true }),
-  a('missions', 'top-brass', 'Top Brass', 'Win against the computer at skill 9.', { hidden: true }),
-  a('missions', 'flawless', 'Not a Scratch', 'Win a match without losing a vehicle.', { hidden: true }),
-  a('missions', 'blitz', 'Blitzkrieg', 'Win a match in under five minutes.', { hidden: true }),
-  a('missions', 'last-jeep', 'By a Thread', 'Win with no jeeps left in the bunker.', { hidden: true }),
+  a('missions', 'wins-100', 'War Hero', 'Win 100 matches.', { counter: 'wins', goal: 100, hidden: true, clue: 'A century of victories makes a legend.' }),
+  a('missions', 'top-brass', 'Top Brass', 'Win against the computer at skill 9.', { hidden: true, clue: 'Outwit the computer at its very sharpest.' }),
+  a('missions', 'flawless', 'Not a Scratch', 'Win a match without losing a vehicle.', { hidden: true, clue: 'Come home with every vehicle you took out.' }),
+  a('missions', 'blitz', 'Blitzkrieg', 'Win a match in under five minutes.', { hidden: true, clue: 'Some wars are over before the coffee is cold.' }),
+  a('missions', 'last-jeep', 'By a Thread', 'Win with no jeeps left in the bunker.', { hidden: true, clue: 'Win it with your final set of wheels.' }),
   a('missions', 'night-win', 'Night Owl', 'Win a match at night.'),
   a('missions', 'three-base', 'Three\'s a Crowd', 'Win on a map with three bases.'),
   a('missions', 'four-base', 'Last One Standing', 'Win a four-base free-for-all.'),
@@ -54,21 +56,21 @@ export const ACHIEVEMENTS: readonly Achievement[] = [
 
   a('combat', 'first-blood', 'First Blood', 'Destroy an enemy vehicle.'),
   a('combat', 'kills-50', 'Scrap Dealer', 'Destroy 50 enemy vehicles.', { counter: 'kills', goal: 50 }),
-  a('combat', 'kills-250', 'Wrecking Crew', 'Destroy 250 enemy vehicles.', { counter: 'kills', goal: 250, hidden: true }),
+  a('combat', 'kills-250', 'Wrecking Crew', 'Destroy 250 enemy vehicles.', { counter: 'kills', goal: 250, hidden: true, clue: 'Keep the scrapyards busy for a very long time.' }),
   a('combat', 'tanks-25', 'Tank Hunter', 'Destroy 25 enemy tanks.', { counter: 'kills.tank', goal: 25 }),
   a('combat', 'helis-10', 'Clipped Wings', 'Shoot down 10 enemy helicopters.', { counter: 'kills.heli', goal: 10 }),
   a('combat', 'combined-arms', 'Combined Arms', 'Destroy an enemy vehicle with each of your four vehicles.', { set: 'killedFrom', goal: 4 }),
   a('combat', 'jeep-vs-tank', 'David and Goliath', 'Destroy a tank while driving a jeep.'),
   a('combat', 'hat-trick', 'Hat Trick', 'Destroy three enemy vehicles in one sortie.'),
-  a('combat', 'rampage', 'Rampage', 'Destroy five enemy vehicles in one sortie.', { hidden: true }),
+  a('combat', 'rampage', 'Rampage', 'Destroy five enemy vehicles in one sortie.', { hidden: true, clue: 'Five in one go, and no trip back to the bunker.' }),
   a('combat', 'interception', 'Interception', 'Destroy the jeep carrying your flag.'),
   a('combat', 'drone-down', 'Swatter', 'Shoot down an attack drone.'),
   a('combat', 'drones-25', 'Pest Control', 'Shoot down 25 attack drones.', { counter: 'drones', goal: 25 }),
   a('combat', 'soldiers-100', 'Body Count', 'Take out 100 enemy soldiers.', { counter: 'soldiers', goal: 100 }),
 
   a('demolition', 'tower-down', 'Tower Down', 'Destroy a gun tower.'),
-  a('demolition', 'towers-50', 'Tower Toppler', 'Destroy 50 gun towers.', { counter: 'towers', goal: 50, hidden: true }),
-  a('demolition', 'buildings-500', 'Urban Renewal', 'Destroy 500 buildings.', { counter: 'buildings', goal: 500, hidden: true }),
+  a('demolition', 'towers-50', 'Tower Toppler', 'Destroy 50 gun towers.', { counter: 'towers', goal: 50, hidden: true, clue: 'The skyline looks better without guns on it. Fifty times better.' }),
+  a('demolition', 'buildings-500', 'Urban Renewal', 'Destroy 500 buildings.', { counter: 'buildings', goal: 500, hidden: true, clue: 'Flatten a small city, one block at a time.' }),
   a('demolition', 'prison', 'Jailbreak', 'Destroy an enemy prison.'),
   a('demolition', 'bridge', 'A Bridge Too Far', 'Destroy a bridge.'),
   a('demolition', 'fuel', 'Fireworks', 'Blow up an enemy fuel depot.'),
@@ -88,7 +90,7 @@ export const ACHIEVEMENTS: readonly Achievement[] = [
   a('online', 'online-first', 'Going Live', 'Finish an online match.', { online: true }),
   a('online', 'online-win', 'Online Victory', 'Win an online match against another player.', { online: true }),
   a('online', 'team-win', 'Brothers in Arms', 'Win an online match alongside another player.', { online: true }),
-  a('online', 'ladder', 'Climbing the Ladder', 'Reach a ladder rating of 1100.', { online: true, hidden: true }),
+  a('online', 'ladder', 'Climbing the Ladder', 'Reach a ladder rating of 1100.', { online: true, hidden: true, clue: 'Keep climbing the ranks until you reach eleven hundred.' }),
 
   a('extras', 'replay', 'Instant Replay', 'Watch a replay.'),
   a('extras', 'architect', 'Architect', 'Save a map in the level editor.'),

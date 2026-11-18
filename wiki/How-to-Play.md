@@ -185,7 +185,7 @@ There are fifty achievements to earn. Title > Achievements (or the pause menu) l
 
 Without an account they are kept in this browser. Signed in, they are kept on your account, and whatever you earned before signing in moves to the account. Offline, the achievements follow the first player; wins count against the computer or another player, not against empty bases. The online ones are awarded by the server from its own copy of the match, so they cannot be claimed from a browser.
 
-10 of them, the hardest, are hidden: the Achievements screen shows only that they are there until you unlock one. The other 40:
+10 of them, the hardest, are hidden: until you unlock one, the Achievements screen shows only a padlock and a clue to how to earn it. The other 40:
 
 | Group | Achievement | How to earn it |
 |---|---|---|
