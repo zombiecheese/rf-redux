@@ -184,7 +184,7 @@ Rules that keep the project healthy:
 
 - **No floats in sim state.** All game logic uses integer fixed-point maths so every machine stays in step.
 - **No original material in git**, beyond two things: the original's measurements (model shapes and number tables) and its 104 two-player map layouts ([docs/assets.md](docs/assets.md#what-comes-from-the-original)). Never commit game files, anything else converted from them or decompiler output; `.gitignore` and `.dockerignore` block the usual file types.
-- **Dependencies stay patched.** CI runs `npm audit` on every pull request and Dependabot (`.github/dependabot.yml`) opens update PRs for npm, the Docker image and GitHub Actions.
+- **Dependencies stay patched.** CI runs `npm run audit` (npm audit, with any unfixable dev-tool advisory listed in `tools/audit.mjs`) on every pull request and Dependabot (`.github/dependabot.yml`) opens update PRs for npm, the Docker image and GitHub Actions.
 
 CI (`.github/workflows/ci.yml`) type-checks, tests, builds, audits and builds the Docker image on every pull request. Pushing a version tag runs `.github/workflows/release.yml`, which publishes the image and the GitHub release ([docs/deploy.md](docs/deploy.md#releasing)).
 

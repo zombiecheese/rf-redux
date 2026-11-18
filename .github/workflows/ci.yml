@@ -18,8 +18,9 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
-      # Fails the build on any known advisory in the npm dependency tree, so alerts cannot pile up unseen.
-      - run: npm audit --audit-level=low
+      # Fails the build on any known advisory in the npm dependency tree, so alerts cannot pile up unseen
+      # (tools/audit.mjs lists the rare exemption: no fixed release yet, and it never ships).
+      - run: npm run audit
 
   images:
     runs-on: ubuntu-latest

@@ -20,6 +20,8 @@ Every vehicle has its own night lights, the thermal camera burns in like a real 
 
 ### Changed
 
+- CI's dependency audit runs as `npm run audit` (tools/audit.mjs): it still fails on any advisory, apart from one listed there with its reason. The one today is the picomatch ReDoS advisory (GHSA-fc5q-39xc-vjpf), which has no fixed release yet and reaches only the build and test tools, never the server or the game.
+
 - The modern view does less work every frame. Lights that are off (the blasts' flashes between blasts, and at night the headlights of vehicles not on the map) are no longer worked out for every pixel. The thermal camera no longer draws the sun's shadows or lights a picture it then replaces with heat. The map is no longer gone through tile by tile every frame to see what changed, and less garbage is made each frame for the browser to clear up.
 
 ### Fixed
