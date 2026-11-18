@@ -18,6 +18,7 @@ import { settingsPanel } from './settings.js';
 import { browseLibrary, saveToLibrary } from './library.js';
 import { deleteDraft, lastOpen, listDrafts, loadDraft, newDraftId, saveDraft, setLastOpen } from './storage.js';
 import { testPlay } from './testplay.js';
+import { achievements } from '../achievements.js';
 import { CheatSheet, Checklist, KEY_SECTIONS, fixFor, keyTable, markTested } from './guide.js';
 import { MapPreview } from '../mappreview.js';
 import { TEAMS } from '../paint.js';
@@ -779,7 +780,10 @@ class Editor {
       setLastOpen(this.draftId);
       this.savedFor = this.doc.version;
       this.redraw();
-      if (tell) this.flash('Saved in this browser');
+      if (tell) {
+        this.flash('Saved in this browser');
+        void achievements.identify().then(() => achievements.unlock('architect'));
+      }
     } catch {
       void notice('Save', 'This browser has no room left to save drafts. Export the map as a file, or delete old drafts from File > Open.');
     }
@@ -1285,6 +1289,7 @@ class Editor {
     this.autosave();
     const ref = await saveToLibrary(this.doc.toMap(), this.thumbnail(), this.doc.library);
     if (!ref) return;
+    void achievements.identify().then(() => achievements.unlock('architect'));
     this.doc.library = ref;
     this.save(false);
     this.flash(`Saved to your library (${ref.visibility}, revision ${ref.revision})`);

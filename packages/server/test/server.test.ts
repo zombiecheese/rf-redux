@@ -503,3 +503,19 @@ describe('friends and saved replays', () => {
     expect(((await api('/api/replays', undefined, dee)).json.replays as unknown[]).length).toBe(0);
   }, 20000);
 });
+
+describe('achievements', () => {
+  it('keep a signed-in player\'s offline progress, never the online ones a browser claims', async () => {
+    (game.accounts as unknown as { signupLimit: Limiter }).signupLimit = new Limiter(1, 10);
+    const cookie = await signUp('Ace');
+    expect((await api('/api/achievements')).status).toBe(401);
+    const first = await api('/api/achievements', { tally: { counters: { kills: 49, 'online.wins': 9 }, earned: ['first-blood', 'online-win', 'ladder'] } }, cookie);
+    expect(first.status).toBe(200);
+    expect(first.json.fresh).toEqual(['first-blood']);
+    const next = await api('/api/achievements', { tally: { counters: { kills: 1 }, sets: { maps: ['rfmap101'] }, earned: [] } }, cookie);
+    expect(next.json.fresh).toEqual(['kills-50']);
+    const got = (await api('/api/achievements', undefined, cookie)).json.progress as { unlocked: Record<string, number>; counters: Record<string, number> };
+    expect(Object.keys(got.unlocked).sort()).toEqual(['first-blood', 'kills-50']);
+    expect(got.counters).toEqual({ kills: 50 });
+  });
+});

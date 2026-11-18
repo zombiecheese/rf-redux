@@ -27,6 +27,8 @@ export interface NetEvents {
   /** The friends list changed; with a notice to show. */
   friends: string | undefined;
   invite: { from: string; lobbyName: string; code: string };
+  /** Achievements the server unlocked for this account after an online match. */
+  achievements: string[];
 }
 
 type Listener<K extends keyof NetEvents> = (v: NetEvents[K]) => void;
@@ -161,6 +163,8 @@ export class Net {
         return this.emit('friends', m.notice);
       case 'invite':
         return this.emit('invite', { from: m.from, lobbyName: m.lobbyName, code: m.code });
+      case 'achievements':
+        return this.emit('achievements', Array.isArray(m.ids) ? m.ids.filter((id) => typeof id === 'string') : []);
     }
   }
 

@@ -268,4 +268,6 @@ export type ServerMessage =
   /** The friends list changed (a request, an answer); notice says what, for a toast. */
   | { t: 'friends'; notice?: string }
   /** A friend asks you to their lobby. */
-  | { t: 'invite'; from: string; lobbyName: string; code: string };
+  | { t: 'invite'; from: string; lobbyName: string; code: string }
+  /** Achievements the server has just unlocked for this account (after an online match), by id. */
+  | { t: 'achievements'; ids: string[] };

@@ -7,6 +7,7 @@ import type { GameData } from '../assets.js';
 import { dialog, el, field } from '../dialogs.js';
 import { Display } from '../display.js';
 import { Game } from '../game.js';
+import { achievements } from '../achievements.js';
 import { setBindings } from '../keys.js';
 import { Music } from '../music/music.js';
 import { gainOf, loadSettings } from '../settings.js';
@@ -69,6 +70,7 @@ export async function testPlay(data: GameData, map: RfwMap, started: () => void,
     assets: { ...data, map }, display, sound, music, seed: (Date.now() % 0x7fffffff) | 0 || 1, players: 1, difficulty: clampDifficulty(Number(skill.value)),
     names, swapSides: false, bots: bots.checked, homeBase: Number(base.value), handheld: false,
     visuals: () => look.visuals, lighting: () => look.lighting,
+    onTally: (t) => void achievements.identify().then(() => achievements.record(t)),
   });
   // The editor's own keys wait (main.ts); Esc ends the test and P pauses, as in the game.
   const onKey = (e: KeyboardEvent) => {

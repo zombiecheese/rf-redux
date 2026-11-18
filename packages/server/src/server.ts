@@ -6,6 +6,7 @@ import { stat } from 'node:fs/promises';
 import { createServer, type Server, type ServerResponse } from 'node:http';
 import { extname, join, normalize, resolve, sep } from 'node:path';
 import { Accounts } from './accounts.js';
+import { Achievements } from './achievements.js';
 import { installAdmin } from './admin.js';
 import { Audit } from './audit.js';
 import { Chat } from './chat.js';
@@ -114,6 +115,9 @@ export interface GameServer {
   close(): Promise<void>;
 }
 
+/** The ladder rating that earns Climbing the Ladder. */
+const LADDER_ACHIEVEMENT = 1100;
+
 export function createGameServer(o: ServerOptions): GameServer {
   const CLIENT_DIR = resolve(o.clientDir);
   const ASSETS_DIR = resolve(o.assetsDir);
@@ -128,17 +132,29 @@ export function createGameServer(o: ServerOptions): GameServer {
   const library = new Library(db, maps, accounts, settings, audit);
   const replays = new Replays(db, settings);
   const friends = new Friends(db, accounts, chat);
+  const achievements = new Achievements(db);
   let desyncs = 0;
   const lobbies = new Lobbies(maps, chat, settings, {
     desyncDir: DATA_DIR ? join(DATA_DIR, 'desyncs') : null,
     onDesync: () => desyncs++,
     mayWatch: (userId, l) => friends.mayWatch(userId, l),
-    onGameEnd: (lobby, result) => {
+    onGameEnd: (lobby, result, room) => {
       try {
         stats.record(result, lobby.mapId, lobby.map.name);
         if (!result.aborted) library.played(lobby.mapId);
       } catch (err) {
         console.error('Could not record a game', err);
+      }
+      // Achievements from the server's own run of the match, which only it can award for online play.
+      for (const [userId, tally] of room?.tallies ?? []) {
+        try {
+          if (!accounts.byId(userId)) continue;
+          if (stats.stats(userId).rating >= LADDER_ACHIEVEMENT) tally.earned.push('ladder');
+          const { fresh } = achievements.apply(userId, tally, true);
+          if (fresh.length) hub.sendTo(userId, { t: 'achievements', ids: fresh });
+        } catch (err) {
+          console.error('Could not record achievements', err);
+        }
       }
     },
   });
@@ -160,6 +176,7 @@ export function createGameServer(o: ServerOptions): GameServer {
   library.install(app);
   replays.install(app);
   friends.install(app);
+  achievements.install(app);
   installAdmin(app, { db, accounts, audit, chat, hub, lobbies, maps, settings, stats, desyncs: () => desyncs });
 
   /** What the title screen and lobby screens show: news, maintenance, sign-up mode and the maps lobbies can use. */

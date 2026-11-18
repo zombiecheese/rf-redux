@@ -56,6 +56,7 @@ Still to come: two-player maps of the project's own.
 
 **Replays, options and music**
 
+- Fifty achievements (wins, kills, demolition, flags, vehicles, online play and extras; the ten hardest stay hidden until unlocked) with their own screen and an unlock pop-up in the modern and classic styles. Guests keep them in the browser; signed-in players keep them on their account, and a guest's progress moves to the account on signing in. Online achievements are awarded only by the server, from its own run of the match.
 - Every match is recorded in the browser (the last 20, plus any you star) and plays back at ¼× to 8× with pause, ten-second jumps, a timeline, a choice of player to follow, and a free camera to drag and zoom anywhere on the map. Replays save as `.rfwreplay.json` files or, signed in, to your account.
 - Options: rebind every vehicle key for either half of the keyboard, master, effects and music volume, built-in or sampled instruments for the band, the view (modern or classic), the modern view's quality (Auto, Low, Medium, High or Ultra, per device, with dynamic resolution holding the frame rate) and its tilt-shift focus blur (on or off, per device), how the picture is scaled, and Swap Sides. Day or night is picked per match, not in Options. Names, settings and the Hall of Fame are kept in the browser, and settings follow a signed-in account.
 - Music chosen the way the original's music director chose it, for each vehicle, the bunker, deaths, the flag, the win and the menus ([docs/music.md](docs/music.md)). The retro view plays MIDI band arrangements of public-domain music on an MT-32-style synthesiser, or, with Options > Sound and Music > Instruments > Sampled, from the GeneralUser GS SoundFont (a 32 MB download the first time, then kept by the browser). The modern view has its own soundtrack: original hardcore, beatdown and metalcore instrumentals, with a breakdown in every piece, played on the synthesiser's guitar amp, bass and metal kit. Switching the view switches the music at once.
@@ -183,7 +184,7 @@ Rules that keep the project healthy:
 
 - **No floats in sim state.** All game logic uses integer fixed-point maths so every machine stays in step.
 - **No original material in git**, beyond two things: the original's measurements (model shapes and number tables) and its 104 two-player map layouts ([docs/assets.md](docs/assets.md#what-comes-from-the-original)). Never commit game files, anything else converted from them or decompiler output; `.gitignore` and `.dockerignore` block the usual file types.
-- **Dependencies stay patched.** CI runs `npm audit` on every pull request and Dependabot (`.github/dependabot.yml`) opens update PRs for npm, the Docker image and GitHub Actions.
+- **Dependencies stay patched.** CI runs `npm run audit` (npm audit, with any unfixable dev-tool advisory listed in `tools/audit.mjs`) on every pull request and Dependabot (`.github/dependabot.yml`) opens update PRs for npm, the Docker image and GitHub Actions.
 
 CI (`.github/workflows/ci.yml`) type-checks, tests, builds, audits and builds the Docker image on every pull request. Pushing a version tag runs `.github/workflows/release.yml`, which publishes the image and the GitHub release ([docs/deploy.md](docs/deploy.md#releasing)).
 

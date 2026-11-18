@@ -4,6 +4,11 @@ Each release's section below becomes its GitHub release notes (`.github/workflow
 
 ## [Unreleased]
 
+### Added
+
+- Fifty achievements to earn: Missions (from your first finished match to 100 wins, beating skill-9 bots, a flawless win, a win in under five minutes, wins at night, on three- and four-base maps, on 10 different maps and on custom maps), Combat (kills by vehicle type, a kill from each vehicle, a tank taken out by a jeep, three and five kills in one sortie, stopping the jeep carrying your flag, attack drones and soldiers), Demolition (gun towers, buildings, a prison, a bridge, a fuel depot and flattened scenery), Flags, Vehicles (all four launched in one match, the jeep afloat, mines laid, lost to the submarine, sunk), Online (finishing, beating another player, winning alongside one, a ladder rating of 1100) and Extras (watching a replay, saving a map in the level editor, the thermal camera at night). Ten of them, the hardest, stay hidden until they are unlocked. Each has its own icon matching its goal (a trophy with its number of wins, a tank, a gun tower, a flag, an anchor...): thin line art in the modern view and chunky pixels in the classic view; a hidden one shows a padlock and a clue to how to earn it until it is unlocked. Title > Achievements and the pause menu list them with your progress, and each pops up as it is earned, styled for the modern and classic views.
+- Achievements are kept in the browser for players who are not signed in and on the account for those who are; signing in moves a guest's progress to the account. Online matches are tallied by the server from its own run of the match, and only the server can award the online achievements.
+
 ## [0.9.0] - 2026-11-16
 
 Every vehicle has its own night lights, the thermal camera burns in like a real sensor, and the modern view loads and runs smoother.
@@ -14,6 +19,8 @@ Every vehicle has its own night lights, the thermal camera burns in like a real 
 - On the modern view's thermal camera (night matches), the picture is momentarily burnt into the screen and fades over about a second, like a real infrared sensor: as the camera moves, warm scenery smears behind it, and white-hot vehicles, soldiers and fires leave bright trails, soft and blurred as they fade. It starts fresh when the camera cuts or the thermal camera is switched on. The cool ground leaves none.
 
 ### Changed
+
+- CI's dependency audit runs as `npm run audit` (tools/audit.mjs): it still fails on any advisory, apart from one listed there with its reason. The one today is the picomatch ReDoS advisory (GHSA-fc5q-39xc-vjpf), which has no fixed release yet and reaches only the build and test tools, never the server or the game.
 
 - The modern view does less work every frame. Lights that are off (the blasts' flashes between blasts, and at night the headlights of vehicles not on the map) are no longer worked out for every pixel. The thermal camera no longer draws the sun's shadows or lights a picture it then replaces with heat. The map is no longer gone through tile by tile every frame to see what changed, and less garbage is made each frame for the browser to clear up.
 

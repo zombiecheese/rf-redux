@@ -125,7 +125,14 @@ export type Shot = number | 'grenade' | 'mine';
  * effects and sounds. Positions are world coordinates (16.16 pixels).
  */
 export type MatchEvent =
-  | { type: 'destroyed'; player: number; kind: VehicleKind; x: number; y: number; z: number; heading: number; drowned?: boolean; fuelOut?: boolean }
+  /**
+   * by names the player whose shot, grenade or crash did it (left out for towers, drones, the sub, mines and the
+   * sea), and shot what it was; they never feed back into the simulation, only into messages and achievements.
+   */
+  | {
+    type: 'destroyed'; player: number; kind: VehicleKind; x: number; y: number; z: number; heading: number; drowned?: boolean; fuelOut?: boolean;
+    by?: number; shot?: Shot;
+  }
   /** A wreck blew apart (debris at its height), sank out of sight, or came to rest and left a mark for WRECK_TICKS. */
   /** A wreck blew apart, showing its body or its wreck model (for its debris). */
   | { type: 'wreckBlown'; kind: VehicleKind; base: number; x: number; y: number; z: number; heading: number; model: WreckModel }
@@ -141,16 +148,16 @@ export type MatchEvent =
    * building is the one destroyed. The tile holds what it became, or, for a building with an explosion, still the
    * building until its explosion swaps the rubble in.
    */
-  | { type: 'buildingDestroyed'; tile: number; building: number; crushed?: true }
+  | { type: 'buildingDestroyed'; tile: number; building: number; crushed?: true; by?: number }
   | { type: 'gate'; tile: number; sound: 'move' | 'shut' }
   | { type: 'resupply'; player: number; x: number; y: number }
   /** A soldier run over or shot. On land he leaves splat cel variant 0-5 (rand(3) * 2 + his side). */
-  | { type: 'soldierKilled'; base: number; x: number; y: number; water: boolean; variant: number }
+  | { type: 'soldierKilled'; base: number; x: number; y: number; water: boolean; variant: number; by?: number }
   /** An attack drone launched at a camper, and one shot down (z is its height; side its colours). */
   | { type: 'droneLaunched'; player: number }
   /** A death missile's smoke puff (explosion 0x445238, sub_415100). */
   | { type: 'smoke'; x: number; y: number; z: number }
-  | { type: 'droneDown'; x: number; y: number; z: number; heading: number; vx: number; vy: number; side: number }
+  | { type: 'droneDown'; x: number; y: number; z: number; heading: number; vx: number; vy: number; side: number; by?: number }
   | { type: 'flagRevealed'; base: number }
   | { type: 'flagTaken'; base: number; player: number }
   | { type: 'flagDropped'; base: number }
@@ -476,17 +483,20 @@ function checkJeeps(m: Match): void {
   }
 }
 
+/** Who did something, for an event: a player's id, or nothing for anyone else (towers, drones, the sub, mines). */
+const byWho = (by: number): { by?: number } => (by >= 0 ? { by } : {});
+
 /** How a vehicle was lost: destroyed, sunk, or out of fuel (which leaves it standing, its driver getting out). */
 type Loss = 'destroyed' | 'drowned' | 'fuel';
 
-function loseVehicle(m: Match, p: Player, how: Loss = 'destroyed'): void {
+function loseVehicle(m: Match, p: Player, how: Loss = 'destroyed', by = -1, shot?: Shot): void {
   const v = p.vehicle;
   if (!v) return;
   const drowned = how === 'drowned';
   const fuelOut = how === 'fuel';
   m.events.push({
     type: 'destroyed', player: p.id, kind: v.kind, x: v.x, y: v.y, z: v.z, heading: v.heading, ...(drowned ? { drowned } : {}),
-    ...(fuelOut ? { fuelOut } : {}),
+    ...(fuelOut ? { fuelOut } : {}), ...byWho(by), ...(shot !== undefined ? { shot } : {}),
   });
   // A vehicle that sinks is simply gone; any other leaves a wreck (sub_40c460, sub_40b980). Only one destroyed
   // outright always brings on the skull (sub_40b5a0, death.ts).
@@ -508,11 +518,11 @@ function loseVehicle(m: Match, p: Player, how: Loss = 'destroyed'): void {
   p.returnAt = m.tick + VEHICLES[v.kind].respawnDelay;
 }
 
-function hitVehicle(m: Match, v: Vehicle, damage: number): void {
+function hitVehicle(m: Match, v: Vehicle, damage: number, by: number, shot: Shot): void {
   const d = vehicleDamage(damage, VEHICLES[v.kind].armour);
   if (d <= 0) return;
   v.health -= d;
-  if (v.health <= 0) loseVehicle(m, m.players[v.player]!);
+  if (v.health <= 0) loseVehicle(m, m.players[v.player]!, 'destroyed', by, shot);
 }
 
 function eliminate(m: Match, base: number): void {
@@ -543,7 +553,7 @@ function fire(m: Match, v: Vehicle, slot: number): void {
   if (v.ammo[slot]! <= 0 || m.tick < v.readyAt[slot]!) return;
   v.ammo[slot]!--;
   v.readyAt[slot] = m.tick + w.reload;
-  m.events.push({ type: 'fired', shot: w.projectile, x: v.x, y: v.y });
+  m.events.push({ type: 'fired', shot: w.projectile, x: v.x, y: v.y, player: v.player });
   if (w.projectile === 'mine') m.mines.push(layMine(v.x, v.y, v.team));
   else m.grenades.push(aimGrenade(m, v));
 }
@@ -704,13 +714,13 @@ function stepGrenades(m: Match): void {
       const v = vehiclesNear(m, g.x, g.y).find((e) => e.team !== g.team && e.player !== g.owner && !airborne(e));
       if (v) {
         m.events.push({ type: 'hit', target: 'vehicle', shot: 'grenade', x: g.x, y: g.y });
-        hitVehicle(m, v, GRENADE_DAMAGE);
+        hitVehicle(m, v, GRENADE_DAMAGE, g.owner, 'grenade');
         continue;
       }
     }
     if (g.z < GRENADE_BUILDING_HEIGHT && m.world.building[i] && m.world.defs[m.world.building[i]!]?.solid) {
       m.events.push({ type: 'hit', target: 'building', shot: 'grenade', x: g.x, y: g.y });
-      if (m.world.hp[i]) hitBuilding(m, i, GRENADE_DAMAGE);
+      if (m.world.hp[i]) hitBuilding(m, i, GRENADE_DAMAGE, g.owner);
       continue;
     }
     keep.push(g);
@@ -746,7 +756,7 @@ function stepMines(m: Match): void {
       // The box is as tall as it is wide, so it catches a helicopter only while that is low.
       if (!v || (airborne(v) && v.z > reach)) continue;
       const r = VEHICLES[v.kind].radius + reach;
-      if (Math.abs(v.x - b.x) <= r && Math.abs(v.y - b.y) <= r) hitVehicle(m, v, MINE_BLAST_DAMAGE);
+      if (Math.abs(v.x - b.x) <= r && Math.abs(v.y - b.y) <= r) hitVehicle(m, v, MINE_BLAST_DAMAGE, -1, 'mine');
     }
     for (const s of m.soldiers) {
       if (!s.dead && Math.abs(s.x - b.x) <= reach && Math.abs(s.y - b.y) <= reach) killSoldier(m, s);
@@ -903,12 +913,12 @@ function stepProjectiles(m: Match): void {
       const [x, y, z] = p.from;
       const target = hit.kind === 'building' || hit.kind === 'gate' ? 'building' : 'vehicle';
       m.events.push({ type: 'hit', target, shot: p.kind, x, y, z });
-      if (hit.kind === 'building') hitBuilding(m, hit.tile, p.damage);
-      else if (hit.kind === 'gate') hitGate(m, hit.g, p.damage);
-      else if (hit.kind === 'vehicle') hitVehicle(m, hit.v, p.damage);
-      else if (hit.kind === 'drone' && p.damage >= DRONE_TOUGHNESS) downDrone(m, hit.d);
+      if (hit.kind === 'building') hitBuilding(m, hit.tile, p.damage, p.owner);
+      else if (hit.kind === 'gate') hitGate(m, hit.g, p.damage, p.owner);
+      else if (hit.kind === 'vehicle') hitVehicle(m, hit.v, p.damage, p.owner, p.kind);
+      else if (hit.kind === 'drone' && p.damage >= DRONE_TOUGHNESS) downDrone(m, hit.d, p.owner);
       else if (hit.kind === 'wreck') hitWreck(hit.w, p.damage);
-      else if (hit.kind === 'soldier') killSoldier(m, hit.s);
+      else if (hit.kind === 'soldier') killSoldier(m, hit.s, p.owner);
       else if (hit.kind === 'mine' && p.damage > MINE_TOUGHNESS) setOff(m, hit.mine);
       continue;
     }
@@ -963,11 +973,11 @@ function clearShot(
  * A hit on a building. One that leaves it on its last hit point lets its men out (sub_42e8c0 calling sub_434980),
  * so a building destroyed outright, or crushed, lets nobody out.
  */
-export function hitBuilding(m: Match, tile: number, damage: number): void {
+export function hitBuilding(m: Match, tile: number, damage: number, by = -1): void {
   const before = m.world.hp[tile]!;
   const building = m.world.building[tile]!;
   if (damageBuilding(m.world, tile, damage, m.rng)) {
-    buildingLost(m, tile, building, false);
+    buildingLost(m, tile, building, false, by);
     return;
   }
   if (before > 1 && m.world.hp[tile] === 1) letOut(m, tile);
@@ -978,7 +988,7 @@ export function hitBuilding(m: Match, tile: number, damage: number): void {
  * (sub_42e7f0). A hit that leaves none ends the gate, and the gate's end (sub_432460) puts the building back with
  * one hit point and hits it for 255 (sub_42e8c0), so it falls as a shut gate would.
  */
-function hitGate(m: Match, g: Gate, damage: number): void {
+function hitGate(m: Match, g: Gate, damage: number, by: number): void {
   const w = m.world;
   const hp = w.hp[g.tile]!;
   const hits = buildingHits(w.defs[g.building]!, damage);
@@ -990,7 +1000,7 @@ function hitGate(m: Match, g: Gate, damage: number): void {
   m.gates = m.gates.filter((o) => o !== g);
   w.building[g.tile] = g.building;
   w.hp[g.tile] = 1;
-  hitBuilding(m, g.tile, 0xff0000);
+  hitBuilding(m, g.tile, 0xff0000, by);
 }
 
 /**
@@ -1030,8 +1040,8 @@ function letOut(m: Match, tile: number): void {
   }
 }
 
-function buildingLost(m: Match, tile: number, building: number, crushed: boolean): void {
-  m.events.push(crushed ? { type: 'buildingDestroyed', tile, building, crushed: true } : { type: 'buildingDestroyed', tile, building });
+function buildingLost(m: Match, tile: number, building: number, crushed: boolean, by = -1): void {
+  m.events.push(crushed ? { type: 'buildingDestroyed', tile, building, crushed: true, ...byWho(by) } : { type: 'buildingDestroyed', tile, building, ...byWho(by) });
   const def = destroyExplosion(m.world.defs[building]!, crushed);
   if (def) {
     const e: BuildingExplosion = { tile, def, t: 0, ops: def.script, pc: 0, variant: 0 };
@@ -1282,9 +1292,9 @@ function obstaclesFor(m: Match, v: Vehicle): Obstacle[] {
 /** Crushing a bush or tent (sub_436640, sub_436a50) hits it for 100, with the record's other explosion. */
 const CRUSH_DAMAGE = 0x640000;
 
-function crush(m: Match, tile: number): void {
+function crush(m: Match, tile: number, by: number): void {
   const building = m.world.building[tile]!;
-  if (damageBuilding(m.world, tile, CRUSH_DAMAGE, m.rng, true)) buildingLost(m, tile, building, true);
+  if (damageBuilding(m.world, tile, CRUSH_DAMAGE, m.rng, true)) buildingLost(m, tile, building, true, by);
 }
 
 /** Gates opening and closing. */
@@ -1313,13 +1323,13 @@ function vehiclesInPlay(m: Match): Vehicle[] {
 }
 
 /** A man run over or shot (sub_433c60, sub_433ce0): the ManCrush sound, and on land a splat. */
-function killSoldier(m: Match, s: Soldier): void {
+function killSoldier(m: Match, s: Soldier, by = -1): void {
   if (!m.soldiers.includes(s)) return;
   s.dead = true;
   m.soldiers = m.soldiers.filter((o) => o !== s);
   const water = s.water;
   const variant = water ? 0 : m.rng.below(3) * 2 + (s.base & 1);
-  m.events.push({ type: 'soldierKilled', base: s.base, x: s.x, y: s.y, water, variant });
+  m.events.push({ type: 'soldierKilled', base: s.base, x: s.x, y: s.y, water, variant, ...byWho(by) });
 }
 
 /** A man under a shot: its point inside his box. */
@@ -1429,10 +1439,10 @@ function stepCamp(m: Match, p: Player, v: Vehicle): void {
 }
 
 /** A drone hit hard enough (sub_40a6e0, then sub_40a010's explosion and falling wreck). */
-function downDrone(m: Match, d: Drone): void {
+function downDrone(m: Match, d: Drone, by: number): void {
   d.dead = true;
   m.drones = m.drones.filter((o) => o !== d);
-  m.events.push({ type: 'droneDown', x: d.x, y: d.y, z: d.z, heading: d.heading, vx: d.vx, vy: d.vy, side: d.side });
+  m.events.push({ type: 'droneDown', x: d.x, y: d.y, z: d.z, heading: d.heading, vx: d.vx, vy: d.vy, side: d.side, ...byWho(by) });
 }
 
 function stepDrones(m: Match): void {
@@ -1497,8 +1507,8 @@ export function stepMatch(m: Match, inputs: readonly (VehicleInput | undefined)[
       takeIn(m, p, v);
       continue;
     }
-    for (const tile of v.crushed) crush(m, tile);
-    for (const s of v.ranOver as Soldier[]) killSoldier(m, s);
+    for (const tile of v.crushed) crush(m, tile, p.id);
+    for (const s of v.ranOver as Soldier[]) killSoldier(m, s, p.id);
     if (sunk(v)) {
       loseVehicle(m, p, 'drowned');
       continue;

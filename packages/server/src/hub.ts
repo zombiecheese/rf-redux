@@ -231,6 +231,11 @@ export class Hub {
     for (const c of this.online()) if (!userId || c.identity.id === userId) c.send({ t: 'notice', text });
   }
 
+  /** Sends a message to one user's live connections. */
+  sendTo(userId: string, msg: ServerMessage): void {
+    for (const c of this.online()) if (c.identity.id === userId) c.send(msg);
+  }
+
   /** Closes a user's connections (after a ban or suspension). */
   disconnectUser(userId: string, reason: string): void {
     for (const c of this.online()) {

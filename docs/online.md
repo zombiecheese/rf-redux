@@ -107,6 +107,12 @@ cookies. There is no email delivery: a player who forgets their password asks an
 The site owner chooses whether sign-ups are open, invite-only (an admin makes invite codes) or closed. A visitor who
 is not signed in can see the lobby list but not join, make or watch a game, or chat.
 
+Accounts keep **achievements** (the list and rules are in `packages/net/src/achievements.ts`). The server tallies
+online matches itself, from its own run of the sim, and only it can award the online achievements or add to their
+counters. A browser sends its offline matches' tallies, the achievements earned in the menus and, once on signing
+in, a guest's progress from before (`POST /api/achievements`, bounded and rate-limited); `GET /api/achievements`
+returns the account's progress, and an `achievements` message tells a connected player what an online match unlocked.
+
 The **owner** account is set up by the deployment from `RF_OWNER_NAME`, `RF_OWNER_EMAIL` and `RF_OWNER_PASSWORD`;
 signing up never makes anyone the owner ([deploy.md](deploy.md#the-owner-account-and-the-admin-panel)).
 
