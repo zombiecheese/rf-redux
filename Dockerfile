@@ -1,7 +1,7 @@
 # The game server image: the built client, with the art pack the game runs on, plus the Node game server
 # (multiplayer, accounts, admin). It is the whole game: nothing is imported at run time (see docs/deploy.md).
 
-FROM node:22-alpine AS build
+FROM node:26-alpine AS build
 WORKDIR /app
 COPY package.json package-lock.json tsconfig.base.json ./
 COPY packages/sim/package.json packages/sim/
@@ -24,7 +24,7 @@ RUN --mount=type=secret,id=ca_cert,required=false \
     node tools/soundfont/fetch.mjs /app/extras/music/soundfont.sf2 && \
     cp tools/soundfont/GeneralUser-GS-LICENSE.txt /app/extras/music/
 
-FROM node:22-alpine
+FROM node:26-alpine
 ENV NODE_ENV=production PORT=8080 CLIENT_DIR=/app/client ASSETS_DIR=/assets/generated DATA_DIR=/data
 WORKDIR /app
 # The server is one bundled file (packages/server/vite.config.ts), so the image needs no node_modules.
